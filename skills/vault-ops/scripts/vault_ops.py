@@ -45,7 +45,7 @@ from hvac import exceptions as hvac_exc
 
 TOOL_NAME = "vault-ops"
 TOOL_VERSION = "0.1.0"
-SCHEMA_VERSION = "1.2.0"
+SCHEMA_VERSION = "1.3.0"
 
 EXIT_OK, EXIT_FATAL, EXIT_GAPS, EXIT_FINDINGS, EXIT_INTERRUPTED = 0, 1, 2, 3, 130
 
@@ -57,6 +57,16 @@ LONG_MAX_LEASE_TTL_SECONDS = 768 * 3600
 # Default lease TTLs above Vault's built-in 768h default are flagged (VT-MOUNT-004, VT-LEASE-001).
 DEFAULT_LEASE_TTL_WARNING_SECONDS = 768 * 3600
 LICENSE_EXPIRY_WARNING_DAYS = 90
+# Anti-pattern thresholds. Client rules ignore namespaces/mounts below CLIENT_RULE_MIN_CLIENTS.
+MOUNT_SPRAWL_THRESHOLD = 20  # mounts of one type per namespace (VT-MOUNT-005)
+CLIENT_RULE_MIN_CLIENTS = 50
+NON_ENTITY_SHARE_WARNING = 0.5  # VT-CLI-001
+CLIENT_GROWTH_WARNING = 0.5  # VT-CLI-002: latest month above the recent average by this fraction
+CLIENT_GROWTH_MIN_CLIENTS = 100
+CLIENT_CHURN_WARNING = 0.9  # VT-CLI-003: share of a mount's clients that are new this month
+ROOT_NAMESPACE_SHARE_WARNING = 0.8  # VT-CLI-004
+ENTITY_ACTIVE_RATIO_WARNING = 3  # VT-ID-004: entities per active entity client
+ENTITY_RULE_MIN_ENTITIES = 100
 # Oldest Vault major.minor still treated as supported. Update when HashiCorp ships a release.
 MIN_SUPPORTED_VERSION = (1, 19)
 
@@ -104,6 +114,8 @@ RULES: dict[str, Rule] = {
     "VT-MOUNT-002": Rule("low", "lease", "Mount max lease TTL overrides cluster ceiling"),
     "VT-MOUNT-003": Rule("info", "replication", "Mount is local (not replicated)"),
     "VT-MOUNT-004": Rule("low", "lease", "Mount default lease TTL is long"),
+    "VT-MOUNT-005": Rule("info", "hygiene", "Many mounts of one type in a namespace"),
+    "VT-MOUNT-006": Rule("info", "hygiene", "KV version 1 mount"),
     "VT-NS-001": Rule("info", "hygiene", "Namespace has no auth method beyond token"),
     "VT-NS-002": Rule("info", "hygiene", "Leaf namespace appears unused"),
     "VT-SNT-001": Rule("low", "governance", "Sentinel policy is advisory"),
@@ -118,6 +130,12 @@ RULES: dict[str, Rule] = {
     "VT-ID-001": Rule("low", "identity", "Entity has no aliases"),
     "VT-ID-002": Rule("info", "identity", "Policies attached directly to entity"),
     "VT-ID-003": Rule("info", "identity", "Entity is disabled"),
+    "VT-ID-004": Rule("low", "identity", "Far more entities than active clients"),
+    "VT-ID-005": Rule("low", "identity", "Alias name shared by several entities"),
+    "VT-CLI-001": Rule("low", "clients", "Most clients are token-only (non-entity)"),
+    "VT-CLI-002": Rule("low", "clients", "Client count growing sharply"),
+    "VT-CLI-003": Rule("low", "clients", "Mount creates new clients every month"),
+    "VT-CLI-004": Rule("info", "clients", "Most clients in the root namespace"),
 }
 
 
@@ -192,6 +210,14 @@ def format_ttl(seconds: int) -> str:
 def format_multiple(value: int, baseline: int) -> str:
     ratio = value / baseline
     return f"{ratio:.0f}x" if abs(ratio - round(ratio)) < 0.05 else f"{ratio:.1f}x"
+
+
+def client_count(block: dict[str, Any] | None, key: str = "clients") -> int:
+    return int((block or {}).get(key) or 0)
+
+
+def share(part: int, whole: int) -> str:
+    return f"{part / whole:.0%}" if whole else "n/a"
 
 
 def parent_of(path: str) -> str | None:
@@ -792,6 +818,35 @@ def mount_findings(data: ClusterData, system_max_lease_ttl: int | None) -> list[
                             local=True,
                         )
                     )
+
+                if mtype in ("kv", "generic") and str((mount.get("options") or {}).get("version") or "1") == "1":
+                    findings.append(
+                        finding(
+                            "VT-MOUNT-006",
+                            ns,
+                            kind,
+                            path,
+                            mtype,
+                            "KV version 1 — no secret versioning, soft delete or check-and-set.",
+                            kv_version=1,
+                        )
+                    )
+
+            by_type = Counter(m.get("type", "unknown") for m in mounts.values() if m.get("type") not in BUILTIN_ENGINE_TYPES | BUILTIN_AUTH_TYPES)
+            crowded = {t: n for t, n in sorted(by_type.items()) if n > MOUNT_SPRAWL_THRESHOLD}
+            if crowded:
+                findings.append(
+                    finding(
+                        "VT-MOUNT-005",
+                        ns,
+                        kind,
+                        None,
+                        None,
+                        f"{', '.join(f'{n} {t}' for t, n in crowded.items())} mounts in one namespace — consider fewer mounts with per-path policies.",
+                        mounts_by_type=crowded,
+                        threshold=MOUNT_SPRAWL_THRESHOLD,
+                    )
+                )
     return findings
 
 
@@ -974,9 +1029,61 @@ def health_findings(health: dict[str, Any], now: datetime | None = None) -> list
     return findings
 
 
-def entity_findings(entities: dict[str, list[Entity]]) -> list[Finding]:
+def active_entity_clients(activity: dict[str, Any], current: dict[str, Any] | None = None) -> dict[str, int] | None:
+    """Active entity clients per namespace: the higher of the billing period and the current month.
+
+    None when no client activity is recorded at all (activity log disabled or a new cluster), so
+    VT-ID-004 is not judged against an empty log.
+    """
+    if not client_count(activity.get("total")) and not client_count(current):
+        return None
+    active: dict[str, int] = {}
+    for rows in (activity.get("by_namespace") or [], (current or {}).get("by_namespace") or []):
+        for row in rows:
+            ns = normalise_namespace(row.get("namespace_path"))
+            active[ns] = max(active.get(ns, 0), client_count(row.get("counts"), "entity_clients"))
+    return active
+
+
+def entity_findings(entities: dict[str, list[Entity]], active: dict[str, int] | None = None) -> list[Finding]:
     findings: list[Finding] = []
     for ns, items in entities.items():
+        if active is not None and len(items) >= ENTITY_RULE_MIN_ENTITIES and len(items) > ENTITY_ACTIVE_RATIO_WARNING * active.get(ns, 0):
+            used = active.get(ns, 0)
+            ratio = f"{len(items) / used:.0f} per active client" if used else "none active"
+            findings.append(
+                finding(
+                    "VT-ID-004",
+                    ns,
+                    "namespace",
+                    None,
+                    None,
+                    f"{len(items)} entities but {used} active entity clients ({ratio}) — identities are created per login or run, or never cleaned up.",
+                    entities=len(items),
+                    active_entity_clients=used,
+                )
+            )
+        # Alias names stay out of findings (they can be emails or role_ids): report counts only.
+        owners: dict[str, set[str]] = {}
+        for e in items:
+            for alias in e.aliases:
+                if alias.get("name"):
+                    owners.setdefault(str(alias["name"]).casefold(), set()).add(e.id)
+        shared = [ids for ids in owners.values() if len(ids) > 1]
+        if shared:
+            affected = set().union(*shared)
+            findings.append(
+                finding(
+                    "VT-ID-005",
+                    ns,
+                    "namespace",
+                    None,
+                    None,
+                    f"{len(shared)} alias name(s) appear on {len(affected)} separate entities — the same user logging in through different auth mounts is counted as separate clients.",
+                    shared_alias_names=len(shared),
+                    entities_affected=len(affected),
+                )
+            )
         for e in items:
             if not e.aliases:
                 findings.append(
@@ -1015,6 +1122,107 @@ def entity_findings(entities: dict[str, list[Entity]]) -> list[Finding]:
                         "Entity is disabled — its tokens are refused; remove it if the identity is gone for good.",
                         entity_id=e.id,
                         alias_count=len(e.aliases),
+                    )
+                )
+    return findings
+
+
+def _mount_clients(namespaces: list[dict[str, Any]] | None) -> dict[tuple[str, str], tuple[int, str | None]]:
+    return {(normalise_namespace(ns.get("namespace_path")), m.get("mount_path") or ""): (client_count(m.get("counts")), m.get("mount_type")) for ns in namespaces or [] for m in ns.get("mounts") or []}
+
+
+def usage_findings(activity: dict[str, Any], current: dict[str, Any] | None = None, enterprise: bool = False) -> list[Finding]:
+    """Client-count anti-patterns from the activity log (billing period) and the current month."""
+    findings: list[Finding] = []
+    # Judge the billing period; a new cluster has none yet, so fall back to the month in progress.
+    if client_count(activity.get("total")):
+        source, rows = "billing_period", activity.get("by_namespace") or []
+    else:
+        source, rows = "current_month", (current or {}).get("by_namespace") or []
+
+    total = sum(client_count(row.get("counts")) for row in rows)
+    for row in rows:
+        counts = row.get("counts") or {}
+        clients, non_entity = client_count(counts), client_count(counts, "non_entity_clients")
+        if clients >= CLIENT_RULE_MIN_CLIENTS and non_entity / clients > NON_ENTITY_SHARE_WARNING:
+            findings.append(
+                finding(
+                    "VT-CLI-001",
+                    normalise_namespace(row.get("namespace_path")),
+                    "namespace",
+                    None,
+                    None,
+                    f"{non_entity} of {clients} clients ({share(non_entity, clients)}) are token-only — every token without an entity counts as a separate client.",
+                    clients=clients,
+                    non_entity_clients=non_entity,
+                    source=source,
+                )
+            )
+    root = sum(client_count(row.get("counts")) for row in rows if not normalise_namespace(row.get("namespace_path")))
+    if enterprise and total >= CLIENT_RULE_MIN_CLIENTS and root / total > ROOT_NAMESPACE_SHARE_WARNING:
+        findings.append(
+            finding(
+                "VT-CLI-004",
+                "",
+                "namespace",
+                None,
+                None,
+                f"{root} of {total} clients ({share(root, total)}) are in the root namespace — tenants share one policy and identity space.",
+                root_clients=root,
+                clients=total,
+                namespaces_reported=len(rows),
+                source=source,
+            )
+        )
+
+    months = sorted((m for m in activity.get("months") or [] if m.get("timestamp")), key=lambda m: m["timestamp"])
+    series = [(m["timestamp"], client_count(m.get("counts"))) for m in months]
+    if current is not None:
+        current_ts = ((current.get("months") or [{}])[0] or {}).get("timestamp") or "current"
+        series = [s for s in series if s[0] != current_ts] + [(current_ts, client_count(current))]
+    if len(series) >= 2:
+        latest_ts, latest = series[-1]
+        prior = [c for _, c in series[:-1] if c > 0][-3:]
+        baseline = sum(prior) / len(prior) if prior else 0
+        if baseline and latest >= CLIENT_GROWTH_MIN_CLIENTS and latest > baseline * (1 + CLIENT_GROWTH_WARNING):
+            findings.append(
+                finding(
+                    "VT-CLI-002",
+                    "",
+                    "cluster",
+                    None,
+                    None,
+                    f"{latest} clients in {latest_ts[:7]} against an average of {baseline:.0f} over the previous {len(prior)} month(s) — check for login loops or identities created per run.",
+                    month=latest_ts[:7],
+                    clients=latest,
+                    baseline_clients=round(baseline),
+                    months_compared=len(prior),
+                )
+            )
+
+    # Churn needs consecutive months from one query: the first month of any window reports every
+    # client as new, so the current-month response (its own window) is never used here.
+    if len(months) >= 2:
+        prev, last = months[-2], months[-1]
+        before = _mount_clients(prev.get("namespaces"))
+        new = _mount_clients((last.get("new_clients") or {}).get("namespaces"))
+        for (ns, mount_path), (clients, mtype) in sorted(_mount_clients(last.get("namespaces")).items()):
+            if not mount_path.endswith("/") or clients < CLIENT_RULE_MIN_CLIENTS or not before.get((ns, mount_path), (0, None))[0]:
+                continue
+            fresh = new.get((ns, mount_path), (0, None))[0]
+            if fresh / clients >= CLIENT_CHURN_WARNING:
+                kind, path = ("auth_mount", mount_path[len("auth/") :]) if mount_path.startswith("auth/") else ("secrets_mount", mount_path)
+                findings.append(
+                    finding(
+                        "VT-CLI-003",
+                        ns,
+                        kind,
+                        path,
+                        mtype,
+                        f"{fresh} of {clients} clients on this mount in {last['timestamp'][:7]} were new ({share(fresh, clients)}) — identities are created per login or run instead of reused.",
+                        month=last["timestamp"][:7],
+                        clients=clients,
+                        new_clients=fresh,
                     )
                 )
     return findings
@@ -1129,7 +1337,10 @@ def build_usage_document(
     run: dict[str, Any],
     coverage: Coverage,
     current: dict[str, Any] | None = None,
+    enterprise: bool = False,
 ) -> dict[str, Any]:
+    findings = sort_findings(usage_findings(activity, current, enterprise))
+
     def counts(block: dict[str, Any] | None) -> dict[str, int]:
         block = block or {}
         keys = ("clients", "entity_clients", "non_entity_clients", "secret_syncs", "acme_clients")
@@ -1156,6 +1367,7 @@ def build_usage_document(
         "months": [{"timestamp": m.get("timestamp"), "counts": counts(m.get("counts"))} for m in activity.get("months") or []],
         # The billing-period query excludes the month in progress; activity/monthly covers it.
         "current_month": ({"total": counts(current), "namespaces_reported": len(current.get("by_namespace") or [])} if current is not None else None),
+        "findings": [f.to_dict() for f in findings],
     }
 
 
@@ -1164,8 +1376,9 @@ def build_entities_document(
     coverage: Coverage,
     run: dict[str, Any],
     include_list: bool,
+    active: dict[str, int] | None = None,
 ) -> dict[str, Any]:
-    findings = sort_findings(entity_findings(entities))
+    findings = sort_findings(entity_findings(entities, active))
     rows = []
     for ns in sorted(entities, key=display_namespace):
         items = entities[ns]
@@ -1269,6 +1482,19 @@ def _addr(config: Config, redact: bool) -> str:
     return "<redacted>" if redact else config.addr
 
 
+def read_activity(reader: VaultReader, coverage: Coverage, path: str, params: dict[str, Any] | None = None) -> dict[str, Any] | None:
+    """Activity-log read at root. {} when nothing is recorded yet; None when denied or failed (recorded in coverage)."""
+    try:
+        return reader.data(path, params=params)
+    except hvac_exc.Forbidden:
+        coverage.deny("", path)
+    except hvac_exc.InvalidPath:
+        return {}
+    except (hvac_exc.VaultError, requests.exceptions.RequestException) as exc:
+        coverage.error("", exc)
+    return None
+
+
 def cmd_audit(args: argparse.Namespace) -> int:
     config, reader, probe = connect(args.namespace)
     started = utc_now()
@@ -1320,22 +1546,10 @@ def cmd_usage(args: argparse.Namespace) -> int:
     coverage = Coverage()
     health = collect_health(reader, coverage, probe)
     params = {k: v for k, v in (("start_time", args.start), ("end_time", args.end)) if v}
-
-    def read_activity(path: str, query: dict[str, Any] | None) -> dict[str, Any] | None:
-        try:
-            return reader.data(path, params=query)
-        except hvac_exc.Forbidden:
-            coverage.deny("", path)
-        except hvac_exc.InvalidPath:
-            return {}  # no activity recorded yet
-        except (hvac_exc.VaultError, requests.exceptions.RequestException) as exc:
-            coverage.error("", exc)
-        return None
-
-    activity = read_activity("sys/internal/counters/activity", params or None) or {}
-    current = read_activity("sys/internal/counters/activity/monthly", None) if not args.end else None
+    activity = read_activity(reader, coverage, "sys/internal/counters/activity", params or None) or {}
+    current = read_activity(reader, coverage, "sys/internal/counters/activity/monthly") if not args.end else None
     run = run_block(health["cluster_name"], _addr(config, args.redact_addr), "", started, None)
-    document = build_usage_document(activity, args.top, run, coverage, current)
+    document = build_usage_document(activity, args.top, run, coverage, current, enterprise=bool(health.get("enterprise")))
     print(write_json(output_path(args.output_dir, health["cluster_name"], "usage", started), document))
     return EXIT_OK
 
@@ -1348,8 +1562,12 @@ def cmd_entities(args: argparse.Namespace) -> int:
     namespaces = discover_namespaces(reader, coverage, config.namespace, args.workers)
     coverage.namespaces_processed = len(namespaces)
     entities = collect_entities(reader, coverage, namespaces, args.workers)
+    # Activity is read at root (it reports every namespace) to compare entity counts with active clients.
+    activity = read_activity(reader, coverage, "sys/internal/counters/activity")
+    current = read_activity(reader, coverage, "sys/internal/counters/activity/monthly")
+    active = active_entity_clients(activity, current) if activity is not None else None
     run = run_block(health["cluster_name"], _addr(config, args.redact_addr), config.namespace, started, args.workers)
-    document = build_entities_document(entities, coverage, run, include_list=args.list)
+    document = build_entities_document(entities, coverage, run, include_list=args.list, active=active)
     print(write_json(output_path(args.output_dir, health["cluster_name"], "entities", started), document))
     return EXIT_OK
 

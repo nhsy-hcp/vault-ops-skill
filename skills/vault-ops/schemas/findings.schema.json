@@ -85,7 +85,7 @@
         "fingerprint": {"type": "string", "pattern": "^[0-9a-f]{16}$"},
         "rule_id": {"type": "string", "pattern": "^VT-[A-Z]+-\\d{3}$"},
         "severity": {"enum": ["critical", "high", "medium", "low", "info"]},
-        "category": {"enum": ["lifecycle", "exposure", "lease", "replication", "hygiene", "governance", "availability", "identity"]},
+        "category": {"enum": ["lifecycle", "exposure", "lease", "replication", "hygiene", "governance", "availability", "identity", "clients"]},
         "namespace": {"type": "string"},
         "object": {
           "type": "object",

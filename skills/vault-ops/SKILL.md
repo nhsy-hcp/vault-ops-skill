@@ -1,18 +1,28 @@
 ---
 name: vault-ops
-description: Read-only HashiCorp Vault operations review. Use when the user asks to audit Vault, check Vault health, seal/HA/replication/license status, list or inventory namespaces, auth methods, secrets engines or policies, review identity entities and their aliases, review Sentinel policies, report client counts/usage, or compare two Vault audit runs. Also use when given vault-ops findings/health/inventory/usage JSON files to interpret. Never changes Vault.
+description: READ-ONLY, observe-only HashiCorp Vault operations review. Use when the user asks to audit Vault, check Vault health, seal/HA/replication/license status, list or inventory namespaces, auth methods, secrets engines or policies, review identity entities and their aliases, review Sentinel policies, report client counts/usage, spot anti-patterns such as excessive entity or client creation, or compare two Vault audit runs. Also use when given vault-ops findings/health/inventory/usage JSON files to interpret. Observes and reports only; NEVER makes changes to Vault.
 allowed-tools: Bash(uv run --script *vault_ops.py *), Read, Glob
 ---
 
-# vault-ops (read-only)
+# vault-ops (READ-ONLY: observe and report)
 
-Code collects and checks; you interpret. All Vault access goes through the bundled script, which only issues GET/LIST requests. You never change Vault.
+> **NEVER make changes.** This skill only observes Vault and reports what it sees. You NEVER create, update, delete, enable, disable, tune, seal, unseal, revoke, renew, merge, promote, demote or otherwise change anything in Vault, and you NEVER run a remediation command, not even when the user asks you to in this session. You also never mint, renew or revoke tokens. If the user asks for a change, say this skill is observe-only, give them the drafted command and tell them an operator must run it.
+
+Code collects and checks; you interpret. All Vault access goes through the bundled script, which only issues GET/LIST requests (and the token policy grants only `read`/`list`).
+
+| You DO (observe) | You NEVER do (change) |
+| --- | --- |
+| Run `vault_ops.py` subcommands: `audit`, `health`, `inventory`, `usage`, `entities`, `diff` | Run `vault` CLI commands, `curl` or any other client against Vault |
+| Read the JSON files the script writes | Write, delete, enable, disable, tune or merge anything in Vault |
+| Explain findings and their impact | Execute a remediation command, even when asked |
+| Draft remediation as text for an operator | Mint, renew, revoke or look up tokens |
+| Point to the read-only token policy | Edit `vault-ops-readonly.hcl` to add write capabilities |
 
 ## Hard rules
 
 - Only run `uv run --script ${CLAUDE_SKILL_DIR}/scripts/vault_ops.py <subcommand> ...`. Never run `vault write`, `vault delete`, `vault token *`, `vault login`, `curl` to Vault, or any other command against Vault.
 - Never read, print or echo `.env`, token files, `VAULT_TOKEN` or any environment variable value. The user provides credentials via the environment before the session.
-- Remediation is **drafted as text** for a human to run. Never execute it, even if asked in the same breath — say it must be run by an operator.
+- Remediation is **drafted as text** for a human to run. Never execute it, even if asked in the same breath — say it must be run by an operator. Label every drafted command as "for an operator to run".
 - Take remediation commands from `references/rules.md`, filling in the placeholders from the finding. Never invent Vault endpoints or flags. If the catalogue has no command for a case, describe the change in words and say the operator should confirm the exact command in the Vault docs.
 - Never load raw API dumps whole. The script's JSON files are designed to be read in full; nothing else is.
 - Output files contain internal hostnames and namespace names: treat as internal-confidential.
@@ -24,8 +34,8 @@ Code collects and checks; you interpret. All Vault access goes through the bundl
 | Audit / security review / "what's wrong" | `audit [--namespace ns] [-w 8] [--no-sentinel] [--redact-addr]` | `*-findings-*.json` |
 | Health, seal, HA, replication, license, version | `health` (also works against a DR secondary) | `*-health-*.json` |
 | What exists: namespaces, mounts, policy names | `inventory [--namespace ns]` | `*-inventory-*.json` |
-| Client counts / usage / billing | `usage [--start RFC3339] [--end RFC3339] [--top 20]` | `*-usage-*.json` |
-| Identity entities, aliases, entity metadata | `entities [--namespace ns] [--list] [-w 8]` | `*-entities-*.json` |
+| Client counts / usage / billing / excessive client creation | `usage [--start RFC3339] [--end RFC3339] [--top 20]` | `*-usage-*.json` |
+| Identity entities, aliases, entity metadata / excessive or duplicate entities | `entities [--namespace ns] [--list] [-w 8]` | `*-entities-*.json` |
 | Compare runs / what changed | `diff <old-findings.json> <new-findings.json>` | `diff-*.json` |
 
 Results go to `$VAULT_OPS_OUTPUT_DIR` if set, else `~/.vault-ops/outputs` (outside any project, so results never land in the user's repo); `--output-dir <dir>` overrides both. Exit codes: 0 ok, 1 fatal (connection/auth/config, message on stderr), 2 coverage gaps (only with `--fail-on-gaps`), 3 findings at/above `--fail-on` (only with that flag).
@@ -56,17 +66,17 @@ claude
    - For a DR pair, run `health` against both nodes (set `VAULT_ADDR` to each node in turn) and `audit`/`inventory`/`usage` against the primary only: a DR secondary rejects authenticated reads by design.
 3. **Read** the produced JSON in full with the Read tool.
 4. **Coverage first.** If `coverage.complete` is false, open with the denied/errored namespaces and scopes, and say the results are partial. A denied scope usually means the token's policy lacks a rule — point to `policies/vault-ops-readonly.hcl` in this skill.
-5. **Explain.** Rank and group findings using `references/rules.md`. For each item: what it is, why it matters here, the affected namespaces/objects (count + up to three examples), and a drafted remediation command.
+5. **Explain.** Rank and group findings using `references/rules.md`. For each item: what it is, why it matters here, the affected namespaces/objects (count + up to three examples), and a drafted remediation command for an operator to run. Do not run it.
 6. **Compare.** If an earlier `*-findings-*.json` for the same cluster exists in the output dir, run `diff` against it and report new / resolved / unchanged counts, then detail new findings.
-7. **Finish** with a short summary table (rule, severity, count) and the paths of files written.
+7. **Finish** with a short summary table (rule, severity, count) and the paths of files written. Close with one line saying the review was read-only and nothing in Vault was changed.
 
 ## Reading the files
 
 - `findings.json`: `cluster_context.sentinel` = supported/unsupported/skipped — say Sentinel was not assessed unless `supported`. `evidence.baseline_source == "fallback"` means the cluster lease ceiling was unreadable.
-- `health.json`: `health.license.expiration_time` vs `termination_time`; `health.replication.{dr,performance}.mode/state`, plus `secondaries[].connection_status` on a primary and `primaries[]` / `connection_state` on a secondary; `health.leader.ha_enabled`. `health.dr_secondary: true` means only unauthenticated status was readable (license and lease data are `null` by design, not missing permissions).
+- `health.json`: `health.license.expiration_time` vs `termination_time`; when reporting license details, always list `health.license.features` as one comma-separated line; `health.replication.{dr,performance}.mode/state`, plus `secondaries[].connection_status` on a primary and `primaries[]` / `connection_state` on a secondary; `health.leader.ha_enabled`. `health.dr_secondary: true` means only unauthenticated status was readable (license and lease data are `null` by design, not missing permissions).
 - `inventory.json`: per-namespace mounts (built-in engines omitted) and ACL policy **names** only.
-- `usage.json`: `total.clients` and `top_namespaces[]` for the billing period, plus `current_month` (the billing period excludes the month in progress).
-- `entities.json`: `summary` and per-namespace counts (entities, disabled, without aliases, with direct policies, alias mount types) plus VT-ID-* findings. Per-entity rows (`namespaces[].entity_list`: metadata, aliases with names and alias metadata, policies, group count) appear **only with `--list`**. Use `--list` when the user asks about specific entities, aliases or metadata, and scope it with `--namespace`, because a whole-tree list can be large. Entity metadata and alias names can contain emails, usernames and AppRole role_ids. Quote them only as far as the question needs, and treat the file as confidential. `disabled: null` means the entity body was unreadable (see coverage).
+- `usage.json`: `total.clients` and `top_namespaces[]` for the billing period, plus `current_month` (the billing period excludes the month in progress). `findings[]` holds client anti-patterns (VT-CLI-*): token-only client sprawl, sharp growth, per-run identities on a mount, everything in root. `evidence.source == "current_month"` means the billing period was empty.
+- `entities.json`: `summary` and per-namespace counts (entities, disabled, without aliases, with direct policies, alias mount types) plus VT-ID-* findings. VT-ID-004 (entities far above active clients) compares entity counts with the activity log, which `entities` also reads; it is skipped when no activity is recorded. VT-ID-005 (alias name on several entities) gives counts only. Per-entity rows (`namespaces[].entity_list`: metadata, aliases with names and alias metadata, policies, group count) appear **only with `--list`**. Use `--list` when the user asks about specific entities, aliases or metadata, and scope it with `--namespace`, because a whole-tree list can be large. Entity metadata and alias names can contain emails, usernames and AppRole role_ids. Quote them only as far as the question needs, and treat the file as confidential. `disabled: null` means the entity body was unreadable (see coverage).
 
 ## Least-privilege token
 

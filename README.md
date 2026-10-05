@@ -69,6 +69,8 @@ Environment: `VAULT_ADDR`, `VAULT_TOKEN`, `VAULT_NAMESPACE`, `VAULT_SKIP_VERIFY`
 | VT-MOUNT-002 | low | Mount max lease TTL above the cluster ceiling |
 | VT-MOUNT-003 | info | Local (non-replicated) mount |
 | VT-MOUNT-004 | low | Mount default lease TTL above 768h |
+| VT-MOUNT-005 | info | More than 20 mounts of one type in a namespace |
+| VT-MOUNT-006 | info | KV version 1 mount |
 | VT-NS-001 | info | Namespace with no auth beyond token |
 | VT-NS-002 | info | Unused leaf namespace |
 | VT-SNT-001..004 | low/info | Sentinel advisory, soft-mandatory, wildcard EGP, always-true |
@@ -76,6 +78,8 @@ Environment: `VAULT_ADDR`, `VAULT_TOKEN`, `VAULT_NAMESPACE`, `VAULT_SKIP_VERIFY`
 | VT-LEASE-001 | low | Cluster default lease TTL above 768h |
 | VT-HLTH-001..003 | medium/info | Sealed / no leader, unhealthy replication, unsupported version |
 | VT-ID-001..003 | low/info | Entity without aliases, policies attached directly to an entity, disabled entity |
+| VT-ID-004..005 | low | Far more entities than active clients, alias name shared by several entities |
+| VT-CLI-001..004 | low/info | Token-only client sprawl, sharp client growth, mount creating new clients every month, most clients in root (from `usage`) |
 
 Details and remediation: [`references/rules.md`](skills/vault-ops/references/rules.md). Schema: [`findings.schema.json`](skills/vault-ops/schemas/findings.schema.json).
 

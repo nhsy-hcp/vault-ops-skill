@@ -11,7 +11,7 @@ def ids(findings):
 
 def test_mount_findings_fire_once_each(cluster_data):
     found = vo.mount_findings(cluster_data, 32 * 24 * 3600)
-    assert ids(found) == ["VT-AUTH-001", "VT-MOUNT-001", "VT-MOUNT-002", "VT-MOUNT-003", "VT-MOUNT-004"]
+    assert ids(found) == ["VT-AUTH-001", "VT-MOUNT-001", "VT-MOUNT-002", "VT-MOUNT-003", "VT-MOUNT-004", "VT-MOUNT-005", "VT-MOUNT-006"]
     lease = next(f for f in found if f.rule_id == "VT-MOUNT-002")
     assert lease.evidence["baseline_source"] == "cluster"
     assert lease.object_path == "long/"
@@ -35,6 +35,43 @@ def test_default_lease_ttl_inherited_or_at_threshold_ignored(cluster_data):
     for value in (0, vo.DEFAULT_LEASE_TTL_WARNING_SECONDS):
         cluster_data.secrets[""]["long/"]["config"]["default_lease_ttl"] = value
         assert "VT-MOUNT-004" not in ids(vo.mount_findings(cluster_data, None))
+
+
+def test_kv_v1_and_mount_sprawl(cluster_data):
+    found = vo.mount_findings(cluster_data, None)
+    assert [(f.namespace, f.object_path) for f in found if f.rule_id == "VT-MOUNT-006"] == [("", "old/")]  # kv v2 mounts are controls
+    sprawl = next(f for f in found if f.rule_id == "VT-MOUNT-005")
+    assert (sprawl.namespace, sprawl.object_kind, sprawl.object_path) == ("team-a", "secrets_mount", None)
+    assert sprawl.evidence["mounts_by_type"] == {"kv": vo.MOUNT_SPRAWL_THRESHOLD + 1}
+    del cluster_data.secrets["team-a"]["app00/"]  # exactly at the threshold
+    assert "VT-MOUNT-005" not in ids(vo.mount_findings(cluster_data, None))
+
+
+def test_usage_findings_fire_once_each(activity):
+    found = vo.usage_findings(activity, None, enterprise=True)
+    assert ids(found) == ["VT-CLI-001", "VT-CLI-002", "VT-CLI-003", "VT-CLI-004"]
+    by_rule = {f.rule_id: f for f in found}
+    assert by_rule["VT-CLI-001"].namespace == "" and by_rule["VT-CLI-001"].evidence["source"] == "billing_period"
+    assert by_rule["VT-CLI-002"].evidence == {"month": "2026-09", "clients": 300, "baseline_clients": 100, "months_compared": 1}
+    churn = by_rule["VT-CLI-003"]
+    assert (churn.object_kind, churn.object_path, churn.object_type) == ("auth_mount", "jwt/", "jwt")
+    assert churn.evidence == {"month": "2026-09", "clients": 280, "new_clients": 270}
+    assert by_rule["VT-CLI-004"].evidence["root_clients"] == 380
+
+
+def test_usage_findings_controls(activity):
+    assert "VT-CLI-004" not in ids(vo.usage_findings(activity, None, enterprise=False))  # no namespaces on CE
+    assert "VT-CLI-003" not in ids(vo.usage_findings({**activity, "months": activity["months"][1:]}))  # first month: all clients are new
+    # The partial current month is the latest point: 150 against a 200 average is not growth.
+    current = {"clients": 150, "months": [{"timestamp": "2026-10-01T00:00:00Z"}], "by_namespace": []}
+    assert "VT-CLI-002" not in ids(vo.usage_findings(activity, current))
+    assert vo.usage_findings({}, None, enterprise=True) == []
+
+
+def test_usage_findings_fall_back_to_current_month():
+    current = {"clients": 60, "by_namespace": [{"namespace_path": "tn001/", "counts": {"clients": 60, "non_entity_clients": 40}}]}
+    (found,) = vo.usage_findings({"total": {"clients": 0}}, current)
+    assert (found.rule_id, found.namespace, found.evidence["source"]) == ("VT-CLI-001", "tn001", "current_month")
 
 
 def test_builtin_local_mounts_ignored(cluster_data):

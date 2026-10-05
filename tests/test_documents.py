@@ -16,7 +16,7 @@ def build(cluster_data, health, coverage=None):
 def test_document_validates_and_covers_every_rule(cluster_data, health, schema):
     doc = build(cluster_data, health)
     jsonschema.validate(doc, schema)
-    assert set(doc["summary"]["by_rule"]) == {r for r in vo.RULES if not r.startswith("VT-ID-")}  # ID rules: entities
+    assert set(doc["summary"]["by_rule"]) == {r for r in vo.RULES if not r.startswith(("VT-ID-", "VT-CLI-"))}  # ID: entities, CLI: usage
     assert doc["summary"]["total"] == len(doc["findings"])
     assert sum(doc["summary"]["by_severity"].values()) == doc["summary"]["total"]
     assert doc["coverage"]["complete"] is True
@@ -67,7 +67,7 @@ def test_diff(cluster_data, health):
     old = build(cluster_data, health)
     cluster_data.auth[""]["userpass/"]["config"] = {}  # resolves VT-AUTH-001
     cluster_data.secrets[""]["long/"]["config"]["max_lease_ttl"] = 400 * 24 * 3600  # evidence change
-    cluster_data.secrets["team-b"]["kv/"] = {"type": "kv", "local": True, "config": {}}  # resolves VT-NS-002, adds -003
+    cluster_data.secrets["team-b"]["kv/"] = {"type": "kv", "local": True, "options": {"version": "2"}, "config": {}}  # resolves VT-NS-002, adds -003
     new = build(cluster_data, health)
     d = vo.diff_documents(old, new)
     assert sorted(f["rule_id"] for f in d["resolved"]) == ["VT-AUTH-001", "VT-NS-002"]
@@ -103,6 +103,15 @@ def test_usage_document():
     assert doc["total"] == {"clients": 7, "entity_clients": 5, "non_entity_clients": 2}
     assert doc["namespaces_reported"] == 2
     assert doc["top_namespaces"] == [{"namespace": "tn001/kubernetes/prod/", "counts": {"clients": 5}, "mounts": 2}]
+    assert doc["findings"] == []  # below every client threshold
+
+
+def test_usage_document_findings_validate(activity, schema):
+    doc = vo.build_usage_document(activity, 5, {"cluster_name": "c1"}, vo.Coverage(), None, enterprise=True)
+    assert sorted(f["rule_id"] for f in doc["findings"]) == ["VT-CLI-001", "VT-CLI-002", "VT-CLI-003", "VT-CLI-004"]
+    finding_schema = {**schema["$defs"]["finding"], "$defs": schema["$defs"]}
+    for f in doc["findings"]:
+        jsonschema.validate(f, finding_schema)
 
 
 def test_default_output_dir_is_per_user(monkeypatch, tmp_path):

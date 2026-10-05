@@ -20,6 +20,8 @@ SEEDED_RULES = {
     "VT-MOUNT-002",
     "VT-MOUNT-003",
     "VT-MOUNT-004",
+    "VT-MOUNT-005",
+    "VT-MOUNT-006",
     "VT-NS-001",
     "VT-NS-002",
     "VT-SNT-001",
@@ -101,3 +103,5 @@ def test_entities_tree_and_seeded_rules(capsys, tmp_path):
     assert any(e["aliases"] for e in rows.values())  # seeded userpass/approle aliases are listed with names
     fired = {(f["rule_id"], f["object"]["path"]) for f in scoped["findings"]}
     assert {("VT-ID-001", "vault-ops-orphan"), ("VT-ID-002", "vault-ops-direct"), ("VT-ID-003", "vault-ops-disabled")} <= fired
+    shared = next(f for f in scoped["findings"] if f["rule_id"] == "VT-ID-005")  # vault-ops-dup-a/-b
+    assert shared["evidence"]["shared_alias_names"] >= 1 and "vault-ops-dup" not in json.dumps(shared)

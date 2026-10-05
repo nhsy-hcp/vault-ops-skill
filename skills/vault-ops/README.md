@@ -1,5 +1,7 @@
 # vault-ops skill
 
+> **READ-ONLY. Observe and report only: this skill NEVER makes changes to Vault.** It never writes, deletes, enables, tunes or merges anything, never mints or revokes tokens, and never runs the fixes it drafts. An operator runs them.
+
 A read-only HashiCorp Vault operations review for Claude Code. Ask Claude to audit Vault, check health and DR status, inventory namespaces and mounts, review identity entities, count clients, or compare two audits. A bundled script reads Vault (GET/LIST only) and writes small JSON files. Claude reads those files, explains them and drafts fixes as text. It never changes Vault.
 
 ## Prerequisites
@@ -63,6 +65,7 @@ claude -p "Is my vault healthy?" \
 - "How many clients this month?"
 - "Show the entities and their aliases in team-a/prod"
 - "What changed since the last audit?"
+- "Are we creating too many entities or clients?"
 
 ## Safety
 
@@ -72,7 +75,7 @@ claude -p "Is my vault healthy?" \
   { "permissions": { "deny": ["Bash(vault write:*)", "Bash(vault delete:*)", "Bash(vault token:*)", "Bash(vault login:*)"] } }
   ```
 - **Results files:** written 0600 under `~/.vault-ops/outputs` (directory 0700). They contain internal hostnames and namespace names. `entities --list` adds entity metadata and alias names (emails, usernames, AppRole role_ids). Treat them as confidential.
-- **Fixes:** remediation is drafted for an operator to run, never executed.
+- **Fixes:** remediation is drafted for an operator to run, never executed, even when you ask Claude to apply it.
 
 ## What's inside
 

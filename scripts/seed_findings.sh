@@ -39,6 +39,14 @@ vault secrets tune -namespace="$NS" -max-lease-ttl=87600h -default-lease-ttl=100
 step "VT-MOUNT-003 kv-local (local mount)"
 try vault secrets enable -namespace="$NS" -path=kv-local -local kv-v2
 
+step "VT-MOUNT-006 kv-v1 (KV version 1)"
+try vault secrets enable -namespace="$NS" -path=kv-v1 -version=1 kv
+
+step "VT-MOUNT-005 sprawl-01..21 (more than 20 kv mounts in one namespace)"
+for i in $(seq -w 1 21); do
+  try vault secrets enable -namespace="$NS" -path="sprawl-${i}" kv-v2
+done
+
 step "VT-NS-002 ${EMPTY_PARENT}/empty-leaf (unused leaf namespace)"
 try vault namespace create -namespace="$EMPTY_PARENT" empty-leaf
 
@@ -49,6 +57,16 @@ step "VT-ID-002 entity vault-ops-direct (policy attached directly)"
 vault write -namespace="$NS" identity/entity name=vault-ops-direct policies=default metadata=owner=vault-ops >/dev/null
 step "VT-ID-003 entity vault-ops-disabled (disabled)"
 vault write -namespace="$NS" identity/entity name=vault-ops-disabled disabled=true >/dev/null
+
+step "VT-ID-005 entities vault-ops-dup-a/-b (same alias name on two userpass mounts)"
+try vault auth enable -namespace="$NS" -path=userpass-dup userpass
+for pair in "a:userpass-public" "b:userpass-dup"; do
+  entity="vault-ops-dup-${pair%%:*}"
+  vault write -namespace="$NS" identity/entity name="$entity" >/dev/null
+  entity_id="$(vault read -namespace="$NS" -field=id "identity/entity/name/${entity}")"
+  accessor="$(vault auth list -namespace="$NS" -format=json | jq -r --arg m "${pair#*:}/" '.[$m].accessor')"
+  try vault write -namespace="$NS" identity/entity-alias name=vault-ops-dup canonical_id="$entity_id" mount_accessor="$accessor"
+done
 
 if vault list -namespace="$SENTINEL_NS" sys/policies/egp 2>&1 | grep -q "unsupported path"; then
   echo "  [skip] Sentinel not available on this cluster"

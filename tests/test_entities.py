@@ -59,6 +59,33 @@ def test_entity_findings():
     assert found == {("VT-ID-001", "orphan"), ("VT-ID-001", "gone"), ("VT-ID-002", "svc"), ("VT-ID-003", "alice")}
 
 
+def add_entities(entities, ns, count, alias_name=None):
+    for i in range(count):
+        aliases = [{"name": alias_name, "mount_path": f"ldap{i}/", "mount_type": "ldap", "metadata": {}}] if alias_name else []
+        entities.setdefault(ns, []).append(vo.Entity(id=f"x{i}", name=f"bulk{i}", namespace=ns, disabled=False, policies=[], group_count=0, aliases=aliases))
+
+
+def test_entities_far_above_active_clients():
+    _, _, entities = collect()
+    add_entities(entities, "tn001", vo.ENTITY_RULE_MIN_ENTITIES)
+    active = vo.active_entity_clients({"total": {"clients": 40}, "by_namespace": [{"namespace_path": "tn001/", "counts": {"entity_clients": 30}}]})
+    found = [f for f in vo.entity_findings(entities, active) if f.rule_id == "VT-ID-004"]
+    assert [(f.namespace, f.evidence["entities"], f.evidence["active_entity_clients"]) for f in found] == [("tn001", 100, 30)]
+    assert not [f for f in vo.entity_findings(entities, {"tn001": 34}) if f.rule_id == "VT-ID-004"]  # 100 <= 3 x 34
+    assert not [f for f in vo.entity_findings(entities, None) if f.rule_id == "VT-ID-004"]  # no activity data
+    assert vo.active_entity_clients({"total": {"clients": 0}}, {"clients": 0}) is None
+    # The current month counts when it is higher than the billing period.
+    assert vo.active_entity_clients({"total": {"clients": 0}}, {"clients": 5, "by_namespace": [{"namespace_path": "tn001/", "counts": {"entity_clients": 5}}]}) == {"tn001": 5}
+
+
+def test_shared_alias_names_counted_not_named():
+    _, _, entities = collect()
+    add_entities(entities, "tn001/app", 2, alias_name="8f1c-role-id")  # same name as svc's alias, on other mounts
+    (found,) = [f for f in vo.entity_findings(entities) if f.rule_id == "VT-ID-005"]
+    assert found.namespace == "tn001/app" and found.evidence == {"shared_alias_names": 1, "entities_affected": 3}
+    assert "8f1c-role-id" not in json.dumps(found.to_dict())
+
+
 def test_entities_document_list_and_schema(schema):
     cov, _, entities = collect()
     doc = vo.build_entities_document(entities, cov, {"cluster_name": "c1"}, include_list=True)
@@ -83,11 +110,18 @@ def test_metadata_and_alias_names_only_with_list():
     assert "alice@example.com" not in findings_text and "8f1c-role-id" not in findings_text
 
 
-def test_every_rule_is_produced_somewhere(cluster_data, health):
+def test_every_rule_is_produced_somewhere(cluster_data, health, activity):
     _, _, entities = collect()
     entities["tn001/app"][0].disabled = True
+    add_entities(entities, "tn001", vo.ENTITY_RULE_MIN_ENTITIES, alias_name="shared")
     produced = {
-        f.rule_id for f in vo.mount_findings(cluster_data, None) + vo.namespace_findings(cluster_data) + vo.sentinel_findings(cluster_data) + vo.health_findings(health) + vo.entity_findings(entities)
+        f.rule_id
+        for f in vo.mount_findings(cluster_data, None)
+        + vo.namespace_findings(cluster_data)
+        + vo.sentinel_findings(cluster_data)
+        + vo.health_findings(health)
+        + vo.entity_findings(entities, {})
+        + vo.usage_findings(activity, None, enterprise=True)
     }
     assert produced == set(vo.RULES)
 

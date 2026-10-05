@@ -40,9 +40,9 @@ def cluster_data():
             "": {
                 **builtin_secrets,
                 "old/": mount("kv", deprecation_status="pending-removal"),
-                "long/": mount("kv", config={"default_lease_ttl": 40 * 24 * 3600, "max_lease_ttl": 90 * 24 * 3600}),
+                "long/": mount("kv", options={"version": "2"}, config={"default_lease_ttl": 40 * 24 * 3600, "max_lease_ttl": 90 * 24 * 3600}),
             },
-            "team-a": dict(builtin_secrets),  # has a child: not a leaf, no VT-NS-002
+            "team-a": {**builtin_secrets, **{f"app{i:02d}/": mount("kv", options={"version": "2"}) for i in range(vo.MOUNT_SPRAWL_THRESHOLD + 1)}},  # VT-MOUNT-005; has a child
             "team-a/prod": {**builtin_secrets, "kv-local/": mount("kv", local=True, options={"version": "2"})},
             "team-b": dict(builtin_secrets),  # leaf with built-ins only: VT-NS-002
         },
@@ -78,4 +78,43 @@ def health():
             "performance": {"mode": "secondary", "state": "connecting"},
         },
         "lease_ttls": {"default_lease_ttl_seconds": 1000 * 3600, "max_lease_ttl_seconds": 8760 * 3600},  # VT-LEASE-001
+    }
+
+
+def ns_counts(clients, entity=None):
+    entity = clients if entity is None else entity
+    return {"clients": clients, "entity_clients": entity, "non_entity_clients": clients - entity}
+
+
+def month(timestamp, mounts, new_mounts):
+    """One activity month in the root namespace; mounts and new_mounts map mount_path -> clients."""
+
+    def namespaces(by_mount):
+        rows = [{"mount_path": p, "mount_type": p.split("/")[1], "counts": ns_counts(c)} for p, c in by_mount.items()]
+        return [{"namespace_path": "", "counts": ns_counts(sum(by_mount.values())), "mounts": rows}]
+
+    return {
+        "timestamp": timestamp,
+        "counts": ns_counts(sum(mounts.values())),
+        "namespaces": namespaces(mounts),
+        "new_clients": {"counts": ns_counts(sum(new_mounts.values())), "namespaces": namespaces(new_mounts)},
+    }
+
+
+@pytest.fixture
+def activity():
+    """Billing period where every VT-CLI-* rule fires once (current month not included)."""
+    return {
+        "start_time": "2026-08-01T00:00:00Z",
+        "end_time": "2026-09-30T23:59:59Z",
+        "total": ns_counts(460, 180),
+        "by_namespace": [
+            {"namespace_path": "", "counts": ns_counts(380, 100)},  # VT-CLI-001 (74% token-only), VT-CLI-004 (83% of clients)
+            {"namespace_path": "team-a/", "counts": ns_counts(60)},  # control: all entity clients
+            {"namespace_path": "team-b/", "counts": ns_counts(20, 0)},  # control: below CLIENT_RULE_MIN_CLIENTS
+        ],
+        "months": [
+            month("2026-09-01T00:00:00Z", {"auth/jwt/": 280, "auth/userpass/": 20}, {"auth/jwt/": 270}),  # VT-CLI-002, VT-CLI-003 on jwt/
+            month("2026-08-01T00:00:00Z", {"auth/jwt/": 80, "auth/userpass/": 20}, {"auth/jwt/": 80, "auth/userpass/": 20}),
+        ],
     }
