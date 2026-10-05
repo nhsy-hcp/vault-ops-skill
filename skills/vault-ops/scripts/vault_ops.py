@@ -132,6 +132,8 @@ ESCALATION_PATHS = {
 }
 DEPRECATED_STATUSES = frozenset({"deprecated", "pending-removal", "removed"})
 BROAD_EGP_PATHS = frozenset({"*", "/*"})
+# 404 bodies for an Enterprise-only path on Community: "unsupported path" (older), "enterprise-only feature" (2.x).
+ENTERPRISE_ONLY_MARKERS = ("unsupported path", "enterprise-only feature")
 ALWAYS_TRUE_MAIN = re.compile(r"^main\s*=\s*rule\s*\{\s*true\s*\}$")
 ALWAYS_FALSE_MAIN = re.compile(r"^main\s*=\s*(?:rule\s*\{\s*false\s*\}|false)$")
 SENTINEL_IMPORT = re.compile(r'^\s*import\s+"([^"]+)"', re.M)
@@ -598,7 +600,7 @@ def read_sentinel_policies(reader: VaultReader, coverage: Coverage, ns: str, kin
         names = reader.list(f"sys/policies/{kind}", ns)
     except hvac_exc.InvalidPath as exc:
         # Vault 404s both "no Sentinel in this build" and "no policies here"; only the body differs.
-        return ("unsupported" if "unsupported path" in str(exc).lower() else "supported"), {}
+        return ("unsupported" if any(m in str(exc).lower() for m in ENTERPRISE_ONLY_MARKERS) else "supported"), {}
     except hvac_exc.Forbidden:
         coverage.deny(ns, f"sentinel {kind.upper()} policies")
         return "none", {}

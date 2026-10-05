@@ -251,8 +251,9 @@ def test_collect_sentinel_hashes_and_records_denials():
     assert cov.errors == []
 
 
-def test_collect_sentinel_unsupported_stops_probing():
-    routes = {**ROUTES, ("", "sys/policies/egp"): vo.hvac_exc.InvalidPath("1 error occurred: unsupported path")}
+@pytest.mark.parametrize("message", ["1 error occurred: unsupported path", "enterprise-only feature"])
+def test_collect_sentinel_unsupported_stops_probing(message):
+    routes = {**ROUTES, ("", "sys/policies/egp"): vo.hvac_exc.InvalidPath(message)}
     cov, reader, (status, policies) = collect_sentinel(routes)
     assert (status, policies, cov.errors, cov.denied) == ("unsupported", [], [], [])
     assert [c for c in reader.calls if c[1].startswith(("sys/policies/egp", "sys/policies/rgp"))] == [("", "sys/policies/egp")]

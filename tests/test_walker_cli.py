@@ -75,11 +75,13 @@ def test_walker_collects_tree_and_coverage():
     ]
 
 
-def test_walker_sentinel_unsupported_and_skipped():
+@pytest.mark.parametrize("message", ["1 error occurred: unsupported path", "enterprise-only feature, on list http://v/v1/sys/policies/egp"])
+def test_walker_sentinel_unsupported_and_skipped(message):
+    """Regression: Vault 2.x Community answers `enterprise-only feature`, older builds `unsupported path`."""
     routes = {
         ("", "sys/auth"): mounts(token="token"),
         ("", "sys/mounts"): mounts(sys="system"),
-        ("", "sys/policies/egp"): vo.hvac_exc.InvalidPath("1 error occurred: unsupported path"),
+        ("", "sys/policies/egp"): vo.hvac_exc.InvalidPath(message),
     }
     reader = FakeReader(routes)
     assert vo.Walker(reader, vo.Coverage()).walk("").sentinel == "unsupported"

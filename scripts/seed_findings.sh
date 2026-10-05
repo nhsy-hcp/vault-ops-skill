@@ -84,7 +84,7 @@ try vault audit enable -path=vault-ops-file file file_path=/vault/logs/vault-ops
 step "VT-AUD-003 audit device vault-ops-stdout (stdout, hmac_accessor=false)"
 try vault audit enable -path=vault-ops-stdout file file_path=stdout hmac_accessor=false
 
-if vault list sys/storage/raft/snapshot-auto/config 2>&1 | grep -q "unsupported path"; then
+if vault list sys/storage/raft/snapshot-auto/config 2>&1 | grep -qE "unsupported path|enterprise-only feature"; then
   echo "  [skip] automated snapshots not available on this cluster"
 else
   # The first snapshot runs one interval after the config is written, and the status is
@@ -105,7 +105,7 @@ else
   snap_config 24h
 fi
 
-if vault list -namespace="$SENTINEL_NS" sys/policies/egp 2>&1 | grep -q "unsupported path"; then
+if vault list -namespace="$SENTINEL_NS" sys/policies/egp 2>&1 | grep -qE "unsupported path|enterprise-only feature"; then
   echo "  [skip] Sentinel not available on this cluster"
   exit 0
 fi
