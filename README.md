@@ -108,7 +108,7 @@ task test:all && task lint
 ```
 
 - CI: [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs `task test:ci` as two jobs, `lint` then `test-ci` (plugin manifests, unit tests), on pushes to `main` and on pull requests. It needs no Vault, licence or secrets. Run it locally with `act`.
-- Skill evals: `task eval` runs the [`claude plugin eval`](evals/) suite: offline cases that check the skill triggers (and doesn't on Terraform authoring), interprets saved findings, refuses to change Vault and never reads `.env` for a token. Each case also runs a no-plugin baseline arm. It needs no Vault, but uses API credits (about $4 for the default 3 runs; `task eval -- --runs 1` while iterating). Results go to `evals/results/` (gitignored). It is not part of CI.
+- Skill evals: `task eval` runs the [`claude plugin eval`](evals/) suite: nine offline cases that check the skill triggers (and doesn't on Terraform authoring), interprets saved findings, compares two runs, flags partial coverage, explains DR-secondary health, keeps entity details private, refuses to change Vault and never reads `.env` for a token. Each case also runs a no-plugin baseline arm. It needs no Vault, but uses API credits (about $8 for the default 3 runs; `task eval -- --case <name> --runs 1` while iterating, since an extra `--tag` widens the filter rather than narrowing it). Results go to `evals/results/` (gitignored). It is not part of CI.
 - DR setup, node lifecycle and failure drills: [docs/dr.md](docs/dr.md)
 - All tasks and repo conventions: [AGENTS.md](AGENTS.md)
 

@@ -17,7 +17,7 @@ A **read-only** HashiCorp Vault ops Claude skill (`skills/vault-ops/`) plus a lo
 | `skills/vault-ops/policies/vault-ops-readonly.hcl` | Least-privilege Vault policy for the skill's token |
 | `scripts/` | Dev-env automation (bash, called from `Taskfile.yml`) and `seed_vault.py` |
 | `docs/dr.md` | DR pair design, node lifecycle, failure drills |
-| `evals/` | `claude plugin eval` suite: one dir per case (`prompt.md`, `graders/*.md`, optional `case.yaml` + `scaffold.sh` symlinked to `fixtures/stage.sh`, which copies `fixtures/vault-ops/*.json` into the run's `.tmp/vault-ops/`). Offline only: Bash-granting cases are refused while `~/.docker/config.json` is a symlink |
+| `evals/` | `claude plugin eval` suite: one dir per case (`prompt.md`, `graders/*.md`, optional `case.yaml` + `scaffold.sh`). `fixtures/stage.sh` copies fixture JSON into the run's `.tmp/vault-ops/`: cases on the shared `fixtures/vault-ops/` set symlink it as `scaffold.sh`; cases with their own `fixtures/` use a small `scaffold.sh` that passes that dir (the harness resolves symlinks, so a symlink can't find its case dir). Fixtures come from `task skill:run -- <cmd> --output-dir ...` on the dev nodes; never commit tokens or real personal data. Offline only: Bash-granting cases are refused while `~/.docker/config.json` is a symlink |
 | `tests/` | Unit tests (no Vault); `test_integration.py` and `test_dr.py` (`-m integration`, need the dev nodes; `test_dr.py` skips unless DR is active) |
 | `.tmp/spec.md` | Options analysis and spec (gitignored working doc) |
 
@@ -53,7 +53,7 @@ A **read-only** HashiCorp Vault ops Claude skill (`skills/vault-ops/`) plus a lo
 | `task test:integration` | Integration tests (audit token, live Vault) |
 | `task test:all` | Unit + integration with coverage ≥ 80% |
 | `task test:ci` | `lint` + `plugin:validate` + `test` (no Vault needed); `.github/workflows/ci.yml` runs the same as a `lint` job then a `test-ci` job on push to `main` and on PRs |
-| `task eval` | Skill evals: `claude plugin eval . --tag offline --scaffold` with a no-plugin baseline arm (API credits; not in CI), e.g. `task eval -- --runs 1 --case refuse-write` |
+| `task eval` | Skill evals: `claude plugin eval . --tag offline --scaffold` with a no-plugin baseline arm (about $8 of API credits; not in CI), e.g. `task eval -- --runs 1 --case refuse-write`. Extra `--tag` values are ORed with `offline`, so filter with `--case` |
 | `task plugin:validate` | `claude plugin validate --strict` on the marketplace and plugin manifests |
 | `task clean` | Remove caches, `.tmp/vault-ops` (results), `.tmp/vault` (all node data, unseal keys, TLS), `.tmp/audit-token`, `.tmp/*.log` |
 
