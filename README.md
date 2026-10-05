@@ -12,6 +12,7 @@ Open Claude Code in this repo with `VAULT_ADDR` and a least-privilege `VAULT_TOK
 - "Is the cluster healthy? When does the license expire?"
 - "Inventory namespaces and auth methods under tn001"
 - "How many clients did we have this month?"
+- "Show the entities and their aliases in tn001"
 - "What changed since the last audit?"
 
 The skill reports coverage gaps first, ranks and groups findings, and drafts remediation commands without running them.
@@ -28,6 +29,7 @@ uv run --script .claude/skills/vault-ops/scripts/vault_ops.py <command> [--outpu
 | `health` | `{cluster}-health-{ts}.json` | seal, HA leader, version, license, replication, lease ceilings |
 | `inventory` | `{cluster}-inventory-{ts}.json` | namespaces, non-built-in mounts, ACL policy **names** |
 | `usage` | `{cluster}-usage-{ts}.json` | billing-period client counts plus `current_month` |
+| `entities` | `{cluster}-entities-{ts}.json` | per-namespace entity counts and findings; `--list` adds metadata, aliases and policies per entity |
 | `diff OLD NEW` | `diff-{ts}.json` | new / resolved / unchanged findings by fingerprint |
 
 Environment: `VAULT_ADDR`, `VAULT_TOKEN`, `VAULT_NAMESPACE`, `VAULT_SKIP_VERIFY`, `VAULT_CACERT`, `VAULT_OPS_OUTPUT_DIR`. Files are written 0600; stdout carries only their paths.
@@ -45,6 +47,7 @@ Environment: `VAULT_ADDR`, `VAULT_TOKEN`, `VAULT_NAMESPACE`, `VAULT_SKIP_VERIFY`
 | VT-SNT-001..004 | low/info | Sentinel advisory, soft-mandatory, wildcard EGP, always-true |
 | VT-LIC-001 | medium | License expires within 90 days |
 | VT-HLTH-001..003 | medium/info | Sealed / no leader, unhealthy replication, unsupported version |
+| VT-ID-001..003 | low/info | Entity without aliases, policies attached directly to an entity, disabled entity |
 
 Details and remediation: [`references/rules.md`](.claude/skills/vault-ops/references/rules.md). Schema: [`findings.schema.json`](.claude/skills/vault-ops/schemas/findings.schema.json).
 

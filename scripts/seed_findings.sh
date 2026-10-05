@@ -38,6 +38,14 @@ try vault secrets enable -namespace="$NS" -path=kv-local -local kv-v2
 step "VT-NS-002 ${EMPTY_PARENT}/empty-leaf (unused leaf namespace)"
 try vault namespace create -namespace="$EMPTY_PARENT" empty-leaf
 
+# Entities are upserted by name, so rerunning these is harmless.
+step "VT-ID-001 entity vault-ops-orphan (no aliases)"
+vault write -namespace="$NS" identity/entity name=vault-ops-orphan metadata=team=platform >/dev/null
+step "VT-ID-002 entity vault-ops-direct (policy attached directly)"
+vault write -namespace="$NS" identity/entity name=vault-ops-direct policies=default metadata=owner=vault-ops >/dev/null
+step "VT-ID-003 entity vault-ops-disabled (disabled)"
+vault write -namespace="$NS" identity/entity name=vault-ops-disabled disabled=true >/dev/null
+
 if vault list -namespace="$SENTINEL_NS" sys/policies/egp 2>&1 | grep -q "unsupported path"; then
   echo "  [skip] Sentinel not available on this cluster"
   exit 0

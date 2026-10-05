@@ -16,7 +16,7 @@ def build(cluster_data, health, coverage=None):
 def test_document_validates_and_covers_every_rule(cluster_data, health, schema):
     doc = build(cluster_data, health)
     jsonschema.validate(doc, schema)
-    assert set(doc["summary"]["by_rule"]) == set(vo.RULES)
+    assert set(doc["summary"]["by_rule"]) == {r for r in vo.RULES if not r.startswith("VT-ID-")}  # ID rules: entities
     assert doc["summary"]["total"] == len(doc["findings"])
     assert sum(doc["summary"]["by_severity"].values()) == doc["summary"]["total"]
     assert doc["coverage"]["complete"] is True

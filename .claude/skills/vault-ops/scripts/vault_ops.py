@@ -8,6 +8,7 @@ written path on stdout; diagnostics go to stderr. Nothing here writes to Vault.
   health     seal/HA/version/license/replication   -> {cluster}-health-{ts}.json
   inventory  namespaces, mounts, ACL policy names  -> {cluster}-inventory-{ts}.json
   usage      activity-log client counts            -> {cluster}-usage-{ts}.json
+  entities   identity entities per namespace       -> {cluster}-entities-{ts}.json
   diff A B   compare two findings files            -> diff-{ts}.json
 
 Check logic is ported from nhsy-hcp/vault-tools (src/namespace_audit/report.py).
@@ -41,7 +42,7 @@ from hvac import exceptions as hvac_exc
 
 TOOL_NAME = "vault-ops"
 TOOL_VERSION = "0.1.0"
-SCHEMA_VERSION = "1.1.0"
+SCHEMA_VERSION = "1.2.0"
 
 EXIT_OK, EXIT_FATAL, EXIT_GAPS, EXIT_FINDINGS, EXIT_INTERRUPTED = 0, 1, 2, 3, 130
 
@@ -104,6 +105,9 @@ RULES: dict[str, Rule] = {
     "VT-HLTH-001": Rule("medium", "availability", "Node sealed or no active leader"),
     "VT-HLTH-002": Rule("medium", "replication", "Replication enabled but not healthy"),
     "VT-HLTH-003": Rule("info", "lifecycle", "Vault version below supported window"),
+    "VT-ID-001": Rule("low", "identity", "Entity has no aliases"),
+    "VT-ID-002": Rule("info", "identity", "Policies attached directly to entity"),
+    "VT-ID-003": Rule("info", "identity", "Entity is disabled"),
 }
 
 
@@ -483,6 +487,118 @@ def _mounts_only(payload: dict[str, Any]) -> dict[str, Any]:
     return {k: v for k, v in payload.items() if isinstance(v, dict) and "type" in v}
 
 
+def discover_namespaces(reader: VaultReader, coverage: Coverage, start: str = "", workers: int = 4) -> list[str]:
+    """Namespace tree below (and including) start, using only LIST sys/namespaces."""
+
+    def children(ns: str) -> list[str]:
+        try:
+            payload = reader.get("sys/namespaces", ns, params={"list": "true"})
+        except hvac_exc.InvalidPath:
+            return []
+        except hvac_exc.Forbidden:
+            coverage.deny(ns, "child namespaces (subtree not audited)")
+            return []
+        except (hvac_exc.VaultError, requests.exceptions.RequestException) as exc:
+            coverage.error(ns, exc)
+            return []
+        keys = (payload.get("data") or {}).get("key_info") or {}
+        return [f"{ns}/{name.strip('/')}" if ns else name.strip("/") for name in keys]
+
+    found, level = [start], [start]
+    while level:
+        with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
+            level = sorted(c for result in pool.map(children, level) for c in result if c not in found)
+        found.extend(level)
+    return found
+
+
+@dataclass
+class Entity:
+    id: str
+    name: str
+    namespace: str
+    disabled: bool | None  # None when the entity body could not be read
+    policies: list[str]
+    group_count: int | None
+    aliases: list[dict[str, Any]]  # {name, mount_path, mount_type, metadata}
+    metadata: dict[str, Any] = field(default_factory=dict)
+    last_update_time: str | None = None
+
+    @property
+    def alias_mounts(self) -> list[dict[str, Any]]:
+        return [{"path": a["mount_path"], "type": a["mount_type"]} for a in self.aliases]
+
+    def to_dict(self) -> dict[str, Any]:
+        # Only written with --list: metadata and alias names can hold emails, usernames and AppRole role_ids.
+        return {
+            "id": self.id,
+            "name": self.name,
+            "disabled": self.disabled,
+            "metadata": dict(sorted(self.metadata.items())),
+            "alias_count": len(self.aliases),
+            "aliases": self.aliases,
+            "policies": self.policies,
+            "group_count": self.group_count,
+            "last_update_time": self.last_update_time,
+        }
+
+
+def collect_entities(reader: VaultReader, coverage: Coverage, namespaces: list[str], workers: int = 4) -> dict[str, list[Entity]]:
+    """Identity entities per namespace, with their aliases and metadata."""
+
+    def alias_rows(aliases: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+        rows = (
+            {
+                "name": a.get("name"),
+                "mount_path": a.get("mount_path") or None,
+                "mount_type": a.get("mount_type") or None,
+                "metadata": dict(sorted((a.get("metadata") or {}).items())),
+            }
+            for a in aliases or []
+        )
+        return sorted(rows, key=lambda r: (r["mount_path"] or "", r["name"] or ""))
+
+    def one_namespace(ns: str) -> tuple[str, list[Entity]]:
+        try:
+            listing = reader.get("identity/entity/id", ns, params={"list": "true"})
+        except hvac_exc.InvalidPath:
+            return ns, []  # no entities
+        except hvac_exc.Forbidden:
+            coverage.deny(ns, "identity entities")
+            return ns, []
+        except (hvac_exc.VaultError, requests.exceptions.RequestException) as exc:
+            coverage.error(ns, exc)
+            return ns, []
+        key_info = (listing.get("data") or {}).get("key_info") or {}
+        entities, denied = [], False
+        for entity_id in sorted(key_info):
+            info = key_info[entity_id] or {}
+            try:
+                body = reader.data(f"identity/entity/id/{entity_id}", ns)
+            except (hvac_exc.VaultError, requests.exceptions.RequestException):
+                body, denied = None, True
+            source = body or info
+            entities.append(
+                Entity(
+                    id=entity_id,
+                    name=source.get("name") or info.get("name") or entity_id,
+                    namespace=ns,
+                    disabled=bool(body.get("disabled")) if body is not None else None,
+                    policies=sorted(body.get("policies") or []) if body is not None else [],
+                    group_count=len(body.get("group_ids") or []) if body is not None else None,
+                    aliases=alias_rows(source.get("aliases")),
+                    metadata=dict(body.get("metadata") or {}) if body is not None else {},
+                    last_update_time=body.get("last_update_time") if body is not None else None,
+                )
+            )
+        if denied:
+            coverage.deny(ns, "identity entity details")
+        return ns, entities
+
+    with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
+        return dict(pool.map(one_namespace, namespaces))
+
+
 def collect_health(reader: VaultReader, coverage: Coverage, probe: dict[str, Any] | None = None) -> dict[str, Any]:
     """Cluster-level status. Every read is optional; failures land in coverage.
 
@@ -819,6 +935,52 @@ def health_findings(health: dict[str, Any], now: datetime | None = None) -> list
     return findings
 
 
+def entity_findings(entities: dict[str, list[Entity]]) -> list[Finding]:
+    findings: list[Finding] = []
+    for ns, items in entities.items():
+        for e in items:
+            if not e.aliases:
+                findings.append(
+                    finding(
+                        "VT-ID-001",
+                        ns,
+                        "entity",
+                        e.name,
+                        None,
+                        "Entity has no aliases — no login maps to it, so it is orphaned or was created by hand and never linked.",
+                        entity_id=e.id,
+                        group_count=e.group_count,
+                    )
+                )
+            if e.policies:
+                findings.append(
+                    finding(
+                        "VT-ID-002",
+                        ns,
+                        "entity",
+                        e.name,
+                        None,
+                        f"Policies attached directly to the entity ({', '.join(e.policies)}) — prefer granting through groups so access is reviewable in one place.",
+                        entity_id=e.id,
+                        policies=e.policies,
+                    )
+                )
+            if e.disabled:
+                findings.append(
+                    finding(
+                        "VT-ID-003",
+                        ns,
+                        "entity",
+                        e.name,
+                        None,
+                        "Entity is disabled — its tokens are refused; remove it if the identity is gone for good.",
+                        entity_id=e.id,
+                        alias_count=len(e.aliases),
+                    )
+                )
+    return findings
+
+
 def sort_findings(findings: list[Finding]) -> list[Finding]:
     return sorted(
         findings,
@@ -955,6 +1117,47 @@ def build_usage_document(
         "months": [{"timestamp": m.get("timestamp"), "counts": counts(m.get("counts"))} for m in activity.get("months") or []],
         # The billing-period query excludes the month in progress; activity/monthly covers it.
         "current_month": ({"total": counts(current), "namespaces_reported": len(current.get("by_namespace") or [])} if current is not None else None),
+    }
+
+
+def build_entities_document(
+    entities: dict[str, list[Entity]],
+    coverage: Coverage,
+    run: dict[str, Any],
+    include_list: bool,
+) -> dict[str, Any]:
+    findings = sort_findings(entity_findings(entities))
+    rows = []
+    for ns in sorted(entities, key=display_namespace):
+        items = entities[ns]
+        row: dict[str, Any] = {
+            "namespace": display_namespace(ns),
+            "entities": len(items),
+            "disabled": sum(1 for e in items if e.disabled),
+            "without_aliases": sum(1 for e in items if not e.alias_mounts),
+            "with_direct_policies": sum(1 for e in items if e.policies),
+            "alias_mount_types": dict(sorted(Counter(m["type"] or "unknown" for e in items for m in e.alias_mounts).items())),
+        }
+        if include_list:
+            row["entity_list"] = [e.to_dict() for e in sorted(items, key=lambda e: e.name)]
+        rows.append(row)
+    all_entities = [e for items in entities.values() for e in items]
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "tool": {"name": TOOL_NAME, "version": TOOL_VERSION},
+        "run": run,
+        "coverage": coverage.to_dict(),
+        "summary": {
+            "namespaces": len(entities),
+            "namespaces_with_entities": sum(1 for items in entities.values() if items),
+            "entities": len(all_entities),
+            "disabled": sum(1 for e in all_entities if e.disabled),
+            "without_aliases": sum(1 for e in all_entities if not e.alias_mounts),
+            "with_direct_policies": sum(1 for e in all_entities if e.policies),
+            "by_rule": dict(sorted(Counter(f.rule_id for f in findings).items())),
+        },
+        "namespaces": rows,
+        "findings": [f.to_dict() for f in findings],
     }
 
 
@@ -1098,6 +1301,20 @@ def cmd_usage(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_entities(args: argparse.Namespace) -> int:
+    config, reader, probe = connect(args.namespace)
+    started = utc_now()
+    coverage = Coverage()
+    health = collect_health(reader, coverage, probe)
+    namespaces = discover_namespaces(reader, coverage, config.namespace, args.workers)
+    coverage.namespaces_processed = len(namespaces)
+    entities = collect_entities(reader, coverage, namespaces, args.workers)
+    run = run_block(health["cluster_name"], _addr(config, args.redact_addr), config.namespace, started, args.workers)
+    document = build_entities_document(entities, coverage, run, include_list=args.list)
+    print(write_json(output_path(args.output_dir, health["cluster_name"], "entities", started), document))
+    return EXIT_OK
+
+
 def cmd_diff(args: argparse.Namespace) -> int:
     try:
         old = json.loads(Path(args.old).read_text())
@@ -1137,6 +1354,10 @@ def build_parser() -> argparse.ArgumentParser:
     usage.add_argument("--end", help="RFC3339 end time")
     usage.add_argument("--top", type=int, default=20, help="namespaces to list, by client count")
     usage.set_defaults(func=cmd_usage)
+    entities = sub.add_parser("entities", parents=[common, live], help="identity entities per namespace")
+    entities.add_argument("-w", "--workers", type=int, default=4)
+    entities.add_argument("--list", action="store_true", help="include per-entity rows (best with --namespace)")
+    entities.set_defaults(func=cmd_entities)
     diff = sub.add_parser("diff", parents=[common], help="compare two findings.json files")
     diff.add_argument("old")
     diff.add_argument("new")

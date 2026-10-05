@@ -36,6 +36,8 @@ task skill:run -- audit                                       # prints the path 
 task skill:run -- health                                      # primary: dr primary, secondary connected
 VAULT_ADDR=https://127.0.0.1:8220 task skill:run -- health    # DR secondary health
 VAULT_ADDR=https://127.0.0.1:8220 task skill:run -- audit     # should refuse: "is a DR secondary"
+task skill:run -- entities                                    # counts + VT-ID findings, no metadata
+task skill:run -- entities --namespace tn001 --list           # adds metadata, aliases, policies per entity
 ```
 
 To read a result, pipe it through `jq`, for example:
@@ -60,7 +62,7 @@ Open a new session in this repo with the read-only token in the environment:
 set -a; source .env; set +a; export VAULT_TOKEN="$(cat .tmp/audit-token)"; claude
 ```
 
-Then ask "audit my vault" or "check DR health on both nodes". The skill should:
+Then ask "audit my vault", "check DR health on both nodes" or "show the entities and their aliases in tn001". The skill should:
 
 - run only the bundled script
 - report coverage first

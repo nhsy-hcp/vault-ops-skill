@@ -9,8 +9,8 @@ A **read-only** HashiCorp Vault ops Claude skill (`.claude/skills/vault-ops/`) p
 | Path | Purpose |
 | --- | --- |
 | `.claude/skills/vault-ops/SKILL.md` | Skill workflow and guardrails (what Claude does when the skill triggers) |
-| `.claude/skills/vault-ops/scripts/vault_ops.py` | PEP 723 single-file collector: `audit`, `health`, `inventory`, `usage`, `diff` |
-| `.claude/skills/vault-ops/schemas/findings.schema.json` | JSON Schema (draft 2020-12) for findings files, `schema_version` 1.1.0 |
+| `.claude/skills/vault-ops/scripts/vault_ops.py` | PEP 723 single-file collector: `audit`, `health`, `inventory`, `usage`, `entities`, `diff` |
+| `.claude/skills/vault-ops/schemas/findings.schema.json` | JSON Schema (draft 2020-12) for findings files, `schema_version` 1.2.0 |
 | `.claude/skills/vault-ops/references/rules.md` | Rule catalogue (VT-*) with drafted remediation |
 | `.claude/skills/vault-ops/policies/vault-ops-readonly.hcl` | Least-privilege Vault policy for the skill's token |
 | `scripts/` | Dev-env automation (bash, called from `Taskfile.yml`) and `seed_vault.py` |
@@ -23,7 +23,7 @@ A **read-only** HashiCorp Vault ops Claude skill (`.claude/skills/vault-ops/`) p
 - **Read-only, always.** `vault_ops.py` may only issue GET/LIST requests. Never add a code path that writes to Vault, and never add write capabilities to `vault-ops-readonly.hcl`. ACL policy **bodies** stay unreadable (`list` only).
 - **Never use the root token for the skill or the integration tests.** Use `task token:audit` (a 1h token from `vault-ops-readonly.hcl`); `test_integration.py` fails when `VAULT_TOKEN=root`. Root is only for `seed`, `seed:findings` and `token:audit`.
 - **`~/Projects/vault-tools` is reference-only.** Port logic from it; never modify it.
-- **No secrets in outputs.** Findings and other outputs must never contain tokens, accessors, Sentinel policy source, namespace `custom_metadata` or raw error text. Errors go through `sanitise_error()` (class + HTTP status). Output files are written 0600.
+- **No secrets in outputs.** Findings and other outputs must never contain tokens, accessors, Sentinel policy source, namespace `custom_metadata` or raw error text. Entity `metadata` and alias names (emails, usernames, AppRole role_ids) are written **only** in `entities --list` rows, never in the default output or in findings; tests enforce both. Errors go through `sanitise_error()` (class + HTTP status). Output files are written 0600.
 - **Rule IDs are permanent.** Never renumber or reuse a `VT-*` ID. A new rule means adding it to `RULES`, the schema `category` enum if needed, `references/rules.md`, and a fixture that fires it. Adding optional fields is a minor `SCHEMA_VERSION` bump; renaming or removing is a major bump.
 - **Script stays single-file with PEP 723 deps** (`hvac`, `requests` only), so the skill runs anywhere with `uv run --script`. Keep the inline deps and `pyproject.toml` in sync.
 - **DR secondaries: `health` only.** A DR secondary rejects authenticated requests. `connect()` probes unauthenticated `sys/health` first: `health` reads only unauthenticated endpoints there, and `audit`/`inventory`/`usage` exit 1. Never add authenticated reads to the DR-secondary path.

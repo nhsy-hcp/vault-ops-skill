@@ -1,6 +1,6 @@
 ---
 name: vault-ops
-description: Read-only HashiCorp Vault operations review. Use when the user asks to audit Vault, check Vault health, seal/HA/replication/license status, list or inventory namespaces, auth methods, secrets engines or policies, review Sentinel policies, report client counts/usage, or compare two Vault audit runs. Also use when given vault-ops findings/health/inventory/usage JSON files to interpret. Never changes Vault.
+description: Read-only HashiCorp Vault operations review. Use when the user asks to audit Vault, check Vault health, seal/HA/replication/license status, list or inventory namespaces, auth methods, secrets engines or policies, review identity entities and their aliases, review Sentinel policies, report client counts/usage, or compare two Vault audit runs. Also use when given vault-ops findings/health/inventory/usage JSON files to interpret. Never changes Vault.
 allowed-tools: Bash(uv run --script *vault_ops.py *), Read, Glob
 ---
 
@@ -24,6 +24,7 @@ Code collects and checks; you interpret. All Vault access goes through the bundl
 | Health, seal, HA, replication, license, version | `health` (also works against a DR secondary) | `*-health-*.json` |
 | What exists: namespaces, mounts, policy names | `inventory [--namespace ns]` | `*-inventory-*.json` |
 | Client counts / usage / billing | `usage [--start RFC3339] [--end RFC3339] [--top 20]` | `*-usage-*.json` |
+| Identity entities, aliases, entity metadata | `entities [--namespace ns] [--list] [-w 8]` | `*-entities-*.json` |
 | Compare runs / what changed | `diff <old-findings.json> <new-findings.json>` | `diff-*.json` |
 
 Add `--output-dir <dir>` to choose where files go (default `outputs/`, or `$VAULT_OPS_OUTPUT_DIR`). Exit codes: 0 ok, 1 fatal (connection/auth/config, message on stderr), 2 coverage gaps (only with `--fail-on-gaps`), 3 findings at/above `--fail-on` (only with that flag).
@@ -44,7 +45,8 @@ Add `--output-dir <dir>` to choose where files go (default `outputs/`, or `$VAUL
 - `findings.json`: `cluster_context.sentinel` = supported/unsupported/skipped — say Sentinel was not assessed unless `supported`. `evidence.baseline_source == "fallback"` means the cluster lease ceiling was unreadable.
 - `health.json`: `health.license.expiration_time` vs `termination_time`; `health.replication.{dr,performance}.mode/state`, plus `secondaries[].connection_status` on a primary and `primaries[]` / `connection_state` on a secondary; `health.leader.ha_enabled`. `health.dr_secondary: true` means only unauthenticated status was readable (license and lease data are `null` by design, not missing permissions).
 - `inventory.json`: per-namespace mounts (built-in engines omitted) and ACL policy **names** only.
-- `usage.json`: `total.clients` and `top_namespaces[]`; the period defaults to the current billing period.
+- `usage.json`: `total.clients` and `top_namespaces[]` for the billing period, plus `current_month` (the billing period excludes the month in progress).
+- `entities.json`: `summary` and per-namespace counts (entities, disabled, without aliases, with direct policies, alias mount types) plus VT-ID-* findings. Per-entity rows (`namespaces[].entity_list`: metadata, aliases with names and alias metadata, policies, group count) appear **only with `--list`**. Use `--list` when the user asks about specific entities, aliases or metadata, and scope it with `--namespace`, because a whole-tree list can be large. Entity metadata and alias names can contain emails, usernames and AppRole role_ids. Quote them only as far as the question needs, and treat the file as confidential. `disabled: null` means the entity body was unreadable (see coverage).
 
 ## Least-privilege token
 

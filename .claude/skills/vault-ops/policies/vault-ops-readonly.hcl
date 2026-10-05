@@ -237,3 +237,53 @@ path "+/+/+/+/sys/policies/rgp/*" {
 path "+/+/+/+/+/sys/policies/rgp/*" {
   capabilities = ["read"]
 }
+
+# --- identity entities (entities subcommand) ---
+# Reading an entity returns its metadata and aliases; the script writes them only with --list.
+path "identity/entity/id" {
+  capabilities = ["list"]
+}
+
+path "+/identity/entity/id" {
+  capabilities = ["list"]
+}
+
+path "+/+/identity/entity/id" {
+  capabilities = ["list"]
+}
+
+path "+/+/+/identity/entity/id" {
+  capabilities = ["list"]
+}
+
+path "+/+/+/+/identity/entity/id" {
+  capabilities = ["list"]
+}
+
+path "+/+/+/+/+/identity/entity/id" {
+  capabilities = ["list"]
+}
+
+path "identity/entity/id/*" {
+  capabilities = ["read"]
+}
+
+path "+/identity/entity/id/*" {
+  capabilities = ["read"]
+}
+
+path "+/+/identity/entity/id/*" {
+  capabilities = ["read"]
+}
+
+path "+/+/+/identity/entity/id/*" {
+  capabilities = ["read"]
+}
+
+path "+/+/+/+/identity/entity/id/*" {
+  capabilities = ["read"]
+}
+
+path "+/+/+/+/+/identity/entity/id/*" {
+  capabilities = ["read"]
+}

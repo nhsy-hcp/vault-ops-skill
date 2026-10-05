@@ -82,3 +82,21 @@ def test_subtree_and_diff(capsys, tmp_path):
     assert all(f["namespace"].startswith("tn009/") or f["namespace"] == "/" for f in sub["findings"])
     d = vo.diff_documents(full, sub)
     assert d["summary"]["new"] == 0 and d["summary"]["resolved"] > 0
+
+
+def test_entities_tree_and_seeded_rules(capsys, tmp_path):
+    code, doc = run(capsys, "entities", "--output-dir", str(tmp_path), "-w", "8")
+    assert code == 0
+    assert doc["coverage"]["complete"] is True, doc["coverage"]
+    assert doc["summary"]["entities"] > 100
+    assert "entity_list" not in json.dumps(doc)  # no metadata/alias names without --list
+
+    code, scoped = run(capsys, "entities", "--output-dir", str(tmp_path), "--namespace", "tn009/soc2/dev", "--list")
+    assert code == 0 and scoped["coverage"]["complete"] is True
+    rows = {e["name"]: e for r in scoped["namespaces"] for e in r.get("entity_list", [])}
+    assert {"vault-ops-orphan", "vault-ops-direct", "vault-ops-disabled"} <= set(rows)
+    assert rows["vault-ops-direct"]["metadata"] == {"owner": "vault-ops"}
+    assert rows["vault-ops-disabled"]["disabled"] is True
+    assert any(e["aliases"] for e in rows.values())  # seeded userpass/approle aliases are listed with names
+    fired = {(f["rule_id"], f["object"]["path"]) for f in scoped["findings"]}
+    assert {("VT-ID-001", "vault-ops-orphan"), ("VT-ID-002", "vault-ops-direct"), ("VT-ID-003", "vault-ops-disabled")} <= fired

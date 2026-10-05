@@ -85,13 +85,13 @@
         "fingerprint": {"type": "string", "pattern": "^[0-9a-f]{16}$"},
         "rule_id": {"type": "string", "pattern": "^VT-[A-Z]+-\\d{3}$"},
         "severity": {"enum": ["critical", "high", "medium", "low", "info"]},
-        "category": {"enum": ["lifecycle", "exposure", "lease", "replication", "hygiene", "governance", "availability"]},
+        "category": {"enum": ["lifecycle", "exposure", "lease", "replication", "hygiene", "governance", "availability", "identity"]},
         "namespace": {"type": "string"},
         "object": {
           "type": "object",
           "required": ["kind", "path", "type"],
           "properties": {
-            "kind": {"enum": ["auth_mount", "secrets_mount", "namespace", "egp_policy", "rgp_policy", "cluster"]},
+            "kind": {"enum": ["auth_mount", "secrets_mount", "namespace", "egp_policy", "rgp_policy", "cluster", "entity"]},
             "path": {"type": ["string", "null"]},
             "type": {"type": ["string", "null"]}
           }
