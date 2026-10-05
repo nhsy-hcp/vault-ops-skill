@@ -21,6 +21,7 @@ tasks:
 
   deps:
     desc: Check required tools, container runtime, loopback IP and .env
+    run: once
     cmds:
       - scripts/check_deps.sh
 
@@ -38,6 +39,7 @@ tasks:
 
   up:all:
     desc: Start primary and DR nodes
+    deps: [deps]
     cmds:
       - task: up
       - task: up:dr
@@ -89,9 +91,10 @@ tasks:
       - scripts/audit_token.sh
 
   skill:run:
-    desc: "Run the skill script with the audit token, e.g. task skill:run -- audit"
+    desc: "Run the skill script with the audit token: task skill:run -- <audit|health|inventory|usage|diff>"
     cmds:
-      - VAULT_TOKEN="$(cat .tmp/audit-token)" uv run --script {{.SKILL_SCRIPT}} {{.CLI_ARGS}}
+      # No subcommand given: show the script's help instead of an argparse error.
+      - VAULT_TOKEN="$(cat .tmp/audit-token)" uv run --script {{.SKILL_SCRIPT}} {{.CLI_ARGS | default "--help"}}
     preconditions:
       - sh: test -s .tmp/audit-token
         msg: "No audit token; run: task token:audit"
