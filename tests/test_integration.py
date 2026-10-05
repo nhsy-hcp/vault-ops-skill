@@ -124,3 +124,17 @@ def test_entities_tree_and_seeded_rules(capsys, tmp_path):
     assert {("VT-ID-001", "vault-ops-orphan"), ("VT-ID-002", "vault-ops-direct"), ("VT-ID-003", "vault-ops-disabled")} <= fired
     shared = next(f for f in scoped["findings"] if f["rule_id"] == "VT-ID-005")  # vault-ops-dup-a/-b
     assert shared["evidence"]["shared_alias_names"] >= 1 and "vault-ops-dup" not in json.dumps(shared)
+
+
+def test_policies(capsys, tmp_path):
+    """Needs the add-on policy (task token:policies); with the plain audit token every body is a coverage denial."""
+    code, doc = run(capsys, "policies", "--output-dir", str(tmp_path))
+    assert code == 0
+    text = (next(tmp_path.glob("*-policies-*.json"))).read_text()
+    assert "capabilities =" not in text and 'path \\"' not in text  # bodies are never written
+    if doc["summary"]["policies"] == 0:
+        assert all("vault-ops-policy-reader" in d["scope"] for d in doc["coverage"]["denied"])
+        pytest.skip("token lacks vault-ops-policy-reader (run task token:policies)")
+    assert doc["coverage"]["complete"] is True, doc["coverage"]
+    names = {(f["rule_id"], f["object"]["path"]) for f in doc["findings"]}
+    assert {("VT-POL-001", "admin"), ("VT-POL-002", "rbac-policy-manager"), ("VT-POL-003", "admin"), ("VT-POL-004", "read-only")} <= names

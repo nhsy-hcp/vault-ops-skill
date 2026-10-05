@@ -111,6 +111,9 @@ def test_metadata_and_alias_names_only_with_list():
 
 
 def test_every_rule_is_produced_somewhere(cluster_data, health, activity):
+    from test_policies import collect as collect_policies
+
+    policies = collect_policies()[2]
     _, _, entities = collect()
     entities["tn001/app"][0].disabled = True
     add_entities(entities, "tn001", vo.ENTITY_RULE_MIN_ENTITIES, alias_name="shared")
@@ -123,6 +126,7 @@ def test_every_rule_is_produced_somewhere(cluster_data, health, activity):
         + vo.health_findings({**health, "audit_devices": [], "snapshots": {"configs": []}})  # VT-AUD-001, VT-SNAP-001
         + vo.entity_findings(entities, {})
         + vo.usage_findings(activity, None, enterprise=True)
+        + vo.acl_policy_findings(policies)
     }
     assert produced == set(vo.RULES)
 

@@ -68,6 +68,14 @@ for pair in "a:userpass-public" "b:userpass-dup"; do
   try vault write -namespace="$NS" identity/entity-alias name=vault-ops-dup canonical_id="$entity_id" mount_accessor="$accessor"
 done
 
+# ACL policies (policies subcommand). The base seed's admin, rbac-policy-manager,
+# oauth2-token-manager and service-account-creator already trip VT-POL-001/002/003.
+step "VT-POL-004 drifted read-only policy (differs from every other copy)"
+vault policy write -namespace="$NS" read-only - >/dev/null <<'HCL'
+path "secret/data/*" { capabilities = ["read", "list"] }
+path "secret/metadata/*" { capabilities = ["list"] }
+HCL
+
 # Audit devices and snapshots are cluster-wide: root namespace only.
 echo "Seeding audit devices and automated snapshots (root namespace)"
 step "audit device vault-ops-file (dummy file in the node's logs dir)"

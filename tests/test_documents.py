@@ -16,8 +16,8 @@ def build(cluster_data, health, coverage=None):
 def test_document_validates_and_covers_every_rule(cluster_data, health, schema):
     doc = build(cluster_data, health)
     jsonschema.validate(doc, schema)
-    # ID: entities, CLI: usage; AUD-001/SNAP-001 exclude the fixture's AUD-002/003 and SNAP-002/003 (see test_every_rule_is_produced_somewhere)
-    expected = {r for r in vo.RULES if not r.startswith(("VT-ID-", "VT-CLI-"))} - {"VT-AUD-001", "VT-SNAP-001"}
+    # ID: entities, CLI: usage, POL: policies; AUD-001/SNAP-001 exclude the fixture's AUD-002/003 and SNAP-002/003 (see test_every_rule_is_produced_somewhere)
+    expected = {r for r in vo.RULES if not r.startswith(("VT-ID-", "VT-CLI-", "VT-POL-"))} - {"VT-AUD-001", "VT-SNAP-001"}
     assert set(doc["summary"]["by_rule"]) == expected
     assert doc["summary"]["total"] == len(doc["findings"])
     assert sum(doc["summary"]["by_severity"].values()) == doc["summary"]["total"]

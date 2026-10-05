@@ -90,6 +90,11 @@ tasks:
     cmds:
       - scripts/audit_token.sh
 
+  token:policies:
+    desc: Like token:audit, plus the read-only vault-ops-policy-reader add-on (for the policies subcommand)
+    cmds:
+      - POLICY_READER=1 scripts/audit_token.sh
+
   skill:run:
     desc: "Run the skill script with the audit token: task skill:run -- <audit|health|inventory|usage|entities|diff>"
     cmds:

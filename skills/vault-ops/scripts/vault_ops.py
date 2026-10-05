@@ -10,6 +10,8 @@ paths on stdout; diagnostics go to stderr. Nothing here writes to Vault.
   inventory  namespaces, mounts, ACL policy names  -> {cluster}-inventory-{ts}.json
   usage      activity-log client counts            -> {cluster}-usage-{ts}.json
   entities   identity entities per namespace       -> {cluster}-entities-{ts}.json
+  policies   ACL policy permission assessment      -> {cluster}-policies-{ts}.json
+             (needs the add-on vault-ops-policy-reader policy; bodies are never written)
   diff A B   compare two findings files            -> diff-{ts}.json
 
 Check logic is ported from nhsy-hcp/vault-tools (src/namespace_audit/report.py).
@@ -46,7 +48,7 @@ from hvac import exceptions as hvac_exc
 
 TOOL_NAME = "vault-ops"
 TOOL_VERSION = "0.2.3"
-SCHEMA_VERSION = "1.7.0"
+SCHEMA_VERSION = "1.8.0"
 
 EXIT_OK, EXIT_FATAL, EXIT_GAPS, EXIT_FINDINGS, EXIT_INTERRUPTED = 0, 1, 2, 3, 130
 
@@ -105,6 +107,29 @@ BUILTIN_ENGINE_TYPES = frozenset(
     }
 )
 BUILTIN_AUTH_TYPES = frozenset({"token", "ns_token"})
+# ACL policy assessment (policies subcommand). Capabilities that change state; sudo is judged separately.
+WRITE_CAPABILITIES = frozenset({"create", "update", "patch", "delete"})
+# Representative paths whose write access lets a holder grant itself more access (VT-POL-002):
+# a rule is flagged when its glob matches one of them. Values label the area in evidence.
+ESCALATION_PATHS = {
+    "sys/policies/acl/x": "ACL policies",
+    "sys/policy/x": "ACL policies",
+    "sys/auth/x": "auth methods",
+    "sys/mounts/x": "secrets engines",
+    "sys/namespaces/x": "namespaces",
+    "auth/token/create": "token creation",
+    "auth/token/create-orphan": "token creation",
+    "auth/token/create/x": "token creation",
+    "auth/token/roles/x": "token roles",
+    "identity/entity": "identity entities",
+    "identity/entity/id/x": "identity entities",
+    "identity/entity/name/x": "identity entities",
+    "identity/entity-alias": "identity entity aliases",
+    "identity/entity-alias/id/x": "identity entity aliases",
+    "identity/group": "identity groups",
+    "identity/group/id/x": "identity groups",
+    "identity/group/name/x": "identity groups",
+}
 DEPRECATED_STATUSES = frozenset({"deprecated", "pending-removal", "removed"})
 BROAD_EGP_PATHS = frozenset({"*", "/*"})
 ALWAYS_TRUE_MAIN = re.compile(r"^main\s*=\s*rule\s*\{\s*true\s*\}$")
@@ -167,6 +192,11 @@ RULES: dict[str, Rule] = {
     "VT-CLI-002": Rule("low", "clients", "Client count growing sharply"),
     "VT-CLI-003": Rule("low", "clients", "Mount creates new clients every month"),
     "VT-CLI-004": Rule("info", "clients", "Most clients in the root namespace"),
+    "VT-POL-001": Rule("medium", "access", "ACL policy grants write or sudo on every path"),
+    "VT-POL-002": Rule("medium", "access", "ACL policy can change access control"),
+    "VT-POL-003": Rule("low", "access", "ACL policy grants sudo"),
+    "VT-POL-004": Rule("low", "access", "Same-named ACL policy differs across namespaces"),
+    "VT-POL-005": Rule("info", "access", "ACL policy could not be parsed"),
 }
 
 
@@ -677,6 +707,153 @@ def collect_entities(reader: VaultReader, coverage: Coverage, namespaces: list[s
 
     with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
         return dict(pool.map(one_namespace, namespaces))
+
+
+@dataclass(frozen=True)
+class AclRule:
+    path: str
+    capabilities: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class AclPolicy:
+    """An ACL policy as assessed. The body itself is never kept: only its hash and parsed rules."""
+
+    namespace: str
+    name: str
+    sha256: str
+    rules: tuple[AclRule, ...] | None  # None when the body could not be parsed
+
+
+_HCL_TOKEN = re.compile(r'\s+|#[^\n]*|//[^\n]*|/\*.*?\*/|"(?:[^"\\]|\\.)*"|[A-Za-z_][\w.-]*|-?\d+(?:\.\d+)?|[{}\[\]=,:]', re.S)
+
+
+def parse_acl_policy(text: str) -> tuple[AclRule, ...] | None:
+    """Path rules of an HCL or JSON ACL policy; None when it can't be parsed. Never raises.
+
+    Only `path` blocks and their `capabilities` are kept: other attributes (allowed/denied
+    parameters, wrapping TTLs) are skipped, so their values never leave this function.
+    """
+    try:
+        if text.lstrip().startswith("{"):
+            paths = json.loads(text).get("path") or {}
+            return tuple(AclRule(str(glob), tuple(str(c) for c in (body or {}).get("capabilities") or [])) for glob, body in paths.items())
+        return _parse_hcl_policy(text)
+    except (ValueError, TypeError, IndexError, AttributeError):
+        return None
+
+
+def _parse_hcl_policy(text: str) -> tuple[AclRule, ...] | None:
+    tokens, pos = [], 0
+    while pos < len(text):
+        match = _HCL_TOKEN.match(text, pos)
+        if not match:
+            return None
+        pos = match.end()
+        if not match.group()[0].isspace() and not match.group().startswith(("#", "//", "/*")):
+            tokens.append(match.group())
+
+    def skip_value(i: int) -> int:
+        if tokens[i] not in ("{", "["):
+            return i + 1
+        depth = 0
+        while True:
+            depth += {"{": 1, "[": 1, "}": -1, "]": -1}.get(tokens[i], 0)
+            i += 1
+            if depth == 0:
+                return i
+
+    rules, i = [], 0
+    while i < len(tokens):
+        if tokens[i] != "path" or not tokens[i + 1].startswith('"') or tokens[i + 2] != "{":
+            return None
+        glob, capabilities, i = json.loads(tokens[i + 1]), [], i + 3
+        while tokens[i] != "}":
+            key = tokens[i].strip('"')
+            i += 2 if tokens[i + 1] == "=" else 1
+            if key == "capabilities" and tokens[i] == "[":
+                i += 1
+                while tokens[i] != "]":
+                    if tokens[i] != ",":
+                        capabilities.append(json.loads(tokens[i]))
+                    i += 1
+                i += 1
+            else:
+                i = skip_value(i)
+            if tokens[i] == ",":
+                i += 1
+        rules.append(AclRule(glob, tuple(capabilities)))
+        i += 1
+    return tuple(rules)
+
+
+def glob_matches(glob: str, path: str) -> bool:
+    """Vault ACL path matching: `+` is one whole segment, a trailing `*` is a prefix match."""
+    prefix = glob.endswith("*")
+    pattern = "/".join("[^/]+" if part == "+" else re.escape(part) for part in (glob[:-1] if prefix else glob).split("/"))
+    return re.fullmatch(pattern + (".*" if prefix else ""), path) is not None
+
+
+def matches_everything(glob: str) -> bool:
+    """`*`, `+/*`, `+/+/*`...: every path in the namespace (and, past the `+` levels, its children)."""
+    return glob.endswith("*") and all(part in ("+", "") for part in glob[:-1].split("/"))
+
+
+def rule_flags(rule: AclRule) -> list[str]:
+    """VT-POL rule IDs one path rule trips. A rule containing `deny` grants nothing."""
+    capabilities = set(rule.capabilities)
+    if "deny" in capabilities:
+        return []
+    flags = []
+    if matches_everything(rule.path) and capabilities & (WRITE_CAPABILITIES | {"sudo"}):
+        flags.append("VT-POL-001")
+    elif capabilities & WRITE_CAPABILITIES and any(glob_matches(rule.path, target) for target in ESCALATION_PATHS):
+        flags.append("VT-POL-002")
+    if "sudo" in capabilities:
+        flags.append("VT-POL-003")
+    return flags
+
+
+def collect_acl_policies(reader: VaultReader, coverage: Coverage, namespaces: list[str], workers: int = 4) -> list[AclPolicy]:
+    """ACL policy bodies per namespace (all but `root`), parsed and hashed; bodies are not kept.
+
+    Reading a body needs the add-on vault-ops-policy-reader policy (`read`, no sudo). A denied
+    body is recorded once per namespace and the walk continues.
+    """
+
+    def one_namespace(ns: str) -> list[AclPolicy]:
+        try:
+            names = reader.list("sys/policies/acl", ns)
+        except hvac_exc.InvalidPath:
+            return []
+        except hvac_exc.Forbidden:
+            coverage.deny(ns, "ACL policy names")
+            return []
+        except (hvac_exc.VaultError, requests.exceptions.RequestException) as exc:
+            coverage.error(ns, exc)
+            return []
+        policies, denied = [], False
+        for name in sorted(n for n in names if n != "root"):
+            try:
+                body = reader.data(f"sys/policies/acl/{name}", ns).get("policy")
+            except hvac_exc.Forbidden:
+                denied = True
+                continue
+            except hvac_exc.InvalidPath:
+                continue  # deleted between list and read
+            except (hvac_exc.VaultError, requests.exceptions.RequestException) as exc:
+                coverage.error(ns, exc)
+                continue
+            if not isinstance(body, str):
+                coverage.error(ns, ValueError("unrecognised ACL policy payload"))
+                continue
+            policies.append(AclPolicy(ns, name, hashlib.sha256(body.encode()).hexdigest()[:16], parse_acl_policy(body)))
+        if denied:
+            coverage.deny(ns, "ACL policy bodies (attach vault-ops-policy-reader)")
+        return policies
+
+    with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
+        return [p for result in pool.map(one_namespace, namespaces) for p in result]
 
 
 def collect_health(reader: VaultReader, coverage: Coverage, probe: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -1831,6 +2008,77 @@ def build_entities_document(
     }
 
 
+def acl_policy_findings(policies: list[AclPolicy]) -> list[Finding]:
+    findings: list[Finding] = []
+    for p in policies:
+        if p.rules is None:
+            findings.append(finding("VT-POL-005", p.namespace, "acl_policy", p.name, None, "Policy body could not be parsed, so its permissions were not assessed — review it by hand."))
+            continue
+        flagged: dict[str, list[AclRule]] = {}
+        for rule in p.rules:
+            for rule_id in rule_flags(rule):
+                flagged.setdefault(rule_id, []).append(rule)
+        if rules := flagged.get("VT-POL-001"):
+            paths = sorted({r.path for r in rules})
+            detail = f"Grants write or sudo on every path ({', '.join(f'`{x}`' for x in paths)}) — effectively admin in this namespace."
+            findings.append(finding("VT-POL-001", p.namespace, "acl_policy", p.name, None, detail, paths=paths))
+        if rules := flagged.get("VT-POL-002"):
+            paths = sorted({r.path for r in rules})
+            areas = sorted({label for r in rules for target, label in ESCALATION_PATHS.items() if glob_matches(r.path, target)})
+            detail = f"Can write {', '.join(areas)} ({', '.join(f'`{x}`' for x in paths)}) — a holder can grant itself or others more access."
+            findings.append(finding("VT-POL-002", p.namespace, "acl_policy", p.name, None, detail, areas=areas, paths=paths))
+        if rules := flagged.get("VT-POL-003"):
+            paths = sorted({r.path for r in rules})
+            findings.append(finding("VT-POL-003", p.namespace, "acl_policy", p.name, None, f"Grants `sudo` on {', '.join(f'`{x}`' for x in paths)}.", sudo_paths=paths))
+    by_name: dict[str, list[AclPolicy]] = {}
+    for p in policies:
+        by_name.setdefault(p.name, []).append(p)
+    for name, copies in sorted(by_name.items()):
+        variants = Counter(p.sha256 for p in copies)
+        if len(variants) < 2:
+            continue
+        common = variants.most_common(1)[0][0]
+        outliers = sorted(display_namespace(p.namespace) for p in copies if p.sha256 != common)
+        differ = "differs" if len(outliers) == 1 else "differ"
+        detail = f"`{name}` exists in {len(copies)} namespaces with {len(variants)} different bodies — copies have drifted; {len(outliers)} {differ} from the most common one."
+        findings.append(finding("VT-POL-004", "", "acl_policy", name, None, detail, namespaces=len(copies), variants=len(variants), outliers=len(outliers), examples=outliers[:3]))
+    return findings
+
+
+def build_policies_document(policies: list[AclPolicy], coverage: Coverage, run: dict[str, Any]) -> dict[str, Any]:
+    """Policy names, body hashes and flagged rules only: bodies and parameter values are never written."""
+    findings = sort_findings(acl_policy_findings(policies))
+    rows = []
+    for p in sorted(policies, key=lambda p: (display_namespace(p.namespace), p.name)):
+        flagged = [{"path": r.path, "capabilities": sorted(r.capabilities), "rules": flags} for r in p.rules or () if (flags := rule_flags(r))]
+        rows.append(
+            {
+                "namespace": display_namespace(p.namespace),
+                "name": p.name,
+                "sha256": p.sha256,
+                "parsed": p.rules is not None,
+                "rule_count": len(p.rules) if p.rules is not None else None,
+                "flagged": flagged,
+            }
+        )
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "tool": {"name": TOOL_NAME, "version": TOOL_VERSION},
+        "run": run,
+        "coverage": coverage.to_dict(),
+        "summary": {
+            "policies": len(policies),
+            "names": len({p.name for p in policies}),
+            "distinct_bodies": len({p.sha256 for p in policies}),
+            "unparsed": sum(1 for p in policies if p.rules is None),
+            "with_flagged_rules": sum(1 for r in rows if r["flagged"]),
+            "by_rule": dict(sorted(Counter(f.rule_id for f in findings).items())),
+        },
+        "policies": rows,
+        "findings": [f.to_dict() for f in findings],
+    }
+
+
 def diff_documents(old: dict[str, Any], new: dict[str, Any]) -> dict[str, Any]:
     old_f = {f["fingerprint"]: f for f in old.get("findings", [])}
     new_f = {f["fingerprint"]: f for f in new.get("findings", [])}
@@ -1993,6 +2241,20 @@ def cmd_entities(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_policies(args: argparse.Namespace) -> int:
+    config, reader, probe = connect(args.namespace)
+    started = utc_now()
+    coverage = Coverage()
+    health = collect_health(reader, coverage, probe)
+    namespaces = discover_namespaces(reader, coverage, config.namespace, args.workers)
+    coverage.namespaces_processed = len(namespaces)
+    policies = collect_acl_policies(reader, coverage, namespaces, args.workers)
+    run = run_block(health["cluster_name"], _addr(config, args.redact_addr), config.namespace, started, args.workers)
+    document = build_policies_document(policies, coverage, run)
+    print(write_json(output_path(args.output_dir, health["cluster_name"], "policies", started), document))
+    return EXIT_OK
+
+
 def cmd_diff(args: argparse.Namespace) -> int:
     try:
         old = json.loads(Path(args.old).read_text())
@@ -2036,6 +2298,9 @@ def build_parser() -> argparse.ArgumentParser:
     entities.add_argument("-w", "--workers", type=int, default=4)
     entities.add_argument("--list", action="store_true", help="include per-entity rows (best with --namespace)")
     entities.set_defaults(func=cmd_entities)
+    policies = sub.add_parser("policies", parents=[common, live], help="ACL policy permissions (needs vault-ops-policy-reader)")
+    policies.add_argument("-w", "--workers", type=int, default=4)
+    policies.set_defaults(func=cmd_policies)
     diff = sub.add_parser("diff", parents=[common], help="compare two findings.json files")
     diff.add_argument("old")
     diff.add_argument("new")
