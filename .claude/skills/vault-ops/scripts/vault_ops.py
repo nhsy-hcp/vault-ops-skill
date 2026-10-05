@@ -68,6 +68,16 @@ DEPRECATED_STATUSES = frozenset({"deprecated", "pending-removal", "removed"})
 BROAD_EGP_PATHS = frozenset({"*", "/*"})
 ALWAYS_TRUE_MAIN = re.compile(r"^main\s*=\s*rule\s*\{\s*true\s*\}$")
 HEALTHY_REPLICATION_STATES = frozenset({"running", "stream-wals", "idle"})
+# sys/health query that returns 200 (and a body) for every node state.
+HEALTH_PARAMS = {
+    "standbyok": "true",
+    "perfstandbyok": "true",
+    "sealedcode": "200",
+    "uninitcode": "200",
+    "drsecondarycode": "200",
+    "performancestandbycode": "200",
+    "standbycode": "200",
+}
 
 SEVERITIES = ("medium", "low", "info")
 
@@ -284,8 +294,28 @@ class VaultReader:
             self.get("auth/token/lookup-self")
         except hvac_exc.Forbidden as exc:
             raise SystemExit("error: token rejected (403 on auth/token/lookup-self)") from exc
-        except requests.exceptions.RequestException as exc:
+        except (hvac_exc.VaultError, requests.exceptions.RequestException) as exc:
+            raise SystemExit(f"error: token validation failed at {self.config.addr}: {sanitise_error(exc)}") from exc
+
+    def probe(self) -> dict[str, Any]:
+        """Unauthenticated sys/health; works on every node type, DR secondaries included."""
+        try:
+            return self.get("sys/health", params=HEALTH_PARAMS)
+        except (hvac_exc.VaultError, requests.exceptions.RequestException) as exc:
             raise SystemExit(f"error: cannot reach Vault at {self.config.addr}: {sanitise_error(exc)}") from exc
+
+
+def connect(namespace: str | None, allow_dr_secondary: bool = False) -> tuple[Config, VaultReader, dict[str, Any]]:
+    """Probe the node, refuse DR secondaries where the subcommand needs authenticated reads, validate the token."""
+    config = Config.from_env(namespace)
+    reader = VaultReader(config)
+    probe = reader.probe()
+    if probe.get("replication_dr_mode") == "secondary":
+        if not allow_dr_secondary:
+            raise SystemExit(f"error: {config.addr} is a DR secondary, which rejects authenticated reads; only `health` works there. Run this against the primary.")
+        return config, reader, probe  # token endpoints are disabled on a DR secondary
+    reader.validate()
+    return config, reader, probe
 
 
 # --------------------------------------------------------------------------- collection
@@ -453,23 +483,19 @@ def _mounts_only(payload: dict[str, Any]) -> dict[str, Any]:
     return {k: v for k, v in payload.items() if isinstance(v, dict) and "type" in v}
 
 
-def collect_health(reader: VaultReader, coverage: Coverage) -> dict[str, Any]:
-    """Cluster-level status. Every read is optional; failures land in coverage."""
-    health: dict[str, Any] = {}
-    try:
-        # Force 200 for every node state so the body is always returned.
-        params = {
-            "standbyok": "true",
-            "perfstandbyok": "true",
-            "sealedcode": "200",
-            "uninitcode": "200",
-            "drsecondarycode": "200",
-            "performancestandbycode": "200",
-            "standbycode": "200",
-        }
-        health = reader.get("sys/health", params=params)
-    except (hvac_exc.VaultError, requests.exceptions.RequestException) as exc:
-        coverage.error("", exc)
+def collect_health(reader: VaultReader, coverage: Coverage, probe: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Cluster-level status. Every read is optional; failures land in coverage.
+
+    On a DR secondary only the unauthenticated endpoints answer (health, leader,
+    replication status), so license and lease reads are skipped there.
+    """
+    health: dict[str, Any] = probe or {}
+    if probe is None:
+        try:
+            health = reader.get("sys/health", params=HEALTH_PARAMS)
+        except (hvac_exc.VaultError, requests.exceptions.RequestException) as exc:
+            coverage.error("", exc)
+    dr_secondary = health.get("replication_dr_mode") == "secondary"
 
     result: dict[str, Any] = {
         "cluster_name": health.get("cluster_name") or "vault",
@@ -481,6 +507,7 @@ def collect_health(reader: VaultReader, coverage: Coverage) -> dict[str, Any]:
         "performance_standby": health.get("performance_standby"),
         "replication_dr_mode": health.get("replication_dr_mode"),
         "replication_performance_mode": health.get("replication_performance_mode"),
+        "dr_secondary": dr_secondary,
         "leader": None,
         "license": None,
         "replication": None,
@@ -505,7 +532,7 @@ def collect_health(reader: VaultReader, coverage: Coverage) -> dict[str, Any]:
             "leader_address_present": bool(leader.get("leader_address")),
             "raft_committed_index": leader.get("raft_committed_index"),
         }
-    if result["enterprise"] and (lic := optional("sys/license/status", "sys/license/status")) is not None:
+    if result["enterprise"] and not dr_secondary and (lic := optional("sys/license/status", "sys/license/status")) is not None:
         auto = lic.get("autoloaded") if isinstance(lic.get("autoloaded"), dict) else lic
         result["license"] = {
             k: auto.get(k)
@@ -524,8 +551,8 @@ def collect_health(reader: VaultReader, coverage: Coverage) -> dict[str, Any]:
             # e.g. {"mode": "unsupported"} on storage that cannot replicate (dev/inmem)
             result["replication"] = {"mode": repl["mode"]}
         else:
-            result["replication"] = {kind: {"mode": (repl.get(kind) or {}).get("mode"), "state": (repl.get(kind) or {}).get("state")} for kind in ("dr", "performance")}
-    if (cfg := optional("sys/config/state/sanitized", "sys/config/state/sanitized")) is not None:
+            result["replication"] = {kind: replication_summary(repl.get(kind) or {}) for kind in ("dr", "performance")}
+    if not dr_secondary and (cfg := optional("sys/config/state/sanitized", "sys/config/state/sanitized")) is not None:
 
         def positive(value: Any) -> int | None:
             # 0 means "not configured" (Vault's built-in 768h applies), not a real ceiling
@@ -536,6 +563,18 @@ def collect_health(reader: VaultReader, coverage: Coverage) -> dict[str, Any]:
             "max_lease_ttl_seconds": positive(cfg.get("max_lease_ttl")),
         }
     return result
+
+
+def replication_summary(status: dict[str, Any]) -> dict[str, Any]:
+    """Mode/state plus the link status to peers: secondaries (on a primary) or primaries (on a secondary)."""
+    summary: dict[str, Any] = {"mode": status.get("mode"), "state": status.get("state")}
+    if status.get("connection_state"):
+        summary["connection_state"] = status["connection_state"]
+    if status.get("mode") == "primary":
+        summary["secondaries"] = [{"node_id": s.get("node_id"), "connection_status": s.get("connection_status")} for s in status.get("secondaries") or []]
+    elif status.get("mode") == "secondary":
+        summary["primaries"] = [{"connection_status": p.get("connection_status")} for p in status.get("primaries") or []]
+    return summary
 
 
 # --------------------------------------------------------------------------- checks
@@ -734,20 +773,18 @@ def health_findings(health: dict[str, Any], now: datetime | None = None) -> list
     for kind, status in sorted((health.get("replication") or {}).items()):
         if not isinstance(status, dict):
             continue
-        mode, state = (status or {}).get("mode"), (status or {}).get("state")
-        if mode and mode not in ("disabled", "unknown") and state not in HEALTHY_REPLICATION_STATES:
-            findings.append(
-                finding(
-                    "VT-HLTH-002",
-                    "",
-                    "cluster",
-                    None,
-                    kind,
-                    f"{kind.upper()} replication is `{mode}` but its state is `{state}` — check the replication link.",
-                    mode=mode,
-                    state=state,
-                )
-            )
+        mode, state = status.get("mode"), status.get("state")
+        if not mode or mode in ("disabled", "unknown"):
+            continue
+        peers = status.get("secondaries") or status.get("primaries") or []
+        disconnected = sorted(p.get("node_id") or "primary" for p in peers if p.get("connection_status") != "connected")
+        if state not in HEALTHY_REPLICATION_STATES:
+            detail = f"{kind.upper()} replication is `{mode}` but its state is `{state}` — check the replication link."
+        elif disconnected:
+            detail = f"{kind.upper()} replication `{mode}` has disconnected peer(s): {', '.join(disconnected)} — check the cluster port (8201) path and the peer's status."
+        else:
+            continue
+        findings.append(finding("VT-HLTH-002", "", "cluster", None, kind, detail, mode=mode, state=state, disconnected_peers=disconnected))
     version = parse_version(health.get("version") or "")
     if version and version < MIN_SUPPORTED_VERSION:
         minimum = ".".join(map(str, MIN_SUPPORTED_VERSION))
@@ -991,12 +1028,10 @@ def _addr(config: Config, redact: bool) -> str:
 
 
 def cmd_audit(args: argparse.Namespace) -> int:
-    config = Config.from_env(args.namespace)
-    reader = VaultReader(config)
-    reader.validate()
+    config, reader, probe = connect(args.namespace)
     started = utc_now()
     coverage = Coverage()
-    health = collect_health(reader, coverage)
+    health = collect_health(reader, coverage, probe)
     data = Walker(reader, coverage, workers=args.workers, sentinel=not args.no_sentinel).walk(config.namespace)
     max_ttl = (health.get("lease_ttls") or {}).get("max_lease_ttl_seconds")
     findings = mount_findings(data, max_ttl) + namespace_findings(data) + sentinel_findings(data) + health_findings(health)
@@ -1008,12 +1043,10 @@ def cmd_audit(args: argparse.Namespace) -> int:
 
 
 def cmd_health(args: argparse.Namespace) -> int:
-    config = Config.from_env(args.namespace)
-    reader = VaultReader(config)
-    reader.validate()
+    config, reader, probe = connect(args.namespace, allow_dr_secondary=True)
     started = utc_now()
     coverage = Coverage()
-    health = collect_health(reader, coverage)
+    health = collect_health(reader, coverage, probe)
     findings = sort_findings(health_findings(health))
     document = {
         "schema_version": SCHEMA_VERSION,
@@ -1028,12 +1061,10 @@ def cmd_health(args: argparse.Namespace) -> int:
 
 
 def cmd_inventory(args: argparse.Namespace) -> int:
-    config = Config.from_env(args.namespace)
-    reader = VaultReader(config)
-    reader.validate()
+    config, reader, probe = connect(args.namespace)
     started = utc_now()
     coverage = Coverage()
-    health = collect_health(reader, coverage)
+    health = collect_health(reader, coverage, probe)
     data = Walker(reader, coverage, workers=args.workers, sentinel=not args.no_sentinel).walk(config.namespace)
     run = run_block(health["cluster_name"], _addr(config, args.redact_addr), config.namespace, started, args.workers)
     document = build_inventory_document(data, coverage, run)
@@ -1042,12 +1073,10 @@ def cmd_inventory(args: argparse.Namespace) -> int:
 
 
 def cmd_usage(args: argparse.Namespace) -> int:
-    config = Config.from_env("")  # activity is queried at root; it already reports every namespace
-    reader = VaultReader(config)
-    reader.validate()
+    config, reader, probe = connect("")  # activity is queried at root; it already reports every namespace
     started = utc_now()
     coverage = Coverage()
-    health = collect_health(reader, coverage)
+    health = collect_health(reader, coverage, probe)
     params = {k: v for k, v in (("start_time", args.start), ("end_time", args.end)) if v}
 
     def read_activity(path: str, query: dict[str, Any] | None) -> dict[str, Any] | None:

@@ -5,13 +5,14 @@ set -euo pipefail
 CONTAINER_CLI="${CONTAINER_CLI:-docker}"
 VAULT_HOST_IP="${VAULT_HOST_IP:-127.0.0.1}"
 VAULT_HOST_PORT="${VAULT_HOST_PORT:-8210}"
+VAULT_DR_HOST_PORT="${VAULT_DR_HOST_PORT:-8220}"
 fail=0
 
 ok() { printf '  ok    %s\n' "$1"; }
 bad() { printf '  FAIL  %s\n' "$1" >&2; fail=1; }
 
 echo "Tools:"
-for tool in task uv vault jq gitleaks shellcheck pre-commit "$CONTAINER_CLI"; do
+for tool in task uv vault jq curl openssl gitleaks shellcheck pre-commit "$CONTAINER_CLI"; do
   if command -v "$tool" >/dev/null 2>&1; then ok "$tool"; else bad "$tool not found"; fi
 done
 
@@ -28,11 +29,13 @@ if [[ "$(uname -s)" == "Darwin" && "$VAULT_HOST_IP" != "127.0.0.1" ]] && ! ifcon
 else
   ok "${VAULT_HOST_IP} available"
 fi
-if lsof -nP -iTCP:"${VAULT_HOST_PORT}" -sTCP:LISTEN 2>/dev/null | grep -qv -e COMMAND -e gvproxy; then
-  bad "port ${VAULT_HOST_PORT} already in use by another process"
-else
-  ok "port ${VAULT_HOST_PORT} free (or held by the vault container)"
-fi
+for port in "$VAULT_HOST_PORT" "$VAULT_DR_HOST_PORT"; do
+  if lsof -nP -iTCP:"${port}" -sTCP:LISTEN 2>/dev/null | grep -qv -e COMMAND -e gvproxy; then
+    bad "port ${port} already in use by another process"
+  else
+    ok "port ${port} free (or held by a vault container)"
+  fi
+done
 
 echo "Environment:"
 if [[ -f .env ]]; then ok ".env present"; else bad ".env missing (cp .env.template .env)"; fi

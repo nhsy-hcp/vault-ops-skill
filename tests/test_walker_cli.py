@@ -184,6 +184,9 @@ class _ValidatingFake(FakeReader):
     def validate(self):
         self.get("auth/token/lookup-self")
 
+    def probe(self):
+        return self.get("sys/health")
+
 
 @pytest.mark.parametrize("verify", [False, "/ca.pem", True])
 def test_reader_session_carries_tls_setting(verify):
@@ -206,3 +209,76 @@ def test_collect_health_dev_mode_shapes():
     assert h["replication"] == {"mode": "unsupported"}
     assert h["lease_ttls"] == {"default_lease_ttl_seconds": None, "max_lease_ttl_seconds": None}
     assert not [f for f in vo.health_findings(h) if f.rule_id == "VT-HLTH-002"]
+
+
+DR_PRIMARY_REPL = {
+    "data": {
+        "dr": {"mode": "primary", "state": "running", "secondaries": [{"node_id": "vault-dr", "connection_status": "connected"}]},
+        "performance": {"mode": "disabled"},
+    }
+}
+
+
+def test_replication_summary_and_connected_primary_is_healthy():
+    routes = {
+        ("", "sys/health"): {"cluster_name": "c1", "version": "2.1.1+ent", "sealed": False, "replication_dr_mode": "primary"},
+        ("", "sys/replication/status"): DR_PRIMARY_REPL,
+    }
+    h = vo.collect_health(FakeReader(routes), vo.Coverage())
+    assert h["replication"]["dr"] == {"mode": "primary", "state": "running", "secondaries": [{"node_id": "vault-dr", "connection_status": "connected"}]}
+    assert h["dr_secondary"] is False
+    assert vo.health_findings(h) == []
+
+
+def test_disconnected_secondary_fires_hlth_002():
+    health = {"replication": {"dr": {"mode": "primary", "state": "running", "secondaries": [{"node_id": "vault-dr", "connection_status": "disconnected"}]}}}
+    (f,) = vo.health_findings(health)
+    assert f.rule_id == "VT-HLTH-002" and f.object_type == "dr"
+    assert f.evidence["disconnected_peers"] == ["vault-dr"]
+    assert "vault-dr" in f.detail
+
+
+def test_dr_secondary_health_skips_authenticated_reads(env, monkeypatch, capsys):
+    routes = {
+        ("", "sys/health"): {"cluster_name": "c1", "version": "2.1.1+ent", "sealed": False, "replication_dr_mode": "secondary"},
+        ("", "sys/leader"): {"ha_enabled": True, "leader_address": "https://vault-dr:8200"},
+        ("", "sys/replication/status"): {
+            "data": {"dr": {"mode": "secondary", "state": "stream-wals", "connection_state": "ready", "primaries": [{"connection_status": "connected"}]}, "performance": {"mode": "disabled"}}
+        },
+        # Disabled on a DR secondary: reading these would be a bug.
+        ("", "auth/token/lookup-self"): vo.hvac_exc.InvalidRequest("path disabled in replication DR secondary mode"),
+        ("", "sys/license/status"): vo.hvac_exc.InvalidRequest("path disabled"),
+        ("", "sys/config/state/sanitized"): vo.hvac_exc.InvalidRequest("path disabled"),
+    }
+    fake = _ValidatingFake(routes)
+    monkeypatch.setattr(vo, "VaultReader", lambda cfg: fake)
+    assert vo.main(["health"]) == vo.EXIT_OK
+    doc = json.loads(Path(capsys.readouterr().out.strip()).read_text())
+    assert doc["health"]["dr_secondary"] is True
+    assert doc["health"]["replication"]["dr"]["state"] == "stream-wals"
+    assert doc["coverage"]["complete"] is True and doc["findings"] == []
+    called = {path for _, path in fake.calls}
+    assert not called & {"auth/token/lookup-self", "sys/license/status", "sys/config/state/sanitized"}
+
+
+@pytest.mark.parametrize("command", [["audit"], ["inventory"], ["usage"]])
+def test_dr_secondary_refused_for_authenticated_subcommands(env, monkeypatch, capsys, command):
+    routes = {("", "sys/health"): {"replication_dr_mode": "secondary"}}
+    monkeypatch.setattr(vo, "VaultReader", lambda cfg: _ValidatingFake(routes))
+    assert vo.main(command) == vo.EXIT_FATAL
+    assert "DR secondary" in capsys.readouterr().err
+
+
+def test_validate_reports_vault_errors_without_traceback(env, monkeypatch, capsys):
+    routes = {("", "sys/health"): {"replication_dr_mode": "disabled"}, ("", "auth/token/lookup-self"): vo.hvac_exc.InvalidRequest("boom")}
+
+    class Reader(_ValidatingFake):
+        validate = vo.VaultReader.validate
+
+        def __init__(self):
+            super().__init__(routes)
+            self.config = vo.Config.from_env()
+
+    monkeypatch.setattr(vo, "VaultReader", lambda cfg: Reader())
+    assert vo.main(["health"]) == vo.EXIT_FATAL
+    assert "token validation failed" in capsys.readouterr().err

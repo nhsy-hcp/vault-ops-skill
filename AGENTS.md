@@ -14,7 +14,8 @@ A **read-only** HashiCorp Vault ops Claude skill (`.claude/skills/vault-ops/`) p
 | `.claude/skills/vault-ops/references/rules.md` | Rule catalogue (VT-*) with drafted remediation |
 | `.claude/skills/vault-ops/policies/vault-ops-readonly.hcl` | Least-privilege Vault policy for the skill's token |
 | `scripts/` | Dev-env automation (bash, called from `Taskfile.yml`) and `seed_vault.py` |
-| `tests/` | Unit tests (no Vault) and `test_integration.py` (`-m integration`, needs the dev Vault) |
+| `docs/dr.md` | DR pair design, node lifecycle, failure drills |
+| `tests/` | Unit tests (no Vault); `test_integration.py` and `test_dr.py` (`-m integration`, need the dev nodes; `test_dr.py` skips unless DR is active) |
 | `.tmp/spec.md` | Options analysis and spec (gitignored working doc) |
 
 ## Hard rules
@@ -25,6 +26,7 @@ A **read-only** HashiCorp Vault ops Claude skill (`.claude/skills/vault-ops/`) p
 - **No secrets in outputs.** Findings and other outputs must never contain tokens, accessors, Sentinel policy source, namespace `custom_metadata` or raw error text. Errors go through `sanitise_error()` (class + HTTP status). Output files are written 0600.
 - **Rule IDs are permanent.** Never renumber or reuse a `VT-*` ID. A new rule means adding it to `RULES`, the schema `category` enum if needed, `references/rules.md`, and a fixture that fires it. Adding optional fields is a minor `SCHEMA_VERSION` bump; renaming or removing is a major bump.
 - **Script stays single-file with PEP 723 deps** (`hvac`, `requests` only), so the skill runs anywhere with `uv run --script`. Keep the inline deps and `pyproject.toml` in sync.
+- **DR secondaries: `health` only.** A DR secondary rejects authenticated requests. `connect()` probes unauthenticated `sys/health` first: `health` reads only unauthenticated endpoints there, and `audit`/`inventory`/`usage` exit 1. Never add authenticated reads to the DR-secondary path.
 - **Stdout = written file paths only**; diagnostics go to stderr. Exit codes: 0 ok, 1 fatal, 2 gaps (`--fail-on-gaps`), 3 findings (`--fail-on`), 130 interrupted.
 
 ## Task interface
@@ -33,8 +35,10 @@ A **read-only** HashiCorp Vault ops Claude skill (`.claude/skills/vault-ops/`) p
 | --- | --- |
 | `task init` | `uv sync`, install pre-commit hooks, create `.env` from `.env.template` |
 | `task deps` | Check tools, container engine (podman: `podman machine start`), host IP/port, `.env` |
-| `task up` / `task down` | Start/stop `vault-primary` (Enterprise `-dev -dev-tls`) at `https://127.0.0.1:8210` |
-| `task status` / `task logs` | `vault status`; tail `.tmp/vault/vault-primary/logs/vault.log` |
+| `task up` / `task up:dr` / `task up:all` | Start, init and unseal `vault-primary` (`https://127.0.0.1:8210`) and/or `vault-dr` (`https://127.0.0.1:8220`): Enterprise, Raft, TLS |
+| `task down` / `task down:dr` | Remove both containers / only the DR one (Raft data kept) |
+| `task dr:enable` / `task dr:status` | Enable DR replication primary → secondary (idempotent, waits for `stream-wals`); show status on both |
+| `task status` / `task logs` | `vault status` (primary); tail `.tmp/vault/<node>/logs/vault.log` (`NODE=vault-dr task logs`) |
 | `task seed` | `scripts/seed_vault.py`: 132 namespaces, mounts, KV data, client activity (root) |
 | `task seed:findings` | Configuration that trips every live-testable rule, plus Sentinel EGP/RGPs (root) |
 | `task token:audit` | Write `vault-ops-readonly` policy, mint 1h token to `.tmp/audit-token` (0600) |
@@ -44,16 +48,17 @@ A **read-only** HashiCorp Vault ops Claude skill (`.claude/skills/vault-ops/`) p
 | `task test:integration` | Integration tests (audit token, live Vault) |
 | `task test:all` | Unit + integration with coverage ≥ 80% |
 | `task test:ci` | `lint` + `test` (no Vault needed) |
-| `task clean` | Remove caches, `outputs/`, `.tmp/vault`, `.tmp/audit-token`, `.tmp/*.log` |
+| `task clean` | Remove caches, `outputs/`, `.tmp/vault` (all node data, unseal keys, TLS), `.tmp/audit-token`, `.tmp/*.log` |
 
-Full end-to-end check: `task down && task up && task seed && task seed:findings && task token:audit && task test:all && task lint`.
+Full end-to-end check: `task down && task clean && task up:all && task seed && task seed:findings && task token:audit && task dr:enable && task test:all && task lint`.
 
 ## Environment notes
 
 - The container engine is **podman** behind the `docker` CLI (`CONTAINER_CLI` in `.env`). Use fully qualified image names (`docker.io/...`).
-- Ports: primary `127.0.0.1:8210`; **`8220` is reserved for the planned DR secondary**. Avoid 8300–8302 (Consul) and 127.0.0.x aliases other than 127.0.0.1 (macOS needs sudo for them).
-- Dev mode uses in-memory storage, so `sys/replication/status` returns `{"mode":"unsupported"}`. The DR phase must use Raft storage with a config file, not `-dev`.
-- TLS: `VAULT_SKIP_VERIFY=true` by default. For verified TLS, set `VAULT_CACERT=.tmp/vault/vault-primary/tls/vault-ca.pem` (the cert has SANs for 127.0.0.1 and the container name).
+- Ports: primary `127.0.0.1:8210`, DR `127.0.0.1:8220`. Replication uses 8201 on the `vault-ops` podman network (never published). Avoid 8300–8302 (Consul) and 127.0.0.x aliases other than 127.0.0.1 (macOS needs sudo for them).
+- Nodes run in server mode on Raft, not `-dev`: dev-mode in-memory storage can't replicate. Node state lives in `.tmp/vault/<node>/` (`config/vault.hcl`, `data/`, `logs/`, `init.json` with the unseal key and initial root token, 0600).
+- Each node gets a root-policy token with ID `root`, so `VAULT_TOKEN=root` works as in dev mode. After `dr:enable` the secondary uses the primary's storage and unseal key; `vault_up.sh` tries both keys.
+- TLS: one local CA and one shared server cert from `scripts/gen_tls.sh` in `.tmp/vault/tls/` (SANs: localhost, 127.0.0.1, vault-primary, vault-dr). `VAULT_SKIP_VERIFY=true` by default; for verified TLS set `VAULT_CACERT=.tmp/vault/tls/vault-ca.pem`. Details: [docs/dr.md](docs/dr.md).
 - hvac quirk: a `requests.Session` passed to `hvac.Client` overrides its `verify=`. `VaultReader` sets `session.verify`, and a regression test covers it.
 - The default activity-log billing period excludes the current month. `usage` adds `current_month` from `sys/internal/counters/activity/monthly`.
 

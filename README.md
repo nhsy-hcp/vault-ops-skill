@@ -59,21 +59,16 @@ The policy is read/list only and never grants reading ACL policy bodies.
 
 ## Local development
 
-Requires [task](https://taskfile.dev), [uv](https://docs.astral.sh/uv/), the `vault` CLI, podman or Docker, `jq`, `gitleaks`, `shellcheck` and `pre-commit`, plus a Vault Enterprise license.
+Requires [task](https://taskfile.dev), [uv](https://docs.astral.sh/uv/), the `vault` CLI, podman or Docker, `jq`, `openssl`, `gitleaks`, `shellcheck` and `pre-commit`, plus a Vault Enterprise license in `.env`.
 
 ```bash
-task init                 # deps, hooks, .env from template; then put VAULT_LICENSE in .env
-task deps                 # validate tools, container engine, port, .env
-task up                   # Vault Enterprise dev server, TLS, https://127.0.0.1:8210
-task seed                 # 132 namespaces, mounts, KV data, client activity
-task seed:findings        # config that trips the audit rules + Sentinel policies
-task token:audit          # 1h read-only token -> .tmp/audit-token
-task skill:run -- audit   # run the skill script with that token
-task test:all             # unit + integration, coverage >= 80%
-task lint                 # ruff, shellcheck, gitleaks, yaml/json
-task down
+task init && task deps    # one-time setup, then validate the environment
+task up:all               # primary https://127.0.0.1:8210 + DR node https://127.0.0.1:8220 (raft, TLS)
+task seed && task seed:findings && task token:audit
+task dr:enable            # DR replication primary -> secondary
+task skill:run -- audit   # run the skill script with the read-only token
+task test:all && task lint
 ```
 
-Logs: `.tmp/vault/vault-primary/logs/vault.log`. For verified TLS, set `VAULT_CACERT=.tmp/vault/vault-primary/tls/vault-ca.pem` instead of `VAULT_SKIP_VERIFY=true`.
-
-**Next phase:** a DR secondary on `https://127.0.0.1:8220`, replicating over the private `vault-ops` podman network. It needs Raft storage, because `-dev` in-memory storage cannot replicate.
+- DR setup, node lifecycle and failure drills: [docs/dr.md](docs/dr.md)
+- All tasks and repo conventions: [AGENTS.md](AGENTS.md)

@@ -25,15 +25,43 @@ tasks:
       - scripts/check_deps.sh
 
   up:
-    desc: Start Vault Enterprise dev server (TLS) on ${VAULT_HOST_IP}:${VAULT_HOST_PORT} (default 127.0.0.1:8210)
+    desc: Start the primary Vault Enterprise node (raft, TLS) on ${VAULT_HOST_IP}:${VAULT_HOST_PORT} (default 127.0.0.1:8210)
     deps: [deps]
     cmds:
-      - scripts/vault_up.sh
+      - scripts/vault_up.sh "${VAULT_CONTAINER_NAME:-vault-primary}" "${VAULT_HOST_PORT:-8210}"
+
+  up:dr:
+    desc: Start the DR secondary node on ${VAULT_HOST_IP}:${VAULT_DR_HOST_PORT} (default 127.0.0.1:8220)
+    deps: [deps]
+    cmds:
+      - scripts/vault_up.sh "${VAULT_DR_CONTAINER_NAME:-vault-dr}" "${VAULT_DR_HOST_PORT:-8220}"
+
+  up:all:
+    desc: Start primary and DR nodes
+    cmds:
+      - task: up
+      - task: up:dr
 
   down:
-    desc: Stop and remove the Vault dev container
+    desc: Stop and remove both Vault containers (raft data in .tmp/vault is kept)
     cmds:
       - scripts/vault_down.sh
+
+  down:dr:
+    desc: Stop and remove the DR container only
+    cmds:
+      - scripts/vault_down.sh "${VAULT_DR_CONTAINER_NAME:-vault-dr}"
+
+  dr:enable:
+    desc: Enable DR replication primary -> secondary and wait for stream-wals (idempotent)
+    cmds:
+      - scripts/dr_enable.sh
+
+  dr:status:
+    desc: Show DR replication status on both nodes
+    cmds:
+      - "curl -s --cacert .tmp/vault/tls/vault-ca.pem https://${VAULT_HOST_IP:-127.0.0.1}:${VAULT_HOST_PORT:-8210}/v1/sys/replication/dr/status | jq -c '.data | {node: \"primary\", mode, state, connection: [.secondaries[]?.connection_status]}'"
+      - "curl -s --cacert .tmp/vault/tls/vault-ca.pem https://${VAULT_HOST_IP:-127.0.0.1}:${VAULT_DR_HOST_PORT:-8220}/v1/sys/replication/dr/status | jq -c '.data | {node: \"dr\", mode, state, connection_state}'"
 
   status:
     desc: Show Vault status
@@ -41,9 +69,9 @@ tasks:
       - vault status
 
   logs:
-    desc: Tail the Vault server log
+    desc: "Tail a node's Vault log (NODE=vault-dr task logs for the DR node)"
     cmds:
-      - tail -n 50 -f .tmp/vault/${VAULT_CONTAINER_NAME:-vault-primary}/logs/vault.log
+      - tail -n 50 -f .tmp/vault/{{.NODE | default "vault-primary"}}/logs/vault.log
 
   seed:
     desc: Seed namespaces, mounts, KV data and client activity (root token)

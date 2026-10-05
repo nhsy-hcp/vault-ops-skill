@@ -21,7 +21,7 @@ Code collects and checks; you interpret. All Vault access goes through the bundl
 | Ask | Command | Output (path printed on stdout) |
 | --- | --- | --- |
 | Audit / security review / "what's wrong" | `audit [--namespace ns] [-w 8] [--no-sentinel] [--redact-addr]` | `*-findings-*.json` |
-| Health, seal, HA, replication, license, version | `health` | `*-health-*.json` |
+| Health, seal, HA, replication, license, version | `health` (also works against a DR secondary) | `*-health-*.json` |
 | What exists: namespaces, mounts, policy names | `inventory [--namespace ns]` | `*-inventory-*.json` |
 | Client counts / usage / billing | `usage [--start RFC3339] [--end RFC3339] [--top 20]` | `*-usage-*.json` |
 | Compare runs / what changed | `diff <old-findings.json> <new-findings.json>` | `diff-*.json` |
@@ -31,7 +31,8 @@ Add `--output-dir <dir>` to choose where files go (default `outputs/`, or `$VAUL
 ## Workflow
 
 1. **Files first.** If the user supplied or points at existing vault-ops JSON files, use them and skip to step 3. Look in `outputs/` for recent `*-findings-*.json` when the user refers to "the last audit".
-2. **Run.** Run the matching subcommand. On exit 1, report the stderr message (e.g. unreachable, 403 on lookup-self) and stop — do not try other ways to reach Vault.
+2. **Run.** Run the matching subcommand. On exit 1, report the stderr message (e.g. unreachable, 403 on lookup-self, "is a DR secondary") and stop — do not try other ways to reach Vault.
+   - For a DR pair, run `health` against both nodes (set `VAULT_ADDR` to each node in turn) and `audit`/`inventory`/`usage` against the primary only: a DR secondary rejects authenticated reads by design.
 3. **Read** the produced JSON in full with the Read tool.
 4. **Coverage first.** If `coverage.complete` is false, open with the denied/errored namespaces and scopes, and say the results are partial. A denied scope usually means the token's policy lacks a rule — point to `policies/vault-ops-readonly.hcl` in this skill.
 5. **Explain.** Rank and group findings using `references/rules.md`. For each item: what it is, why it matters here, the affected namespaces/objects (count + up to three examples), and a drafted remediation command.
@@ -41,7 +42,7 @@ Add `--output-dir <dir>` to choose where files go (default `outputs/`, or `$VAUL
 ## Reading the files
 
 - `findings.json`: `cluster_context.sentinel` = supported/unsupported/skipped — say Sentinel was not assessed unless `supported`. `evidence.baseline_source == "fallback"` means the cluster lease ceiling was unreadable.
-- `health.json`: `health.license.expiration_time` vs `termination_time`; `health.replication.{dr,performance}.mode/state`; `health.leader.ha_enabled`.
+- `health.json`: `health.license.expiration_time` vs `termination_time`; `health.replication.{dr,performance}.mode/state`, plus `secondaries[].connection_status` on a primary and `primaries[]` / `connection_state` on a secondary; `health.leader.ha_enabled`. `health.dr_secondary: true` means only unauthenticated status was readable (license and lease data are `null` by design, not missing permissions).
 - `inventory.json`: per-namespace mounts (built-in engines omitted) and ACL policy **names** only.
 - `usage.json`: `total.clients` and `top_namespaces[]`; the period defaults to the current billing period.
 
