@@ -105,6 +105,7 @@ task skill:run -- audit   # run the skill script with the read-only token
 task test:all && task lint
 ```
 
+- CI: [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs `task test:ci` (lint, plugin manifests, unit tests) on pushes to `main` and on pull requests. It needs no Vault, licence or secrets. Run it locally with `act`.
 - DR setup, node lifecycle and failure drills: [docs/dr.md](docs/dr.md)
 - All tasks and repo conventions: [AGENTS.md](AGENTS.md)
 
