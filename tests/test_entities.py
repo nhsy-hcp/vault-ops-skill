@@ -112,6 +112,7 @@ def test_metadata_and_alias_names_only_with_list():
 
 def test_every_rule_is_produced_somewhere(cluster_data, health, activity):
     from test_policies import collect as collect_policies
+    from test_policies import collect_sentinel
 
     policies = collect_policies()[2]
     _, _, entities = collect()
@@ -127,6 +128,7 @@ def test_every_rule_is_produced_somewhere(cluster_data, health, activity):
         + vo.entity_findings(entities, {})
         + vo.usage_findings(activity, None, enterprise=True)
         + vo.acl_policy_findings(policies)
+        + vo.sentinel_policy_findings(collect_sentinel()[2][1])
     }
     assert produced == set(vo.RULES)
 

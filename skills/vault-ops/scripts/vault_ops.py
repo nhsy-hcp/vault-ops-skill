@@ -48,7 +48,7 @@ from hvac import exceptions as hvac_exc
 
 TOOL_NAME = "vault-ops"
 TOOL_VERSION = "0.2.4"
-SCHEMA_VERSION = "1.8.0"
+SCHEMA_VERSION = "1.9.0"
 
 EXIT_OK, EXIT_FATAL, EXIT_GAPS, EXIT_FINDINGS, EXIT_INTERRUPTED = 0, 1, 2, 3, 130
 
@@ -133,6 +133,8 @@ ESCALATION_PATHS = {
 DEPRECATED_STATUSES = frozenset({"deprecated", "pending-removal", "removed"})
 BROAD_EGP_PATHS = frozenset({"*", "/*"})
 ALWAYS_TRUE_MAIN = re.compile(r"^main\s*=\s*rule\s*\{\s*true\s*\}$")
+ALWAYS_FALSE_MAIN = re.compile(r"^main\s*=\s*(?:rule\s*\{\s*false\s*\}|false)$")
+SENTINEL_IMPORT = re.compile(r'^\s*import\s+"([^"]+)"', re.M)
 HEALTHY_REPLICATION_STATES = frozenset({"running", "stream-wals", "idle"})
 # sys/health query that returns 200 (and a body) for every node state.
 HEALTH_PARAMS = {
@@ -169,6 +171,9 @@ RULES: dict[str, Rule] = {
     "VT-SNT-002": Rule("info", "governance", "Sentinel policy is overridable"),
     "VT-SNT-003": Rule("info", "governance", "EGP applies to every path"),
     "VT-SNT-004": Rule("low", "governance", "Sentinel policy always evaluates true"),
+    "VT-SNT-005": Rule("low", "governance", "Same-named Sentinel policy differs across namespaces"),
+    "VT-SNT-006": Rule("medium", "governance", "Hard-mandatory Sentinel policy always evaluates false"),
+    "VT-SNT-007": Rule("info", "governance", "Sentinel policy makes outbound HTTP calls"),
     "VT-LIC-001": Rule("medium", "lifecycle", "License expires soon"),
     "VT-HLTH-001": Rule("medium", "availability", "Node sealed or no active leader"),
     "VT-HLTH-002": Rule("medium", "replication", "Replication enabled but not healthy"),
@@ -287,13 +292,29 @@ def parent_of(path: str) -> str | None:
     return path.rsplit("/", 1)[0] if "/" in path else ""
 
 
+def _meaningful_lines(body: str) -> list[str]:
+    return [s for line in body.splitlines() if (s := line.strip()) and not s.startswith(("#", "//"))]
+
+
 def is_trivial_policy(body: Any) -> bool:
     if not isinstance(body, str):
         return False
-    meaningful = [s for line in body.splitlines() if (s := line.strip()) and not s.startswith(("#", "//"))]
+    meaningful = _meaningful_lines(body)
     if not meaningful:
         return True
     return ALWAYS_TRUE_MAIN.match(" ".join(meaningful)) is not None
+
+
+def is_always_false_policy(body: Any) -> bool:
+    """Only `main = rule { false }` (or `main = false`) beyond comments and imports: denies every matched request."""
+    if not isinstance(body, str):
+        return False
+    meaningful = [s for s in _meaningful_lines(body) if not SENTINEL_IMPORT.match(s)]
+    return ALWAYS_FALSE_MAIN.match(" ".join(meaningful)) is not None
+
+
+def sentinel_imports(body: str) -> tuple[str, ...]:
+    return tuple(sorted(set(SENTINEL_IMPORT.findall(body))))
 
 
 def days_until(timestamp: str, now: datetime | None = None) -> int | None:
@@ -536,33 +557,12 @@ class Walker:
     def _sentinel(self, ns: str, kind: str) -> dict[str, Any]:
         if self.data.sentinel in ("skipped", "unsupported"):
             return {}
-        try:
-            names = self.reader.list(f"sys/policies/{kind}", ns)
-        except hvac_exc.InvalidPath as exc:
-            # Vault 404s both "no Sentinel in this build" and "no policies here"; only the body differs.
-            if "unsupported path" in str(exc).lower():
-                with self._lock:
-                    self.data.sentinel = "unsupported"
-            else:
-                self._mark_sentinel()
-            return {}
-        except hvac_exc.Forbidden:
-            self.coverage.deny(ns, f"sentinel {kind.upper()} policies")
-            return {}
-        except (hvac_exc.VaultError, requests.exceptions.RequestException) as exc:
-            self.coverage.error(ns, exc)
-            return {}
-        self._mark_sentinel()
-        policies: dict[str, Any] = {}
-        denied = False
-        for name in names:
-            try:
-                policies[name] = self.reader.data(f"sys/policies/{kind}/{name}", ns)
-            except (hvac_exc.VaultError, requests.exceptions.RequestException):
-                policies[name] = {"name": name, "read_error": True}
-                denied = True
-        if denied:
-            self.coverage.deny(ns, f"sentinel {kind.upper()} policy bodies")
+        status, policies = read_sentinel_policies(self.reader, self.coverage, ns, kind)
+        if status == "unsupported":
+            with self._lock:
+                self.data.sentinel = "unsupported"
+        elif status == "supported":
+            self._mark_sentinel()
         return policies
 
     def _mark_sentinel(self) -> None:
@@ -590,6 +590,32 @@ class Walker:
                 self.data.namespaces[child] = {k: v for k, v in (info or {}).items() if k != "custom_metadata"}
                 children.append(child)
         return children
+
+
+def read_sentinel_policies(reader: VaultReader, coverage: Coverage, ns: str, kind: str) -> tuple[str, dict[str, Any]]:
+    """EGP or RGP policies in one namespace, by name. Status: supported / unsupported (no Sentinel in this build) / none (listing failed)."""
+    try:
+        names = reader.list(f"sys/policies/{kind}", ns)
+    except hvac_exc.InvalidPath as exc:
+        # Vault 404s both "no Sentinel in this build" and "no policies here"; only the body differs.
+        return ("unsupported" if "unsupported path" in str(exc).lower() else "supported"), {}
+    except hvac_exc.Forbidden:
+        coverage.deny(ns, f"sentinel {kind.upper()} policies")
+        return "none", {}
+    except (hvac_exc.VaultError, requests.exceptions.RequestException) as exc:
+        coverage.error(ns, exc)
+        return "none", {}
+    policies: dict[str, Any] = {}
+    denied = False
+    for name in names:
+        try:
+            policies[name] = reader.data(f"sys/policies/{kind}/{name}", ns)
+        except (hvac_exc.VaultError, requests.exceptions.RequestException):
+            policies[name] = {"name": name, "read_error": True}
+            denied = True
+    if denied:
+        coverage.deny(ns, f"sentinel {kind.upper()} policy bodies (attach vault-ops-sentinel-reader)")
+    return "supported", policies
 
 
 def _mounts_only(payload: dict[str, Any]) -> dict[str, Any]:
@@ -854,6 +880,77 @@ def collect_acl_policies(reader: VaultReader, coverage: Coverage, namespaces: li
 
     with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
         return [p for result in pool.map(one_namespace, namespaces) for p in result]
+
+
+@dataclass(frozen=True)
+class SentinelPolicy:
+    """A Sentinel EGP/RGP as assessed. The source is hashed and scanned, never kept."""
+
+    namespace: str
+    kind: str  # egp / rgp
+    name: str
+    enforcement_level: str | None
+    paths: tuple[str, ...]  # EGP only
+    sha256: str
+    imports: tuple[str, ...]
+    trivial: bool
+    always_false: bool
+    line_count: int
+
+
+def sentinel_policy(ns: str, kind: str, name: str, policy: dict[str, Any], body: str) -> SentinelPolicy:
+    paths = policy.get("paths") if kind == "egp" else None
+    return SentinelPolicy(
+        namespace=ns,
+        kind=kind,
+        name=name,
+        enforcement_level=policy.get("enforcement_level"),
+        paths=tuple(sorted(str(p) for p in paths)) if isinstance(paths, list) else (),
+        sha256=hashlib.sha256(body.encode()).hexdigest()[:16],
+        imports=sentinel_imports(body),
+        trivial=is_trivial_policy(body),
+        always_false=is_always_false_policy(body),
+        line_count=len(body.splitlines()),
+    )
+
+
+def collect_sentinel_policies(reader: VaultReader, coverage: Coverage, namespaces: list[str], workers: int = 4) -> tuple[str, list[SentinelPolicy]]:
+    """EGP/RGP policies per namespace, hashed and scanned; sources are not kept.
+
+    Reading a body needs the add-on vault-ops-sentinel-reader (`read`, no sudo). Returns `unsupported`
+    (not an error) on a build without Sentinel, and stops probing once that is known.
+    """
+    state = {"status": "unknown"}
+    lock = threading.Lock()
+
+    def one_namespace(ns: str) -> list[SentinelPolicy]:
+        policies: list[SentinelPolicy] = []
+        for kind in ("egp", "rgp"):
+            if state["status"] == "unsupported":
+                break
+            status, raw = read_sentinel_policies(reader, coverage, ns, kind)
+            with lock:
+                if status == "unsupported":
+                    state["status"] = "unsupported"
+                elif status == "supported" and state["status"] == "unknown":
+                    state["status"] = "supported"
+            for name, policy in sorted(raw.items()):
+                if policy.get("read_error"):
+                    continue  # recorded as a coverage denial
+                body = policy.get("policy")
+                if not isinstance(body, str):
+                    coverage.error(ns, ValueError("unrecognised Sentinel policy payload"))
+                    continue
+                policies.append(sentinel_policy(ns, kind, name, policy, body))
+        return policies
+
+    if not namespaces:
+        return "unsupported", []
+    found = one_namespace(namespaces[0])  # probe first, so a CE build costs two requests
+    if state["status"] != "unsupported":
+        with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
+            found += [p for result in pool.map(one_namespace, namespaces[1:]) for p in result]
+    return ("unsupported" if state["status"] == "unknown" else state["status"]), found
 
 
 def collect_health(reader: VaultReader, coverage: Coverage, probe: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -1297,64 +1394,40 @@ def namespace_findings(data: ClusterData) -> list[Finding]:
     return findings
 
 
+def _sentinel_rule_findings(ns: str, kind: str, name: str, level: Any, paths: Any, trivial: bool, line_count: int) -> list[Finding]:
+    """VT-SNT-001..004 for one policy; shared by `audit` and `policies` so wording and fingerprints match."""
+    findings: list[Finding] = []
+    object_kind = f"{kind}_policy"
+    if level == "advisory":
+        findings.append(finding("VT-SNT-001", ns, object_kind, name, kind, "Enforcement level is `advisory` — the policy logs violations but never blocks a request.", enforcement_level=level))
+    elif level == "soft-mandatory":
+        findings.append(finding("VT-SNT-002", ns, object_kind, name, kind, "Enforcement level is `soft-mandatory` — a caller with a `sudo`-capable token can override it.", enforcement_level=level))
+    if kind == "egp" and isinstance(paths, (list, tuple)) and any(p in BROAD_EGP_PATHS for p in paths):
+        findings.append(finding("VT-SNT-003", ns, object_kind, name, kind, "Endpoint path is a wildcard — the policy applies to every request in this namespace.", paths=sorted(paths)))
+    if trivial:
+        findings.append(
+            finding(
+                "VT-SNT-004",
+                ns,
+                object_kind,
+                name,
+                kind,
+                "Policy body always evaluates to true — it enforces nothing despite appearing in the policy list.",
+                always_true=True,
+                policy_line_count=line_count,
+            )
+        )
+    return findings
+
+
 def sentinel_findings(data: ClusterData) -> list[Finding]:
     findings: list[Finding] = []
     for kind, collection in (("egp", data.egp), ("rgp", data.rgp)):
-        object_kind = f"{kind}_policy"
         for ns, policies in collection.items():
             for name, policy in policies.items():
-                level = policy.get("enforcement_level")
-                if level == "advisory":
-                    findings.append(
-                        finding(
-                            "VT-SNT-001",
-                            ns,
-                            object_kind,
-                            name,
-                            kind,
-                            "Enforcement level is `advisory` — the policy logs violations but never blocks a request.",
-                            enforcement_level=level,
-                        )
-                    )
-                elif level == "soft-mandatory":
-                    findings.append(
-                        finding(
-                            "VT-SNT-002",
-                            ns,
-                            object_kind,
-                            name,
-                            kind,
-                            "Enforcement level is `soft-mandatory` — a caller with a `sudo`-capable token can override it.",
-                            enforcement_level=level,
-                        )
-                    )
-                paths = policy.get("paths")
-                if kind == "egp" and isinstance(paths, list) and any(p in BROAD_EGP_PATHS for p in paths):
-                    findings.append(
-                        finding(
-                            "VT-SNT-003",
-                            ns,
-                            object_kind,
-                            name,
-                            kind,
-                            "Endpoint path is a wildcard — the policy applies to every request in this namespace.",
-                            paths=sorted(paths),
-                        )
-                    )
                 body = policy.get("policy")
-                if is_trivial_policy(body):
-                    findings.append(
-                        finding(
-                            "VT-SNT-004",
-                            ns,
-                            object_kind,
-                            name,
-                            kind,
-                            "Policy body always evaluates to true — it enforces nothing despite appearing in the policy list.",
-                            always_true=True,
-                            policy_line_count=len(body.splitlines()),
-                        )
-                    )
+                trivial = is_trivial_policy(body)
+                findings += _sentinel_rule_findings(ns, kind, name, policy.get("enforcement_level"), policy.get("paths"), trivial, len(body.splitlines()) if trivial else 0)
     return findings
 
 
@@ -2045,9 +2118,68 @@ def acl_policy_findings(policies: list[AclPolicy]) -> list[Finding]:
     return findings
 
 
-def build_policies_document(policies: list[AclPolicy], coverage: Coverage, run: dict[str, Any]) -> dict[str, Any]:
-    """Policy names, body hashes and flagged rules only: bodies and parameter values are never written."""
-    findings = sort_findings(acl_policy_findings(policies))
+def sentinel_policy_findings(policies: list[SentinelPolicy]) -> list[Finding]:
+    findings: list[Finding] = []
+    for p in policies:
+        findings += _sentinel_rule_findings(p.namespace, p.kind, p.name, p.enforcement_level, list(p.paths), p.trivial, p.line_count)
+        if p.always_false and p.enforcement_level == "hard-mandatory":
+            scope = f" on {', '.join(f'`{x}`' for x in p.paths)}" if p.paths else ""
+            detail = f"Hard-mandatory and `main` is always false — every request it applies to{scope} is denied, which can lock callers out."
+            findings.append(finding("VT-SNT-006", p.namespace, f"{p.kind}_policy", p.name, p.kind, detail, enforcement_level=p.enforcement_level, paths=list(p.paths)))
+        if "http" in p.imports:
+            detail = "Imports `http` — each request it applies to can wait on an outbound call, so that endpoint's availability and latency gate Vault requests."
+            findings.append(finding("VT-SNT-007", p.namespace, f"{p.kind}_policy", p.name, p.kind, detail, imports=list(p.imports)))
+    by_name: dict[tuple[str, str], list[SentinelPolicy]] = {}
+    for p in policies:
+        by_name.setdefault((p.kind, p.name), []).append(p)
+    for (kind, name), copies in sorted(by_name.items()):
+        variants = Counter(p.sha256 for p in copies)
+        if len(variants) < 2:
+            continue
+        common = variants.most_common(1)[0][0]
+        outliers = sorted(display_namespace(p.namespace) for p in copies if p.sha256 != common)
+        differ = "differs" if len(outliers) == 1 else "differ"
+        detail = f"{kind.upper()} `{name}` exists in {len(copies)} namespaces with {len(variants)} different bodies — copies have drifted; {len(outliers)} {differ} from the most common one."
+        findings.append(finding("VT-SNT-005", "", f"{kind}_policy", name, kind, detail, namespaces=len(copies), variants=len(variants), outliers=len(outliers), examples=outliers[:3]))
+    return findings
+
+
+def sentinel_block(status: str, policies: list[SentinelPolicy], findings: list[Finding]) -> dict[str, Any]:
+    """Names, levels, paths, imports and hashes only: Sentinel source and comments are never written."""
+    flagged: dict[tuple[str, str, str], set[str]] = {}
+    for f in findings:
+        if f.object_kind in ("egp_policy", "rgp_policy") and f.rule_id != "VT-SNT-005":  # drift is cluster-wide, not per copy
+            flagged.setdefault((f.namespace, f.object_type or "", f.object_path or ""), set()).add(f.rule_id)
+    rows = [
+        {
+            "namespace": display_namespace(p.namespace),
+            "kind": p.kind,
+            "name": p.name,
+            "enforcement_level": p.enforcement_level,
+            "paths": list(p.paths),
+            "sha256": p.sha256,
+            "imports": list(p.imports),
+            "flagged": sorted(flagged.get((p.namespace, p.kind, p.name), ())),
+        }
+        for p in sorted(policies, key=lambda p: (display_namespace(p.namespace), p.kind, p.name))
+    ]
+    return {
+        "status": status,
+        "policies": rows,
+        "summary": {
+            "egp": sum(1 for p in policies if p.kind == "egp"),
+            "rgp": sum(1 for p in policies if p.kind == "rgp"),
+            "distinct_bodies": len({p.sha256 for p in policies}),
+            "by_enforcement": dict(sorted(Counter(p.enforcement_level or "unknown" for p in policies).items())),
+        },
+    }
+
+
+def build_policies_document(policies: list[AclPolicy], coverage: Coverage, run: dict[str, Any], sentinel_status: str = "skipped", sentinel: list[SentinelPolicy] | None = None) -> dict[str, Any]:
+    """Policy names, body hashes and flagged rules only: ACL bodies, parameter values and Sentinel source are never written."""
+    sentinel = sentinel or []
+    sentinel_found = sentinel_policy_findings(sentinel)
+    findings = sort_findings(acl_policy_findings(policies) + sentinel_found)
     rows = []
     for p in sorted(policies, key=lambda p: (display_namespace(p.namespace), p.name)):
         flagged = [{"path": r.path, "capabilities": sorted(r.capabilities), "rules": flags} for r in p.rules or () if (flags := rule_flags(r))]
@@ -2075,6 +2207,7 @@ def build_policies_document(policies: list[AclPolicy], coverage: Coverage, run: 
             "by_rule": dict(sorted(Counter(f.rule_id for f in findings).items())),
         },
         "policies": rows,
+        "sentinel": sentinel_block(sentinel_status, sentinel, sentinel_found),
         "findings": [f.to_dict() for f in findings],
     }
 
@@ -2249,8 +2382,9 @@ def cmd_policies(args: argparse.Namespace) -> int:
     namespaces = discover_namespaces(reader, coverage, config.namespace, args.workers)
     coverage.namespaces_processed = len(namespaces)
     policies = collect_acl_policies(reader, coverage, namespaces, args.workers)
+    sentinel_status, sentinel = ("skipped", []) if args.no_sentinel else collect_sentinel_policies(reader, coverage, namespaces, args.workers)
     run = run_block(health["cluster_name"], _addr(config, args.redact_addr), config.namespace, started, args.workers)
-    document = build_policies_document(policies, coverage, run)
+    document = build_policies_document(policies, coverage, run, sentinel_status, sentinel)
     print(write_json(output_path(args.output_dir, health["cluster_name"], "policies", started), document))
     return EXIT_OK
 
@@ -2298,8 +2432,7 @@ def build_parser() -> argparse.ArgumentParser:
     entities.add_argument("-w", "--workers", type=int, default=4)
     entities.add_argument("--list", action="store_true", help="include per-entity rows (best with --namespace)")
     entities.set_defaults(func=cmd_entities)
-    policies = sub.add_parser("policies", parents=[common, live], help="ACL policy permissions (needs vault-ops-policy-reader)")
-    policies.add_argument("-w", "--workers", type=int, default=4)
+    policies = sub.add_parser("policies", parents=[common, live, walk], help="ACL and Sentinel policy permissions (ACL bodies need vault-ops-policy-reader)")
     policies.set_defaults(func=cmd_policies)
     diff = sub.add_parser("diff", parents=[common], help="compare two findings.json files")
     diff.add_argument("old")

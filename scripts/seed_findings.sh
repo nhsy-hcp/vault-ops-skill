@@ -7,6 +7,7 @@ set -euo pipefail
 : "${VAULT_TOKEN:?VAULT_TOKEN must be set}"
 NS="${FINDINGS_NAMESPACE:-tn009/soc2/dev}"
 SENTINEL_NS="${SENTINEL_NAMESPACE:-tn009}"
+SENTINEL_DRIFT_NS="${SENTINEL_DRIFT_NAMESPACE:-tn009/gdpr}"
 EMPTY_PARENT="${EMPTY_PARENT:-tn010/prototypes}"
 SENTINEL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/sentinel" && pwd)"
 
@@ -122,7 +123,14 @@ vault write -namespace="$SENTINEL_NS" sys/policies/egp/vault-ops-wildcard \
 step "VT-SNT-004 rgp vault-ops-always-true"
 vault write -namespace="$SENTINEL_NS" sys/policies/rgp/vault-ops-always-true \
   enforcement_level=hard-mandatory policy=@"${SENTINEL_DIR}/always-true.sentinel" >/dev/null
-step "control: rgp vault-ops-hard (must produce no finding)"
+step "control: rgp vault-ops-hard (must produce no audit finding)"
 vault write -namespace="$SENTINEL_NS" sys/policies/rgp/vault-ops-hard \
   enforcement_level=hard-mandatory policy=@"${SENTINEL_DIR}/noop.sentinel" >/dev/null
+step "VT-SNT-005 rgp vault-ops-hard drifted copy in ${SENTINEL_DRIFT_NS}"
+vault write -namespace="$SENTINEL_DRIFT_NS" sys/policies/rgp/vault-ops-hard \
+  enforcement_level=hard-mandatory policy=@"${SENTINEL_DIR}/noop-drift.sentinel" >/dev/null
+step "VT-SNT-007 egp vault-ops-http (advisory, narrow path)"
+vault write -namespace="$SENTINEL_NS" sys/policies/egp/vault-ops-http \
+  enforcement_level=advisory paths="secret/data/vault-ops-http/*" policy=@"${SENTINEL_DIR}/http-import.sentinel" >/dev/null
+# VT-SNT-006 (hard-mandatory, always false) is not seeded: it would lock out the dev cluster. Unit-tested only.
 echo "Done."

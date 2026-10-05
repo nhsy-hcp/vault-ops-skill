@@ -69,7 +69,7 @@ def test_walker_collects_tree_and_coverage():
     assert cov.namespaces_processed == 4
     assert sorted((d["namespace"], d["scope"]) for d in cov.denied) == [
         ("a/", "ACL policy names"),
-        ("a/", "sentinel EGP policy bodies"),
+        ("a/", "sentinel EGP policy bodies (attach vault-ops-sentinel-reader)"),
         ("a/c/", "child namespaces (subtree not audited)"),
         ("b/", "whole namespace (no data collected)"),
     ]

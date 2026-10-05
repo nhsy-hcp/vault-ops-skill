@@ -27,11 +27,10 @@ SEEDED_RULES = {
     "VT-MOUNT-006",
     "VT-NS-001",
     "VT-NS-002",
-    "VT-SNT-001",
-    "VT-SNT-002",
-    "VT-SNT-003",
-    "VT-SNT-004",
 }
+# Need the vault-ops-sentinel-reader add-on (task token:policies); with the plain audit token Sentinel bodies are a coverage denial.
+SEEDED_SENTINEL_RULES = {"VT-SNT-001", "VT-SNT-002", "VT-SNT-003", "VT-SNT-004"}
+SENTINEL_READER = "vault-ops-sentinel-reader"
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -57,11 +56,13 @@ def test_audit_full_coverage_and_rules(capsys, tmp_path, schema):
     code, doc = run(capsys, "audit", "--output-dir", str(tmp_path), "-w", "8")
     assert code == 0
     jsonschema.validate(doc, schema)
-    assert doc["coverage"]["complete"] is True, doc["coverage"]
+    denied = doc["coverage"]["denied"]
+    sentinel_reader = not any(SENTINEL_READER in d["scope"] for d in denied)
+    assert not doc["coverage"]["errors"] and all(SENTINEL_READER in d["scope"] for d in denied), doc["coverage"]
     assert doc["coverage"]["namespaces_processed"] > 100
     assert doc["cluster_context"]["sentinel"] == "supported"
     assert doc["cluster_context"]["enterprise"] is True
-    assert set(doc["summary"]["by_rule"]) >= SEEDED_RULES
+    assert set(doc["summary"]["by_rule"]) >= SEEDED_RULES | (SEEDED_SENTINEL_RULES if sentinel_reader else set())
     assert not any(f["object"]["path"] == "vault-ops-hard" for f in doc["findings"])
     (inv_path,) = tmp_path.glob("*-inventory-*.json")
     inv = json.loads(inv_path.read_text())
@@ -92,7 +93,7 @@ def test_health(capsys, tmp_path):
 def test_inventory_and_usage(capsys, tmp_path):
     _, inv = run(capsys, "inventory", "--output-dir", str(tmp_path))
     assert inv["summary"]["namespaces"] > 100
-    assert inv["coverage"]["complete"] is True
+    assert not inv["coverage"]["errors"] and all(SENTINEL_READER in d["scope"] for d in inv["coverage"]["denied"]), inv["coverage"]
     _, usage = run(capsys, "usage", "--output-dir", str(tmp_path))
     assert usage["coverage"]["complete"] is True, usage["coverage"]
 
@@ -133,8 +134,33 @@ def test_policies(capsys, tmp_path):
     text = (next(tmp_path.glob("*-policies-*.json"))).read_text()
     assert "capabilities =" not in text and 'path \\"' not in text  # bodies are never written
     if doc["summary"]["policies"] == 0:
-        assert all("vault-ops-policy-reader" in d["scope"] for d in doc["coverage"]["denied"])
+        assert all("vault-ops-policy-reader" in d["scope"] or SENTINEL_READER in d["scope"] for d in doc["coverage"]["denied"])
         pytest.skip("token lacks vault-ops-policy-reader (run task token:policies)")
     assert doc["coverage"]["complete"] is True, doc["coverage"]
     names = {(f["rule_id"], f["object"]["path"]) for f in doc["findings"]}
     assert {("VT-POL-001", "admin"), ("VT-POL-002", "rbac-policy-manager"), ("VT-POL-003", "admin"), ("VT-POL-004", "read-only")} <= names
+
+
+def test_policies_sentinel(capsys, tmp_path):
+    """Needs the vault-ops-sentinel-reader add-on (task token:policies) for bodies; names are listed either way."""
+    code, doc = run(capsys, "policies", "--output-dir", str(tmp_path))
+    assert code == 0
+    text = (next(tmp_path.glob("*-policies-*.json"))).read_text()
+    assert "main = rule" not in text and 'import \\"' not in text  # Sentinel source is never written
+    block = doc["sentinel"]
+    assert block["status"] == "supported"
+    if not block["policies"]:
+        assert any(SENTINEL_READER in d["scope"] for d in doc["coverage"]["denied"])
+        pytest.skip("token lacks vault-ops-sentinel-reader (run task token:policies)")
+    assert not any(SENTINEL_READER in d["scope"] for d in doc["coverage"]["denied"])
+    fired = {(f["rule_id"], f["object"]["path"]) for f in doc["findings"]}
+    assert {
+        ("VT-SNT-001", "vault-ops-advisory"),
+        ("VT-SNT-002", "vault-ops-soft"),
+        ("VT-SNT-003", "vault-ops-wildcard"),
+        ("VT-SNT-004", "vault-ops-always-true"),
+        ("VT-SNT-005", "vault-ops-hard"),
+        ("VT-SNT-007", "vault-ops-http"),
+    } <= fired
+    http = next(r for r in block["policies"] if r["name"] == "vault-ops-http")
+    assert http["imports"] == ["http"] and http["paths"] == ["secret/data/vault-ops-http/*"]

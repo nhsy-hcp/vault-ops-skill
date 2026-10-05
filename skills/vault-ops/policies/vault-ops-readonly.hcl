@@ -2,8 +2,10 @@
 #
 # Read/list only; nothing here can change Vault. Derived from vault-tools'
 # audit-policy.hcl, plus the cluster-status reads the health subcommand needs.
-# ACL policy bodies are NOT readable (list only): names are enough for the audit
-# and bodies would expose the cluster's whole access model.
+# ACL and Sentinel (EGP/RGP) policy bodies are NOT readable (list only): names are
+# enough for the inventory and bodies would expose the cluster's whole access model.
+# Body reads live in the opt-in add-ons vault-ops-policy-reader (ACL) and
+# vault-ops-sentinel-reader (Sentinel).
 #
 # Namespace-local rules repeat per nesting level ("+" = exactly one segment);
 # root plus five levels are covered. Create the token in the ROOT namespace:
@@ -200,31 +202,6 @@ path "+/+/+/+/+/sys/policies/egp" {
   capabilities = ["list"]
 }
 
-# --- Sentinel EGP read ---
-path "sys/policies/egp/*" {
-  capabilities = ["read"]
-}
-
-path "+/sys/policies/egp/*" {
-  capabilities = ["read"]
-}
-
-path "+/+/sys/policies/egp/*" {
-  capabilities = ["read"]
-}
-
-path "+/+/+/sys/policies/egp/*" {
-  capabilities = ["read"]
-}
-
-path "+/+/+/+/sys/policies/egp/*" {
-  capabilities = ["read"]
-}
-
-path "+/+/+/+/+/sys/policies/egp/*" {
-  capabilities = ["read"]
-}
-
 # --- Sentinel RGP list ---
 path "sys/policies/rgp" {
   capabilities = ["list"]
@@ -248,31 +225,6 @@ path "+/+/+/+/sys/policies/rgp" {
 
 path "+/+/+/+/+/sys/policies/rgp" {
   capabilities = ["list"]
-}
-
-# --- Sentinel RGP read ---
-path "sys/policies/rgp/*" {
-  capabilities = ["read"]
-}
-
-path "+/sys/policies/rgp/*" {
-  capabilities = ["read"]
-}
-
-path "+/+/sys/policies/rgp/*" {
-  capabilities = ["read"]
-}
-
-path "+/+/+/sys/policies/rgp/*" {
-  capabilities = ["read"]
-}
-
-path "+/+/+/+/sys/policies/rgp/*" {
-  capabilities = ["read"]
-}
-
-path "+/+/+/+/+/sys/policies/rgp/*" {
-  capabilities = ["read"]
 }
 
 # --- identity entities (entities subcommand) ---

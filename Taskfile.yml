@@ -91,7 +91,7 @@ tasks:
       - scripts/audit_token.sh
 
   token:policies:
-    desc: Like token:audit, plus the read-only vault-ops-policy-reader add-on (for the policies subcommand)
+    desc: Like token:audit, plus the read-only vault-ops-policy-reader and vault-ops-sentinel-reader add-ons (policy bodies for policies and Sentinel checks)
     cmds:
       - POLICY_READER=1 scripts/audit_token.sh
 
