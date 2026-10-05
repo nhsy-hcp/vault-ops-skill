@@ -1,0 +1,106 @@
+version: "3"
+
+dotenv: [".env"]
+
+vars:
+  SKILL_SCRIPT: .claude/skills/vault-ops/scripts/vault_ops.py
+
+tasks:
+  default:
+    cmds:
+      - task --list
+    silent: true
+
+  init:
+    desc: One-time setup (python deps, pre-commit hooks, .env from template)
+    cmds:
+      - test -f .env || cp .env.template .env
+      - uv sync
+      - uv run pre-commit install
+      - mkdir -p .tmp .plans outputs
+
+  deps:
+    desc: Check required tools, container runtime, loopback IP and .env
+    cmds:
+      - scripts/check_deps.sh
+
+  up:
+    desc: Start Vault Enterprise dev server (TLS) on ${VAULT_HOST_IP}:${VAULT_HOST_PORT} (default 127.0.0.1:8210)
+    deps: [deps]
+    cmds:
+      - scripts/vault_up.sh
+
+  down:
+    desc: Stop and remove the Vault dev container
+    cmds:
+      - scripts/vault_down.sh
+
+  status:
+    desc: Show Vault status
+    cmds:
+      - vault status
+
+  logs:
+    desc: Tail the Vault server log
+    cmds:
+      - tail -n 50 -f .tmp/vault/${VAULT_CONTAINER_NAME:-vault-primary}/logs/vault.log
+
+  seed:
+    desc: Seed namespaces, mounts, KV data and client activity (root token)
+    cmds:
+      - uv run --script scripts/seed_vault.py
+
+  seed:findings:
+    desc: Seed config that trips every live-testable audit rule (root token)
+    cmds:
+      - scripts/seed_findings.sh
+
+  token:audit:
+    desc: Write vault-ops-readonly policy and mint a 1h token to .tmp/audit-token
+    cmds:
+      - scripts/audit_token.sh
+
+  skill:run:
+    desc: "Run the skill script with the audit token, e.g. task skill:run -- audit"
+    cmds:
+      - VAULT_TOKEN="$(cat .tmp/audit-token)" uv run --script {{.SKILL_SCRIPT}} {{.CLI_ARGS}}
+    preconditions:
+      - sh: test -s .tmp/audit-token
+        msg: "No audit token; run: task token:audit"
+
+  lint:
+    desc: Run all pre-commit hooks (ruff, shellcheck, gitleaks, yaml/json)
+    cmds:
+      # --files covers untracked files too (--all-files only sees tracked ones)
+      - git ls-files -co --exclude-standard -z | xargs -0 uv run pre-commit run --files
+
+  test:
+    desc: Unit tests (no Vault needed), coverage >= 80%
+    cmds:
+      - uv run pytest -q --cov=vault_ops --cov-report=term-missing --cov-fail-under=80
+
+  test:integration:
+    desc: Integration tests against the seeded dev Vault with the audit token
+    cmds:
+      - VAULT_TOKEN="$(cat .tmp/audit-token)" uv run pytest -q -m integration
+    preconditions:
+      - sh: test -s .tmp/audit-token
+        msg: "No audit token; run: task token:audit"
+
+  test:all:
+    desc: Unit + integration tests with coverage
+    cmds:
+      - VAULT_TOKEN="$(cat .tmp/audit-token)" uv run pytest -q -m "integration or not integration" --cov=vault_ops --cov-report=term-missing --cov-fail-under=80
+
+  test:ci:
+    desc: Full CI pipeline (lint + unit tests with coverage)
+    cmds:
+      - task: lint
+      - task: test
+
+  clean:
+    desc: Remove caches, outputs and temporary files (keeps .tmp/spec.md and todo.md)
+    cmds:
+      - rm -rf .pytest_cache .ruff_cache .coverage htmlcov outputs
+      - find . -name __pycache__ -type d -prune -exec rm -rf {} +
+      - rm -rf .tmp/vault .tmp/audit-token .tmp/*.log

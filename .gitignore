@@ -1,0 +1,23 @@
+# Secrets / local config
+.env
+*.pem
+*.key
+
+# Temp, plans and outputs
+.tmp/
+.plans/
+outputs/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# IDE / OS
+.idea/
+.DS_Store

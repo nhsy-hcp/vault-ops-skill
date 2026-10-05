@@ -1,0 +1,208 @@
+import json
+from pathlib import Path
+
+import pytest
+import vault_ops as vo
+from conftest import FAKE_TOKEN
+
+
+class FakeReader:
+    """Stands in for VaultReader: routes (namespace, path) to canned responses or exceptions."""
+
+    def __init__(self, routes):
+        self.routes = routes
+        self.calls = []
+
+    def get(self, path, namespace="", params=None):
+        self.calls.append((namespace, path))
+        value = self.routes.get((namespace, path))
+        if value is None:
+            raise vo.hvac_exc.InvalidPath("not found")
+        if isinstance(value, Exception):
+            raise value
+        return value
+
+    def list(self, path, namespace=""):
+        return list(self.get(path, namespace).get("data", {}).get("keys") or [])
+
+    def data(self, path, namespace="", params=None):
+        payload = self.get(path, namespace, params)
+        return payload.get("data", payload) if isinstance(payload.get("data"), dict) else payload
+
+
+def mounts(**types):
+    return {"data": {f"{p}/": {"type": t} for p, t in types.items()}, "request_id": "x"}
+
+
+ROUTES = {
+    ("", "sys/auth"): mounts(token="token"),
+    ("", "sys/mounts"): mounts(sys="system", secret="kv"),
+    ("", "sys/policies/acl"): {"data": {"keys": ["default", "root", "ops"]}},
+    ("", "sys/policies/egp"): {"data": {"keys": ["adv"]}},
+    ("", "sys/policies/egp/adv"): {"data": {"enforcement_level": "advisory", "paths": ["*"], "policy": "x"}},
+    ("", "sys/policies/rgp"): vo.hvac_exc.InvalidPath("no policies"),
+    ("", "sys/namespaces"): {"data": {"key_info": {"a/": {"id": "1", "custom_metadata": {"owner": "x@y"}}, "b/": {"id": "2"}}}},
+    ("a", "sys/auth"): mounts(token="ns_token", approle="approle"),
+    ("a", "sys/mounts"): mounts(sys="ns_system"),
+    ("a", "sys/policies/acl"): vo.hvac_exc.Forbidden("denied"),
+    ("a", "sys/policies/egp"): {"data": {"keys": ["locked"]}},
+    ("a", "sys/policies/egp/locked"): vo.hvac_exc.Forbidden("denied"),
+    ("a", "sys/policies/rgp"): vo.hvac_exc.InvalidPath("none"),
+    ("a", "sys/namespaces"): {"data": {"key_info": {"c/": {"id": "3"}}}},
+    ("a/c", "sys/auth"): mounts(token="ns_token"),
+    ("a/c", "sys/mounts"): mounts(sys="ns_system"),
+    ("a/c", "sys/policies/acl"): {"data": {"keys": []}},
+    ("a/c", "sys/namespaces"): vo.hvac_exc.Forbidden("denied"),
+    ("b", "sys/auth"): vo.hvac_exc.Forbidden("denied"),
+}
+
+
+def test_walker_collects_tree_and_coverage():
+    cov = vo.Coverage()
+    data = vo.Walker(FakeReader(ROUTES), cov, workers=2).walk("")
+    assert sorted(data.auth) == ["", "a", "a/c"]
+    assert sorted(data.namespaces) == ["a", "a/c", "b"]
+    assert "custom_metadata" not in data.namespaces["a"]
+    assert data.acl_policies[""] == ["ops"]
+    assert data.sentinel == "supported"
+    assert data.egp["a"]["locked"]["read_error"] is True
+    assert cov.namespaces_processed == 4
+    assert sorted((d["namespace"], d["scope"]) for d in cov.denied) == [
+        ("a/", "ACL policy names"),
+        ("a/", "sentinel EGP policy bodies"),
+        ("a/c/", "child namespaces (subtree not audited)"),
+        ("b/", "whole namespace (no data collected)"),
+    ]
+
+
+def test_walker_sentinel_unsupported_and_skipped():
+    routes = {
+        ("", "sys/auth"): mounts(token="token"),
+        ("", "sys/mounts"): mounts(sys="system"),
+        ("", "sys/policies/egp"): vo.hvac_exc.InvalidPath("1 error occurred: unsupported path"),
+    }
+    reader = FakeReader(routes)
+    assert vo.Walker(reader, vo.Coverage()).walk("").sentinel == "unsupported"
+    assert ("", "sys/policies/rgp") not in reader.calls  # stops probing once unsupported
+    assert vo.Walker(FakeReader(routes), vo.Coverage(), sentinel=False).walk("").sentinel == "skipped"
+
+
+def test_collect_health_maps_fields():
+    routes = {
+        ("", "sys/health"): {"cluster_name": "c1", "version": "2.1.1+ent", "sealed": False, "initialized": True},
+        ("", "sys/leader"): {"ha_enabled": False, "is_self": False, "leader_address": ""},
+        ("", "sys/license/status"): {"data": {"autoloaded": {"license_id": "L", "expiration_time": "2027-01-01T00:00:00Z"}}},
+        ("", "sys/replication/status"): {"data": {"dr": {"mode": "disabled"}, "performance": {"mode": "disabled"}}},
+        ("", "sys/config/state/sanitized"): vo.hvac_exc.Forbidden("denied"),
+    }
+    cov = vo.Coverage()
+    h = vo.collect_health(FakeReader(routes), cov)
+    assert h["enterprise"] is True and h["cluster_name"] == "c1"
+    assert h["license"] == {"license_id": "L", "expiration_time": "2027-01-01T00:00:00Z"}
+    assert h["replication"]["dr"]["mode"] == "disabled"
+    assert h["lease_ttls"] is None
+    assert cov.denied == [{"namespace": "/", "scope": "sys/config/state/sanitized"}]
+
+
+@pytest.fixture
+def env(monkeypatch, tmp_path):
+    monkeypatch.setenv("VAULT_ADDR", "https://vault.example:8200/")
+    monkeypatch.setenv("VAULT_TOKEN", FAKE_TOKEN)
+    monkeypatch.setenv("VAULT_SKIP_VERIFY", "true")
+    monkeypatch.delenv("VAULT_NAMESPACE", raising=False)
+    monkeypatch.setenv("VAULT_OPS_OUTPUT_DIR", str(tmp_path))
+    return tmp_path
+
+
+def test_config_from_env(env, monkeypatch):
+    cfg = vo.Config.from_env()
+    assert cfg.addr == "https://vault.example:8200" and cfg.verify is False and cfg.namespace == ""
+    monkeypatch.setenv("VAULT_SKIP_VERIFY", "false")
+    monkeypatch.setenv("VAULT_CACERT", "/ca.pem")
+    monkeypatch.setenv("VAULT_NAMESPACE", "/tn001/")
+    cfg = vo.Config.from_env()
+    assert cfg.verify == "/ca.pem" and cfg.namespace == "tn001"
+    assert vo.Config.from_env("x/y/").namespace == "x/y"
+
+
+def test_missing_env_is_fatal(monkeypatch, capsys):
+    monkeypatch.delenv("VAULT_ADDR", raising=False)
+    assert vo.main(["health"]) == vo.EXIT_FATAL
+    assert "VAULT_ADDR" in capsys.readouterr().err
+
+
+def test_audit_cli_end_to_end(env, monkeypatch, capsys):
+    routes = dict(ROUTES)
+    routes[("", "auth/token/lookup-self")] = {"data": {}}
+    routes[("", "sys/health")] = {"cluster_name": "c1", "version": "2.1.1+ent", "sealed": False}
+    monkeypatch.setattr(vo, "VaultReader", lambda cfg: _ValidatingFake(routes))
+    code = vo.main(["audit", "--redact-addr", "--fail-on-gaps"])
+    out = capsys.readouterr().out.strip().splitlines()
+    assert code == vo.EXIT_GAPS
+    assert len(out) == 1 and out[0].endswith(".json") and "c1-findings-" in out[0]
+    doc = json.loads(Path(out[0]).read_text())
+    assert doc["run"]["vault_addr"] == "<redacted>"
+    assert FAKE_TOKEN not in json.dumps(doc)
+    assert {"VT-SNT-001", "VT-SNT-003"} <= set(doc["summary"]["by_rule"])
+
+
+def test_other_subcommands(env, monkeypatch, capsys):
+    routes = dict(ROUTES)
+    routes[("", "auth/token/lookup-self")] = {"data": {}}
+    routes[("", "sys/health")] = {"cluster_name": "c1", "version": "2.1.1"}
+    routes[("", "sys/internal/counters/activity")] = {"data": {"total": {"clients": 3}, "by_namespace": []}}
+    monkeypatch.setattr(vo, "VaultReader", lambda cfg: _ValidatingFake(routes))
+    for cmd in (["health"], ["inventory", "--no-sentinel"], ["usage"]):
+        assert vo.main(cmd) == vo.EXIT_OK
+    paths = capsys.readouterr().out.split()
+    assert [p.split("c1-")[1].split("-")[0] for p in paths] == ["health", "inventory", "usage"]
+    usage = json.loads(Path(paths[2]).read_text())
+    assert usage["total"] == {"clients": 3}
+
+
+def test_diff_cli(env, tmp_path, capsys):
+    a = tmp_path / "a.json"
+    b = tmp_path / "b.json"
+    finding = {
+        "fingerprint": "f" * 16,
+        "rule_id": "VT-NS-001",
+        "severity": "info",
+        "namespace": "/",
+        "object": {},
+        "detail": "",
+        "evidence": {},
+    }
+    a.write_text(json.dumps({"findings": [finding]}))
+    b.write_text(json.dumps({"findings": []}))
+    assert vo.main(["diff", str(a), str(b)]) == vo.EXIT_OK
+    doc = json.loads(Path(capsys.readouterr().out.strip()).read_text())
+    assert doc["summary"]["resolved"] == 1
+    assert vo.main(["diff", str(a), str(tmp_path / "missing.json")]) == vo.EXIT_FATAL
+
+
+class _ValidatingFake(FakeReader):
+    def validate(self):
+        self.get("auth/token/lookup-self")
+
+
+@pytest.mark.parametrize("verify", [False, "/ca.pem", True])
+def test_reader_session_carries_tls_setting(verify):
+    """Regression: hvac ignores verify= when a session with verify=True is passed in."""
+    reader = vo.VaultReader(vo.Config(addr="https://v:8200", token="t", verify=verify))
+    client = reader.client("ns1")
+    assert reader.session.verify == verify
+    assert client.adapter._kwargs["verify"] == verify
+    assert client.adapter.namespace == "ns1"
+
+
+def test_collect_health_dev_mode_shapes():
+    """Dev/inmem: replication is a bare {"mode": "unsupported"}; lease TTLs of 0 mean unset."""
+    routes = {
+        ("", "sys/health"): {"cluster_name": "c1", "version": "2.1.1+ent", "sealed": False},
+        ("", "sys/replication/status"): {"data": {"mode": "unsupported"}},
+        ("", "sys/config/state/sanitized"): {"data": {"default_lease_ttl": 0, "max_lease_ttl": 0}},
+    }
+    h = vo.collect_health(FakeReader(routes), vo.Coverage())
+    assert h["replication"] == {"mode": "unsupported"}
+    assert h["lease_ttls"] == {"default_lease_ttl_seconds": None, "max_lease_ttl_seconds": None}
+    assert not [f for f in vo.health_findings(h) if f.rule_id == "VT-HLTH-002"]

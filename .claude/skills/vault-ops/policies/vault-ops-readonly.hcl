@@ -1,0 +1,239 @@
+# vault-ops-readonly: least-privilege policy for the vault-ops Claude skill.
+#
+# Read/list only; nothing here can change Vault. Derived from vault-tools'
+# audit-policy.hcl, plus the cluster-status reads the health subcommand needs.
+# ACL policy bodies are NOT readable (list only): names are enough for the audit
+# and bodies would expose the cluster's whole access model.
+#
+# Namespace-local rules repeat per nesting level ("+" = exactly one segment);
+# root plus five levels are covered. Create the token in the ROOT namespace:
+#   vault policy write vault-ops-readonly vault-ops-readonly.hcl
+#   vault token create -policy=vault-ops-readonly -ttl=1h -explicit-max-ttl=1h -orphan
+
+# --- token self-check (validate) ---
+path "auth/token/lookup-self" {
+  capabilities = ["read"]
+}
+
+# --- cluster-wide status (root only) ---
+path "sys/config/state/sanitized" {
+  capabilities = ["read"]
+}
+
+path "sys/license/status" {
+  capabilities = ["read"]
+}
+
+path "sys/replication/status" {
+  capabilities = ["read"]
+}
+
+path "sys/internal/counters/activity" {
+  capabilities = ["read"]
+}
+
+path "sys/internal/counters/activity/monthly" {
+  capabilities = ["read"]
+}
+
+# sys/health, sys/seal-status and sys/leader are unauthenticated: no rule needed.
+
+# --- auth methods ---
+path "sys/auth" {
+  capabilities = ["read"]
+}
+
+path "+/sys/auth" {
+  capabilities = ["read"]
+}
+
+path "+/+/sys/auth" {
+  capabilities = ["read"]
+}
+
+path "+/+/+/sys/auth" {
+  capabilities = ["read"]
+}
+
+path "+/+/+/+/sys/auth" {
+  capabilities = ["read"]
+}
+
+path "+/+/+/+/+/sys/auth" {
+  capabilities = ["read"]
+}
+
+# --- secrets engines ---
+path "sys/mounts" {
+  capabilities = ["read"]
+}
+
+path "+/sys/mounts" {
+  capabilities = ["read"]
+}
+
+path "+/+/sys/mounts" {
+  capabilities = ["read"]
+}
+
+path "+/+/+/sys/mounts" {
+  capabilities = ["read"]
+}
+
+path "+/+/+/+/sys/mounts" {
+  capabilities = ["read"]
+}
+
+path "+/+/+/+/+/sys/mounts" {
+  capabilities = ["read"]
+}
+
+# --- child namespaces ---
+path "sys/namespaces" {
+  capabilities = ["list"]
+}
+
+path "+/sys/namespaces" {
+  capabilities = ["list"]
+}
+
+path "+/+/sys/namespaces" {
+  capabilities = ["list"]
+}
+
+path "+/+/+/sys/namespaces" {
+  capabilities = ["list"]
+}
+
+path "+/+/+/+/sys/namespaces" {
+  capabilities = ["list"]
+}
+
+path "+/+/+/+/+/sys/namespaces" {
+  capabilities = ["list"]
+}
+
+# --- ACL policy names (never bodies) ---
+path "sys/policies/acl" {
+  capabilities = ["list"]
+}
+
+path "+/sys/policies/acl" {
+  capabilities = ["list"]
+}
+
+path "+/+/sys/policies/acl" {
+  capabilities = ["list"]
+}
+
+path "+/+/+/sys/policies/acl" {
+  capabilities = ["list"]
+}
+
+path "+/+/+/+/sys/policies/acl" {
+  capabilities = ["list"]
+}
+
+path "+/+/+/+/+/sys/policies/acl" {
+  capabilities = ["list"]
+}
+
+# --- Sentinel EGP list ---
+path "sys/policies/egp" {
+  capabilities = ["list"]
+}
+
+path "+/sys/policies/egp" {
+  capabilities = ["list"]
+}
+
+path "+/+/sys/policies/egp" {
+  capabilities = ["list"]
+}
+
+path "+/+/+/sys/policies/egp" {
+  capabilities = ["list"]
+}
+
+path "+/+/+/+/sys/policies/egp" {
+  capabilities = ["list"]
+}
+
+path "+/+/+/+/+/sys/policies/egp" {
+  capabilities = ["list"]
+}
+
+# --- Sentinel EGP read ---
+path "sys/policies/egp/*" {
+  capabilities = ["read"]
+}
+
+path "+/sys/policies/egp/*" {
+  capabilities = ["read"]
+}
+
+path "+/+/sys/policies/egp/*" {
+  capabilities = ["read"]
+}
+
+path "+/+/+/sys/policies/egp/*" {
+  capabilities = ["read"]
+}
+
+path "+/+/+/+/sys/policies/egp/*" {
+  capabilities = ["read"]
+}
+
+path "+/+/+/+/+/sys/policies/egp/*" {
+  capabilities = ["read"]
+}
+
+# --- Sentinel RGP list ---
+path "sys/policies/rgp" {
+  capabilities = ["list"]
+}
+
+path "+/sys/policies/rgp" {
+  capabilities = ["list"]
+}
+
+path "+/+/sys/policies/rgp" {
+  capabilities = ["list"]
+}
+
+path "+/+/+/sys/policies/rgp" {
+  capabilities = ["list"]
+}
+
+path "+/+/+/+/sys/policies/rgp" {
+  capabilities = ["list"]
+}
+
+path "+/+/+/+/+/sys/policies/rgp" {
+  capabilities = ["list"]
+}
+
+# --- Sentinel RGP read ---
+path "sys/policies/rgp/*" {
+  capabilities = ["read"]
+}
+
+path "+/sys/policies/rgp/*" {
+  capabilities = ["read"]
+}
+
+path "+/+/sys/policies/rgp/*" {
+  capabilities = ["read"]
+}
+
+path "+/+/+/sys/policies/rgp/*" {
+  capabilities = ["read"]
+}
+
+path "+/+/+/+/sys/policies/rgp/*" {
+  capabilities = ["read"]
+}
+
+path "+/+/+/+/+/sys/policies/rgp/*" {
+  capabilities = ["read"]
+}
