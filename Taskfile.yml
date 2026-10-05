@@ -130,6 +130,12 @@ tasks:
       - task: plugin:validate
       - task: test
 
+  eval:
+    desc: "Skill evals (claude plugin eval, offline cases, uses API credits): task eval -- [--runs 1] [--case <glob>]"
+    cmds:
+      # --scaffold runs our own evals/**/scaffold scripts to stage fixtures; results land in evals/results/
+      - claude plugin eval . --tag offline --scaffold --trust-plugin --no-publish -j 4 {{.CLI_ARGS}}
+
   plugin:validate:
     desc: Validate the plugin and marketplace manifests (strict)
     cmds:
