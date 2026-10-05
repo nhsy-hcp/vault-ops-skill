@@ -1,6 +1,6 @@
 {
   "name": "vault-ops",
-  "version": "0.2.4",
+  "version": "0.3.0",
   "description": "Read-only HashiCorp Vault operations review: namespace audit, health and DR status, inventory, identity entities, client usage and run diffs. Never changes Vault.",
   "author": {
     "name": "nhsy-hcp"
