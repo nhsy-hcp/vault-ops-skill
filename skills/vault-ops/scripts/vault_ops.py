@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Read-only HashiCorp Vault ops collector for the vault-ops Claude skill.
 
-Subcommands each write one small JSON file (mode 0600) and print only the
-written path on stdout; diagnostics go to stderr. Nothing here writes to Vault.
+Subcommands write small JSON files (mode 0600) and print only the written
+paths on stdout; diagnostics go to stderr. Nothing here writes to Vault.
 
   audit      namespace walk + rule checks          -> {cluster}-findings-{ts}.json
+                                                      + {cluster}-inventory-{ts}.json
   health     seal/HA/version/license/replication   -> {cluster}-health-{ts}.json
   inventory  namespaces, mounts, ACL policy names  -> {cluster}-inventory-{ts}.json
   usage      activity-log client counts            -> {cluster}-usage-{ts}.json
@@ -45,7 +46,7 @@ from hvac import exceptions as hvac_exc
 
 TOOL_NAME = "vault-ops"
 TOOL_VERSION = "0.1.0"
-SCHEMA_VERSION = "1.3.0"
+SCHEMA_VERSION = "1.4.0"
 
 EXIT_OK, EXIT_FATAL, EXIT_GAPS, EXIT_FINDINGS, EXIT_INTERRUPTED = 0, 1, 2, 3, 130
 
@@ -1290,31 +1291,57 @@ def build_findings_document(
     }
 
 
+def namespace_depth(ns: str) -> int:
+    return ns.count("/") + 1 if ns else 0
+
+
+def type_distribution(mounts_by_ns: dict[str, dict[str, Any]], exclude: frozenset[str] = frozenset()) -> dict[str, dict[str, int]]:
+    """{type: {"mounts": n, "namespaces": m}}, most-mounted first."""
+    mounts: Counter[str] = Counter()
+    spread: Counter[str] = Counter()
+    for ns_mounts in mounts_by_ns.values():
+        types = [m.get("type") or "unknown" for m in ns_mounts.values() if m.get("type") not in exclude]
+        mounts.update(types)
+        spread.update(set(types))
+    return {t: {"mounts": n, "namespaces": spread[t]} for t, n in sorted(mounts.items(), key=lambda kv: (-kv[1], kv[0]))}
+
+
 def build_inventory_document(data: ClusterData, coverage: Coverage, run: dict[str, Any]) -> dict[str, Any]:
     namespaces = sorted(set(data.auth) | set(data.secrets))
     rows = []
+    shapes: dict[tuple[int, tuple[str, ...], tuple[str, ...]], list[str]] = {}
     for ns in namespaces:
+        auth_mounts = [{"path": p, "type": m.get("type"), "local": bool(m.get("local"))} for p, m in sorted(data.auth.get(ns, {}).items())]
+        secrets_mounts = [
+            {
+                "path": p,
+                "type": m.get("type"),
+                "version": (m.get("options") or {}).get("version"),
+                "local": bool(m.get("local")),
+            }
+            for p, m in sorted(data.secrets.get(ns, {}).items())
+            if m.get("type") not in BUILTIN_ENGINE_TYPES
+        ]
+        acl = data.acl_policies.get(ns, [])
         rows.append(
             {
                 "namespace": display_namespace(ns),
-                "auth_mounts": [{"path": p, "type": m.get("type"), "local": bool(m.get("local"))} for p, m in sorted(data.auth.get(ns, {}).items())],
-                "secrets_mounts": [
-                    {
-                        "path": p,
-                        "type": m.get("type"),
-                        "version": (m.get("options") or {}).get("version"),
-                        "local": bool(m.get("local")),
-                    }
-                    for p, m in sorted(data.secrets.get(ns, {}).items())
-                    if m.get("type") not in BUILTIN_ENGINE_TYPES
-                ],
-                "acl_policies": data.acl_policies.get(ns, []),
+                "depth": namespace_depth(ns),
+                "auth_count": len(auth_mounts),
+                "secrets_count": len(secrets_mounts),
+                "acl_policy_count": len(acl),
+                "auth_mounts": auth_mounts,
+                "secrets_mounts": secrets_mounts,
+                "acl_policies": acl,
                 "egp_policies": sorted(data.egp.get(ns, {})),
                 "rgp_policies": sorted(data.rgp.get(ns, {})),
             }
         )
+        signature = (namespace_depth(ns), tuple(sorted(m["type"] or "unknown" for m in auth_mounts)), tuple(sorted(m["type"] or "unknown" for m in secrets_mounts)))
+        shapes.setdefault(signature, []).append(display_namespace(ns))
     auth_types = Counter(m.get("type") for mounts in data.auth.values() for m in mounts.values())
     secret_types = Counter(m.get("type") for mounts in data.secrets.values() for m in mounts.values() if m.get("type") not in BUILTIN_ENGINE_TYPES)
+    sentinel_levels = Counter((p or {}).get("enforcement_level") or "unknown" for policies in (*data.egp.values(), *data.rgp.values()) for p in policies.values())
     return {
         "schema_version": SCHEMA_VERSION,
         "tool": {"name": TOOL_NAME, "version": TOOL_VERSION},
@@ -1322,10 +1349,26 @@ def build_inventory_document(data: ClusterData, coverage: Coverage, run: dict[st
         "coverage": coverage.to_dict(),
         "summary": {
             "namespaces": len(namespaces),
+            "max_depth": max((namespace_depth(ns) for ns in namespaces), default=0),
+            "auth_mounts_total": sum(auth_types.values()),
+            "secrets_mounts_total": sum(secret_types.values()),
             "auth_mounts_by_type": dict(sorted(auth_types.items())),
             "secrets_mounts_by_type": dict(sorted(secret_types.items())),
+            "auth_types": type_distribution(data.auth),
+            "secrets_types": type_distribution(data.secrets, BUILTIN_ENGINE_TYPES),
             "acl_policies": sum(len(v) for v in data.acl_policies.values()),
+            "acl_policies_top": [
+                {"namespace": r["namespace"], "count": r["acl_policy_count"]} for r in sorted(rows, key=lambda r: (-r["acl_policy_count"], r["namespace"]))[:10] if r["acl_policy_count"]
+            ],
+            "egp_policies": sum(len(v) for v in data.egp.values()),
+            "rgp_policies": sum(len(v) for v in data.rgp.values()),
+            "sentinel_by_enforcement": dict(sorted(sentinel_levels.items())),
             "sentinel": data.sentinel,
+            # Namespaces with identical depth and mount types, largest group first: a collapsed hierarchy.
+            "shapes": [
+                {"depth": depth, "auth_types": list(auth), "secrets_types": list(engines), "count": len(members), "examples": members[:3]}
+                for (depth, auth, engines), members in sorted(shapes.items(), key=lambda kv: (kv[0][0], -len(kv[1]), kv[1][0]))
+            ],
         },
         "namespaces": rows,
     }
@@ -1505,8 +1548,9 @@ def cmd_audit(args: argparse.Namespace) -> int:
     findings = mount_findings(data, max_ttl) + namespace_findings(data) + sentinel_findings(data) + health_findings(health)
     run = run_block(health["cluster_name"], _addr(config, args.redact_addr), config.namespace, started, args.workers)
     document = build_findings_document(findings, coverage, health, data.sentinel, run)
-    path = write_json(output_path(args.output_dir, health["cluster_name"], "findings", started), document)
-    print(path)
+    print(write_json(output_path(args.output_dir, health["cluster_name"], "findings", started), document))
+    # Same walk, no extra reads: the report's type distribution and hierarchy come from here.
+    print(write_json(output_path(args.output_dir, health["cluster_name"], "inventory", started), build_inventory_document(data, coverage, run)))
     return exit_code_for(document, args.fail_on, args.fail_on_gaps)
 
 

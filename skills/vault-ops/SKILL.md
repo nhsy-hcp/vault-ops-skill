@@ -31,7 +31,7 @@ Code collects and checks; you interpret. All Vault access goes through the bundl
 
 | Ask | Command | Output (path printed on stdout) |
 | --- | --- | --- |
-| Audit / security review / "what's wrong" | `audit [--namespace ns] [-w 8] [--no-sentinel] [--redact-addr]` | `*-findings-*.json` |
+| Audit / security review / "what's wrong" | `audit [--namespace ns] [-w 8] [--no-sentinel] [--redact-addr]` | `*-findings-*.json` and `*-inventory-*.json` (same walk) |
 | Health, seal, HA, replication, license, version | `health` (also works against a DR secondary) | `*-health-*.json` |
 | What exists: namespaces, mounts, policy names | `inventory [--namespace ns]` | `*-inventory-*.json` |
 | Client counts / usage / billing / excessive client creation | `usage [--start RFC3339] [--end RFC3339] [--top 20]` | `*-usage-*.json` |
@@ -64,17 +64,33 @@ claude
 1. **Files first.** If the user supplied or points at existing vault-ops JSON files, use them and skip to step 3. Look in the output directory for recent `*-findings-*.json` when the user refers to "the last audit".
 2. **Run.** Run the matching subcommand. On exit 1, report the stderr message (see Setup problems) and stop — do not try other ways to reach Vault.
    - For a DR pair, run `health` against both nodes (set `VAULT_ADDR` to each node in turn) and `audit`/`inventory`/`usage` against the primary only: a DR secondary rejects authenticated reads by design.
-3. **Read** the produced JSON in full with the Read tool.
+3. **Read** the produced JSON in full with the Read tool. For an audit report, read the findings **and** inventory files `audit` wrote, and run `health` too (both nodes for a DR pair).
 4. **Coverage first.** If `coverage.complete` is false, open with the denied/errored namespaces and scopes, and say the results are partial. A denied scope usually means the token's policy lacks a rule — point to `policies/vault-ops-readonly.hcl` in this skill.
 5. **Explain.** Rank and group findings using `references/rules.md`. For each item: what it is, why it matters here, the affected namespaces/objects (count + up to three examples), and a drafted remediation command for an operator to run. Do not run it.
 6. **Compare.** If an earlier `*-findings-*.json` for the same cluster exists in the output dir, run `diff` against it and report new / resolved / unchanged counts, then detail new findings.
 7. **Finish** with a short summary table (rule, severity, count) and the paths of files written. Close with one line saying the review was read-only and nothing in Vault was changed.
 
+## Audit report layout
+
+Use this order for a full audit report; leave out sections whose data was not collected and say so under "Not covered".
+
+1. **Header table:** cluster, address, Vault version, run time, start namespace, workers, coverage, Sentinel status, findings total.
+2. **Executive summary:** a few sentences on health, the time-bound items and where the findings cluster.
+3. **Summary metrics** (inventory `summary` + health): namespaces, max nesting depth, auth mounts total and distinct types, secrets engines total and distinct types, ACL policies, EGP / RGP counts, system lease TTLs, licence expiry, denied / errors.
+4. **Cluster health and licence:** seal, HA, replication per node; licence expiry vs termination; features as one comma-separated line.
+5. **Inventory.**
+   - Auth methods table from `summary.auth_types`: type, mounts, namespaces (all rows).
+   - Secrets engines table from `summary.secrets_types`: same columns, all rows; note built-in engines (cubbyhole, identity, system, agent registry) are excluded.
+   - Hierarchy, collapsed from `summary.shapes`: one line per shape (depth, auth types, engine types, count, up to three example namespaces). List namespaces individually only when a shape has one member.
+   - ACL policies: total, then the ten namespaces with the most policies from `summary.acl_policies_top`; full names stay in the JSON.
+   - Sentinel: counts by enforcement level from `summary.sentinel_by_enforcement`.
+6. **Findings, ranked** (workflow step 5), then the **summary table**, **Not covered**, **Source files**.
+
 ## Reading the files
 
 - `findings.json`: `cluster_context.sentinel` = supported/unsupported/skipped — say Sentinel was not assessed unless `supported`. `evidence.baseline_source == "fallback"` means the cluster lease ceiling was unreadable.
 - `health.json`: `health.license.expiration_time` vs `termination_time`; when reporting license details, always list `health.license.features` as one comma-separated line; `health.replication.{dr,performance}.mode/state`, plus `secondaries[].connection_status` on a primary and `primaries[]` / `connection_state` on a secondary; `health.leader.ha_enabled`. `health.dr_secondary: true` means only unauthenticated status was readable (license and lease data are `null` by design, not missing permissions).
-- `inventory.json`: per-namespace mounts (built-in engines omitted) and ACL policy **names** only.
+- `inventory.json`: per-namespace rows (`depth`, `auth_count`, `secrets_count`, `acl_policy_count`, mounts with built-in engines omitted, ACL policy **names** only, Sentinel policy names). `summary` (at the top of the file) holds everything the audit report needs: totals, `max_depth`, `auth_types` / `secrets_types` (`{type: {mounts, namespaces}}`), `acl_policies_top`, `egp_policies`, `rgp_policies`, `sentinel_by_enforcement` and `shapes` (namespaces grouped by identical depth and mount types, with `count` and up to three `examples`). On a large cluster the file is too big to read whole: read up to the `"namespaces"` key, and read further only for a specific namespace.
 - `usage.json`: `total.clients` and `top_namespaces[]` for the billing period, plus `current_month` (the billing period excludes the month in progress). `findings[]` holds client anti-patterns (VT-CLI-*): token-only client sprawl, sharp growth, per-run identities on a mount, everything in root. `evidence.source == "current_month"` means the billing period was empty.
 - `entities.json`: `summary` and per-namespace counts (entities, disabled, without aliases, with direct policies, alias mount types) plus VT-ID-* findings. VT-ID-004 (entities far above active clients) compares entity counts with the activity log, which `entities` also reads; it is skipped when no activity is recorded. VT-ID-005 (alias name on several entities) gives counts only. Per-entity rows (`namespaces[].entity_list`: metadata, aliases with names and alias metadata, policies, group count) appear **only with `--list`**. Use `--list` when the user asks about specific entities, aliases or metadata, and scope it with `--namespace`, because a whole-tree list can be large. Entity metadata and alias names can contain emails, usernames and AppRole role_ids. Quote them only as far as the question needs, and treat the file as confidential. `disabled: null` means the entity body was unreadable (see coverage).
 

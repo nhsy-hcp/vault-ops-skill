@@ -51,9 +51,9 @@ uv run --script skills/vault-ops/scripts/vault_ops.py <command> [--output-dir DI
 
 | Command | Output | Notes |
 | --- | --- | --- |
-| `audit` | `{cluster}-findings-{ts}.json` | `--namespace`, `-w/--workers`, `--no-sentinel`, `--redact-addr`, `--fail-on {medium,low,info}`, `--fail-on-gaps` |
+| `audit` | `{cluster}-findings-{ts}.json` + `{cluster}-inventory-{ts}.json` | `--namespace`, `-w/--workers`, `--no-sentinel`, `--redact-addr`, `--fail-on {medium,low,info}`, `--fail-on-gaps` |
 | `health` | `{cluster}-health-{ts}.json` | seal, HA leader, version, license, replication, lease ceilings |
-| `inventory` | `{cluster}-inventory-{ts}.json` | namespaces, non-built-in mounts, ACL policy **names** |
+| `inventory` | `{cluster}-inventory-{ts}.json` | namespaces, non-built-in mounts, ACL policy **names**; summary has type distribution (mounts + namespaces per type), max depth, Sentinel counts by enforcement level and namespace `shapes` |
 | `usage` | `{cluster}-usage-{ts}.json` | billing-period client counts plus `current_month` |
 | `entities` | `{cluster}-entities-{ts}.json` | per-namespace entity counts and findings; `--list` adds metadata, aliases and policies per entity |
 | `diff OLD NEW` | `diff-{ts}.json` | new / resolved / unchanged findings by fingerprint |

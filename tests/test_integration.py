@@ -46,7 +46,7 @@ def vault_reachable():
 
 def run(capsys, *args):
     code = vo.main(list(args))
-    path = capsys.readouterr().out.strip()
+    path = capsys.readouterr().out.split()[0]  # audit also writes inventory on the next line
     return code, json.loads(Path(path).read_text())
 
 
@@ -60,6 +60,11 @@ def test_audit_full_coverage_and_rules(capsys, tmp_path, schema):
     assert doc["cluster_context"]["enterprise"] is True
     assert set(doc["summary"]["by_rule"]) >= SEEDED_RULES
     assert not any(f["object"]["path"] == "vault-ops-hard" for f in doc["findings"])
+    (inv_path,) = tmp_path.glob("*-inventory-*.json")
+    inv = json.loads(inv_path.read_text())
+    assert inv["summary"]["namespaces"] == doc["coverage"]["namespaces_processed"]
+    assert {"approle", "userpass", "jwt"} <= set(inv["summary"]["auth_types"])
+    assert inv["summary"]["max_depth"] >= 3 and inv["summary"]["shapes"]
 
 
 def test_health(capsys, tmp_path):

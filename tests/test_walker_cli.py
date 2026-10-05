@@ -139,7 +139,9 @@ def test_audit_cli_end_to_end(env, monkeypatch, capsys):
     code = vo.main(["audit", "--redact-addr", "--fail-on-gaps"])
     out = capsys.readouterr().out.strip().splitlines()
     assert code == vo.EXIT_GAPS
-    assert len(out) == 1 and out[0].endswith(".json") and "c1-findings-" in out[0]
+    assert len(out) == 2 and "c1-findings-" in out[0] and "c1-inventory-" in out[1]
+    assert all(p.endswith(".json") and Path(p).stat().st_mode & 0o777 == 0o600 for p in out)
+    assert json.loads(Path(out[1]).read_text())["summary"]["namespaces"] >= 1
     doc = json.loads(Path(out[0]).read_text())
     assert doc["run"]["vault_addr"] == "<redacted>"
     assert FAKE_TOKEN not in json.dumps(doc)

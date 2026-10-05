@@ -82,7 +82,20 @@ def test_inventory_document(cluster_data):
     root = next(r for r in doc["namespaces"] if r["namespace"] == "/")
     assert [m["path"] for m in root["secrets_mounts"]] == ["long/", "old/"]  # built-ins omitted
     assert root["egp_policies"] == ["adv", "wild"]
-    assert "custom_metadata" not in json.dumps(doc)
+    assert (root["depth"], root["auth_count"], root["secrets_count"], root["acl_policy_count"]) == (0, 2, 2, 1)
+    summary = doc["summary"]
+    assert summary["max_depth"] == 2
+    assert summary["auth_types"]["ns_token"] == {"mounts": 3, "namespaces": 3}
+    assert summary["secrets_types"]["kv"] == {"mounts": 24, "namespaces": 3}
+    assert "ns_system" not in summary["secrets_types"]
+    assert summary["auth_mounts_total"] == 7 and summary["secrets_mounts_total"] == 24
+    assert (summary["egp_policies"], summary["rgp_policies"]) == (2, 3)
+    assert summary["acl_policies_top"] == [{"namespace": "/", "count": 1}, {"namespace": "team-a/prod/", "count": 1}]
+    assert summary["sentinel_by_enforcement"] == {"advisory": 1, "hard-mandatory": 3, "soft-mandatory": 1}
+    assert sum(s["count"] for s in summary["shapes"]) == 4
+    assert summary["shapes"][0] == {"depth": 0, "auth_types": ["token", "userpass"], "secrets_types": ["kv", "kv"], "count": 1, "examples": ["/"]}
+    dumped = json.dumps(doc)
+    assert "custom_metadata" not in dumped and "main = rule" not in dumped  # no namespace metadata, no Sentinel source
 
 
 def test_usage_document():
