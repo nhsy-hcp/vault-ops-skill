@@ -1,0 +1,2149 @@
+{
+  "schema_version": "1.9.0",
+  "tool": {
+    "name": "vault-ops",
+    "version": "0.3.1"
+  },
+  "run": {
+    "cluster_name": "vault-cluster-999614e0",
+    "vault_addr": "<redacted>",
+    "start_namespace": "tn009/",
+    "started_at": "2026-10-05T16:08:08Z",
+    "finished_at": "2026-10-05T16:08:08Z",
+    "duration_seconds": 0.0,
+    "worker_threads": 4
+  },
+  "coverage": {
+    "namespaces_processed": 13,
+    "complete": true,
+    "denied": [],
+    "errors": []
+  },
+  "summary": {
+    "policies": 149,
+    "names": 19,
+    "distinct_bodies": 20,
+    "unparsed": 0,
+    "with_flagged_rules": 12,
+    "by_rule": {
+      "VT-POL-001": 12,
+      "VT-POL-003": 12,
+      "VT-POL-004": 1,
+      "VT-SNT-001": 2,
+      "VT-SNT-002": 1,
+      "VT-SNT-003": 1,
+      "VT-SNT-004": 1,
+      "VT-SNT-005": 1,
+      "VT-SNT-007": 1
+    }
+  },
+  "policies": [
+    {
+      "namespace": "tn009/",
+      "name": "default",
+      "sha256": "bb66a9fc11ed8eef",
+      "parsed": true,
+      "rule_count": 18,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/",
+      "name": "default-ceiling",
+      "sha256": "dcd2b0c209ce2dcf",
+      "parsed": true,
+      "rule_count": 3,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/",
+      "name": "admin",
+      "sha256": "039560074605f9b8",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": [
+        {
+          "path": "*",
+          "capabilities": [
+            "create",
+            "delete",
+            "list",
+            "read",
+            "sudo",
+            "update"
+          ],
+          "rules": [
+            "VT-POL-001",
+            "VT-POL-003"
+          ]
+        }
+      ]
+    },
+    {
+      "namespace": "tn009/gdpr/",
+      "name": "approle-login",
+      "sha256": "2ab04ceb4b5d556d",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/",
+      "name": "auditor",
+      "sha256": "22b4067f7c0b2b45",
+      "parsed": true,
+      "rule_count": 4,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/",
+      "name": "db-creds-reader",
+      "sha256": "bf08d3cc3882abc5",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/",
+      "name": "default",
+      "sha256": "bb66a9fc11ed8eef",
+      "parsed": true,
+      "rule_count": 18,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/",
+      "name": "default-ceiling",
+      "sha256": "dcd2b0c209ce2dcf",
+      "parsed": true,
+      "rule_count": 3,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/",
+      "name": "kv-writer",
+      "sha256": "bd9a1585882ee4bd",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/",
+      "name": "pki-issuer",
+      "sha256": "410cdbec4e4a479f",
+      "parsed": true,
+      "rule_count": 3,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/",
+      "name": "read-only",
+      "sha256": "a68ed0526aee13bc",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/",
+      "name": "transit-encrypt",
+      "sha256": "c97fd6962b466688",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/dev/",
+      "name": "admin",
+      "sha256": "039560074605f9b8",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": [
+        {
+          "path": "*",
+          "capabilities": [
+            "create",
+            "delete",
+            "list",
+            "read",
+            "sudo",
+            "update"
+          ],
+          "rules": [
+            "VT-POL-001",
+            "VT-POL-003"
+          ]
+        }
+      ]
+    },
+    {
+      "namespace": "tn009/gdpr/dev/",
+      "name": "approle-login",
+      "sha256": "2ab04ceb4b5d556d",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/dev/",
+      "name": "auditor",
+      "sha256": "22b4067f7c0b2b45",
+      "parsed": true,
+      "rule_count": 4,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/dev/",
+      "name": "consent-record-writer",
+      "sha256": "ae5e188e36bb0b62",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/dev/",
+      "name": "data-request-processor",
+      "sha256": "8fde79931cca7676",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/dev/",
+      "name": "db-creds-reader",
+      "sha256": "bf08d3cc3882abc5",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/dev/",
+      "name": "default",
+      "sha256": "bb66a9fc11ed8eef",
+      "parsed": true,
+      "rule_count": 18,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/dev/",
+      "name": "default-ceiling",
+      "sha256": "dcd2b0c209ce2dcf",
+      "parsed": true,
+      "rule_count": 3,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/dev/",
+      "name": "kv-writer",
+      "sha256": "bd9a1585882ee4bd",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/dev/",
+      "name": "pki-issuer",
+      "sha256": "410cdbec4e4a479f",
+      "parsed": true,
+      "rule_count": 3,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/dev/",
+      "name": "read-only",
+      "sha256": "a68ed0526aee13bc",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/dev/",
+      "name": "retention-policy-manager",
+      "sha256": "a6a68834c7b6d1da",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/dev/",
+      "name": "transit-encrypt",
+      "sha256": "c97fd6962b466688",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/prod/",
+      "name": "admin",
+      "sha256": "039560074605f9b8",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": [
+        {
+          "path": "*",
+          "capabilities": [
+            "create",
+            "delete",
+            "list",
+            "read",
+            "sudo",
+            "update"
+          ],
+          "rules": [
+            "VT-POL-001",
+            "VT-POL-003"
+          ]
+        }
+      ]
+    },
+    {
+      "namespace": "tn009/gdpr/prod/",
+      "name": "approle-login",
+      "sha256": "2ab04ceb4b5d556d",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/prod/",
+      "name": "auditor",
+      "sha256": "22b4067f7c0b2b45",
+      "parsed": true,
+      "rule_count": 4,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/prod/",
+      "name": "consent-record-writer",
+      "sha256": "ae5e188e36bb0b62",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/prod/",
+      "name": "data-request-processor",
+      "sha256": "8fde79931cca7676",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/prod/",
+      "name": "db-creds-reader",
+      "sha256": "bf08d3cc3882abc5",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/prod/",
+      "name": "default",
+      "sha256": "bb66a9fc11ed8eef",
+      "parsed": true,
+      "rule_count": 18,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/prod/",
+      "name": "default-ceiling",
+      "sha256": "dcd2b0c209ce2dcf",
+      "parsed": true,
+      "rule_count": 3,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/prod/",
+      "name": "kv-writer",
+      "sha256": "bd9a1585882ee4bd",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/prod/",
+      "name": "pki-issuer",
+      "sha256": "410cdbec4e4a479f",
+      "parsed": true,
+      "rule_count": 3,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/prod/",
+      "name": "read-only",
+      "sha256": "a68ed0526aee13bc",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/prod/",
+      "name": "retention-policy-manager",
+      "sha256": "a6a68834c7b6d1da",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/prod/",
+      "name": "transit-encrypt",
+      "sha256": "c97fd6962b466688",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/staging/",
+      "name": "admin",
+      "sha256": "039560074605f9b8",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": [
+        {
+          "path": "*",
+          "capabilities": [
+            "create",
+            "delete",
+            "list",
+            "read",
+            "sudo",
+            "update"
+          ],
+          "rules": [
+            "VT-POL-001",
+            "VT-POL-003"
+          ]
+        }
+      ]
+    },
+    {
+      "namespace": "tn009/gdpr/staging/",
+      "name": "approle-login",
+      "sha256": "2ab04ceb4b5d556d",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/staging/",
+      "name": "auditor",
+      "sha256": "22b4067f7c0b2b45",
+      "parsed": true,
+      "rule_count": 4,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/staging/",
+      "name": "consent-record-writer",
+      "sha256": "ae5e188e36bb0b62",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/staging/",
+      "name": "data-request-processor",
+      "sha256": "8fde79931cca7676",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/staging/",
+      "name": "db-creds-reader",
+      "sha256": "bf08d3cc3882abc5",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/staging/",
+      "name": "default",
+      "sha256": "bb66a9fc11ed8eef",
+      "parsed": true,
+      "rule_count": 18,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/staging/",
+      "name": "default-ceiling",
+      "sha256": "dcd2b0c209ce2dcf",
+      "parsed": true,
+      "rule_count": 3,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/staging/",
+      "name": "kv-writer",
+      "sha256": "bd9a1585882ee4bd",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/staging/",
+      "name": "pki-issuer",
+      "sha256": "410cdbec4e4a479f",
+      "parsed": true,
+      "rule_count": 3,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/staging/",
+      "name": "read-only",
+      "sha256": "a68ed0526aee13bc",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/staging/",
+      "name": "retention-policy-manager",
+      "sha256": "a6a68834c7b6d1da",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/gdpr/staging/",
+      "name": "transit-encrypt",
+      "sha256": "c97fd6962b466688",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/",
+      "name": "admin",
+      "sha256": "039560074605f9b8",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": [
+        {
+          "path": "*",
+          "capabilities": [
+            "create",
+            "delete",
+            "list",
+            "read",
+            "sudo",
+            "update"
+          ],
+          "rules": [
+            "VT-POL-001",
+            "VT-POL-003"
+          ]
+        }
+      ]
+    },
+    {
+      "namespace": "tn009/pci-dss/",
+      "name": "approle-login",
+      "sha256": "2ab04ceb4b5d556d",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/",
+      "name": "auditor",
+      "sha256": "22b4067f7c0b2b45",
+      "parsed": true,
+      "rule_count": 4,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/",
+      "name": "db-creds-reader",
+      "sha256": "bf08d3cc3882abc5",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/",
+      "name": "default",
+      "sha256": "bb66a9fc11ed8eef",
+      "parsed": true,
+      "rule_count": 18,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/",
+      "name": "default-ceiling",
+      "sha256": "dcd2b0c209ce2dcf",
+      "parsed": true,
+      "rule_count": 3,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/",
+      "name": "kv-writer",
+      "sha256": "bd9a1585882ee4bd",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/",
+      "name": "pki-issuer",
+      "sha256": "410cdbec4e4a479f",
+      "parsed": true,
+      "rule_count": 3,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/",
+      "name": "read-only",
+      "sha256": "a68ed0526aee13bc",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/",
+      "name": "transit-encrypt",
+      "sha256": "c97fd6962b466688",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/dev/",
+      "name": "admin",
+      "sha256": "039560074605f9b8",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": [
+        {
+          "path": "*",
+          "capabilities": [
+            "create",
+            "delete",
+            "list",
+            "read",
+            "sudo",
+            "update"
+          ],
+          "rules": [
+            "VT-POL-001",
+            "VT-POL-003"
+          ]
+        }
+      ]
+    },
+    {
+      "namespace": "tn009/pci-dss/dev/",
+      "name": "approle-login",
+      "sha256": "2ab04ceb4b5d556d",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/dev/",
+      "name": "auditor",
+      "sha256": "22b4067f7c0b2b45",
+      "parsed": true,
+      "rule_count": 4,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/dev/",
+      "name": "cardholder-data-reader",
+      "sha256": "344d227d77f4ce44",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/dev/",
+      "name": "db-creds-reader",
+      "sha256": "bf08d3cc3882abc5",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/dev/",
+      "name": "default",
+      "sha256": "bb66a9fc11ed8eef",
+      "parsed": true,
+      "rule_count": 18,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/dev/",
+      "name": "default-ceiling",
+      "sha256": "dcd2b0c209ce2dcf",
+      "parsed": true,
+      "rule_count": 3,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/dev/",
+      "name": "kv-writer",
+      "sha256": "bd9a1585882ee4bd",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/dev/",
+      "name": "pki-issuer",
+      "sha256": "410cdbec4e4a479f",
+      "parsed": true,
+      "rule_count": 3,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/dev/",
+      "name": "read-only",
+      "sha256": "a68ed0526aee13bc",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/dev/",
+      "name": "remediation-writer",
+      "sha256": "861732e889a74cc2",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/dev/",
+      "name": "scanner-config-reader",
+      "sha256": "aaa7374efa61ff86",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/dev/",
+      "name": "transit-encrypt",
+      "sha256": "c97fd6962b466688",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/prod/",
+      "name": "admin",
+      "sha256": "039560074605f9b8",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": [
+        {
+          "path": "*",
+          "capabilities": [
+            "create",
+            "delete",
+            "list",
+            "read",
+            "sudo",
+            "update"
+          ],
+          "rules": [
+            "VT-POL-001",
+            "VT-POL-003"
+          ]
+        }
+      ]
+    },
+    {
+      "namespace": "tn009/pci-dss/prod/",
+      "name": "approle-login",
+      "sha256": "2ab04ceb4b5d556d",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/prod/",
+      "name": "auditor",
+      "sha256": "22b4067f7c0b2b45",
+      "parsed": true,
+      "rule_count": 4,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/prod/",
+      "name": "cardholder-data-reader",
+      "sha256": "344d227d77f4ce44",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/prod/",
+      "name": "db-creds-reader",
+      "sha256": "bf08d3cc3882abc5",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/prod/",
+      "name": "default",
+      "sha256": "bb66a9fc11ed8eef",
+      "parsed": true,
+      "rule_count": 18,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/prod/",
+      "name": "default-ceiling",
+      "sha256": "dcd2b0c209ce2dcf",
+      "parsed": true,
+      "rule_count": 3,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/prod/",
+      "name": "kv-writer",
+      "sha256": "bd9a1585882ee4bd",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/prod/",
+      "name": "pki-issuer",
+      "sha256": "410cdbec4e4a479f",
+      "parsed": true,
+      "rule_count": 3,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/prod/",
+      "name": "read-only",
+      "sha256": "a68ed0526aee13bc",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/prod/",
+      "name": "remediation-writer",
+      "sha256": "861732e889a74cc2",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/prod/",
+      "name": "scanner-config-reader",
+      "sha256": "aaa7374efa61ff86",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/prod/",
+      "name": "transit-encrypt",
+      "sha256": "c97fd6962b466688",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/staging/",
+      "name": "admin",
+      "sha256": "039560074605f9b8",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": [
+        {
+          "path": "*",
+          "capabilities": [
+            "create",
+            "delete",
+            "list",
+            "read",
+            "sudo",
+            "update"
+          ],
+          "rules": [
+            "VT-POL-001",
+            "VT-POL-003"
+          ]
+        }
+      ]
+    },
+    {
+      "namespace": "tn009/pci-dss/staging/",
+      "name": "approle-login",
+      "sha256": "2ab04ceb4b5d556d",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/staging/",
+      "name": "auditor",
+      "sha256": "22b4067f7c0b2b45",
+      "parsed": true,
+      "rule_count": 4,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/staging/",
+      "name": "cardholder-data-reader",
+      "sha256": "344d227d77f4ce44",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/staging/",
+      "name": "db-creds-reader",
+      "sha256": "bf08d3cc3882abc5",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/staging/",
+      "name": "default",
+      "sha256": "bb66a9fc11ed8eef",
+      "parsed": true,
+      "rule_count": 18,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/staging/",
+      "name": "default-ceiling",
+      "sha256": "dcd2b0c209ce2dcf",
+      "parsed": true,
+      "rule_count": 3,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/staging/",
+      "name": "kv-writer",
+      "sha256": "bd9a1585882ee4bd",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/staging/",
+      "name": "pki-issuer",
+      "sha256": "410cdbec4e4a479f",
+      "parsed": true,
+      "rule_count": 3,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/staging/",
+      "name": "read-only",
+      "sha256": "a68ed0526aee13bc",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/staging/",
+      "name": "remediation-writer",
+      "sha256": "861732e889a74cc2",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/staging/",
+      "name": "scanner-config-reader",
+      "sha256": "aaa7374efa61ff86",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/pci-dss/staging/",
+      "name": "transit-encrypt",
+      "sha256": "c97fd6962b466688",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/",
+      "name": "admin",
+      "sha256": "039560074605f9b8",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": [
+        {
+          "path": "*",
+          "capabilities": [
+            "create",
+            "delete",
+            "list",
+            "read",
+            "sudo",
+            "update"
+          ],
+          "rules": [
+            "VT-POL-001",
+            "VT-POL-003"
+          ]
+        }
+      ]
+    },
+    {
+      "namespace": "tn009/soc2/",
+      "name": "approle-login",
+      "sha256": "2ab04ceb4b5d556d",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/",
+      "name": "auditor",
+      "sha256": "22b4067f7c0b2b45",
+      "parsed": true,
+      "rule_count": 4,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/",
+      "name": "db-creds-reader",
+      "sha256": "bf08d3cc3882abc5",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/",
+      "name": "default",
+      "sha256": "bb66a9fc11ed8eef",
+      "parsed": true,
+      "rule_count": 18,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/",
+      "name": "default-ceiling",
+      "sha256": "dcd2b0c209ce2dcf",
+      "parsed": true,
+      "rule_count": 3,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/",
+      "name": "kv-writer",
+      "sha256": "bd9a1585882ee4bd",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/",
+      "name": "pki-issuer",
+      "sha256": "410cdbec4e4a479f",
+      "parsed": true,
+      "rule_count": 3,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/",
+      "name": "read-only",
+      "sha256": "a68ed0526aee13bc",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/",
+      "name": "transit-encrypt",
+      "sha256": "c97fd6962b466688",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/dev/",
+      "name": "admin",
+      "sha256": "039560074605f9b8",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": [
+        {
+          "path": "*",
+          "capabilities": [
+            "create",
+            "delete",
+            "list",
+            "read",
+            "sudo",
+            "update"
+          ],
+          "rules": [
+            "VT-POL-001",
+            "VT-POL-003"
+          ]
+        }
+      ]
+    },
+    {
+      "namespace": "tn009/soc2/dev/",
+      "name": "approle-login",
+      "sha256": "2ab04ceb4b5d556d",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/dev/",
+      "name": "audit-report-writer",
+      "sha256": "33ea0e42011591ee",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/dev/",
+      "name": "auditor",
+      "sha256": "22b4067f7c0b2b45",
+      "parsed": true,
+      "rule_count": 4,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/dev/",
+      "name": "controls-auditor",
+      "sha256": "49b7f68596964a39",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/dev/",
+      "name": "db-creds-reader",
+      "sha256": "bf08d3cc3882abc5",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/dev/",
+      "name": "default",
+      "sha256": "bb66a9fc11ed8eef",
+      "parsed": true,
+      "rule_count": 18,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/dev/",
+      "name": "default-ceiling",
+      "sha256": "dcd2b0c209ce2dcf",
+      "parsed": true,
+      "rule_count": 3,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/dev/",
+      "name": "evidence-collector",
+      "sha256": "eaa2084c2860e3a0",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/dev/",
+      "name": "kv-writer",
+      "sha256": "bd9a1585882ee4bd",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/dev/",
+      "name": "pki-issuer",
+      "sha256": "410cdbec4e4a479f",
+      "parsed": true,
+      "rule_count": 3,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/dev/",
+      "name": "read-only",
+      "sha256": "48e60ffc21fa2cb6",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/dev/",
+      "name": "transit-encrypt",
+      "sha256": "c97fd6962b466688",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/prod/",
+      "name": "admin",
+      "sha256": "039560074605f9b8",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": [
+        {
+          "path": "*",
+          "capabilities": [
+            "create",
+            "delete",
+            "list",
+            "read",
+            "sudo",
+            "update"
+          ],
+          "rules": [
+            "VT-POL-001",
+            "VT-POL-003"
+          ]
+        }
+      ]
+    },
+    {
+      "namespace": "tn009/soc2/prod/",
+      "name": "approle-login",
+      "sha256": "2ab04ceb4b5d556d",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/prod/",
+      "name": "audit-report-writer",
+      "sha256": "33ea0e42011591ee",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/prod/",
+      "name": "auditor",
+      "sha256": "22b4067f7c0b2b45",
+      "parsed": true,
+      "rule_count": 4,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/prod/",
+      "name": "controls-auditor",
+      "sha256": "49b7f68596964a39",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/prod/",
+      "name": "db-creds-reader",
+      "sha256": "bf08d3cc3882abc5",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/prod/",
+      "name": "default",
+      "sha256": "bb66a9fc11ed8eef",
+      "parsed": true,
+      "rule_count": 18,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/prod/",
+      "name": "default-ceiling",
+      "sha256": "dcd2b0c209ce2dcf",
+      "parsed": true,
+      "rule_count": 3,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/prod/",
+      "name": "evidence-collector",
+      "sha256": "eaa2084c2860e3a0",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/prod/",
+      "name": "kv-writer",
+      "sha256": "bd9a1585882ee4bd",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/prod/",
+      "name": "pki-issuer",
+      "sha256": "410cdbec4e4a479f",
+      "parsed": true,
+      "rule_count": 3,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/prod/",
+      "name": "read-only",
+      "sha256": "a68ed0526aee13bc",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/prod/",
+      "name": "transit-encrypt",
+      "sha256": "c97fd6962b466688",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/staging/",
+      "name": "admin",
+      "sha256": "039560074605f9b8",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": [
+        {
+          "path": "*",
+          "capabilities": [
+            "create",
+            "delete",
+            "list",
+            "read",
+            "sudo",
+            "update"
+          ],
+          "rules": [
+            "VT-POL-001",
+            "VT-POL-003"
+          ]
+        }
+      ]
+    },
+    {
+      "namespace": "tn009/soc2/staging/",
+      "name": "approle-login",
+      "sha256": "2ab04ceb4b5d556d",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/staging/",
+      "name": "audit-report-writer",
+      "sha256": "33ea0e42011591ee",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/staging/",
+      "name": "auditor",
+      "sha256": "22b4067f7c0b2b45",
+      "parsed": true,
+      "rule_count": 4,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/staging/",
+      "name": "controls-auditor",
+      "sha256": "49b7f68596964a39",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/staging/",
+      "name": "db-creds-reader",
+      "sha256": "bf08d3cc3882abc5",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/staging/",
+      "name": "default",
+      "sha256": "bb66a9fc11ed8eef",
+      "parsed": true,
+      "rule_count": 18,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/staging/",
+      "name": "default-ceiling",
+      "sha256": "dcd2b0c209ce2dcf",
+      "parsed": true,
+      "rule_count": 3,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/staging/",
+      "name": "evidence-collector",
+      "sha256": "eaa2084c2860e3a0",
+      "parsed": true,
+      "rule_count": 1,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/staging/",
+      "name": "kv-writer",
+      "sha256": "bd9a1585882ee4bd",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/staging/",
+      "name": "pki-issuer",
+      "sha256": "410cdbec4e4a479f",
+      "parsed": true,
+      "rule_count": 3,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/staging/",
+      "name": "read-only",
+      "sha256": "a68ed0526aee13bc",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    },
+    {
+      "namespace": "tn009/soc2/staging/",
+      "name": "transit-encrypt",
+      "sha256": "c97fd6962b466688",
+      "parsed": true,
+      "rule_count": 2,
+      "flagged": []
+    }
+  ],
+  "sentinel": {
+    "status": "supported",
+    "policies": [
+      {
+        "namespace": "tn009/",
+        "kind": "egp",
+        "name": "vault-ops-advisory",
+        "enforcement_level": "advisory",
+        "paths": [
+          "secret/data/*"
+        ],
+        "sha256": "6474b0ea65ea2dfd",
+        "imports": [
+          "time"
+        ],
+        "flagged": [
+          "VT-SNT-001"
+        ]
+      },
+      {
+        "namespace": "tn009/",
+        "kind": "egp",
+        "name": "vault-ops-http",
+        "enforcement_level": "advisory",
+        "paths": [
+          "secret/data/vault-ops-http/*"
+        ],
+        "sha256": "5ee15cd2d5350b21",
+        "imports": [
+          "http"
+        ],
+        "flagged": [
+          "VT-SNT-001",
+          "VT-SNT-007"
+        ]
+      },
+      {
+        "namespace": "tn009/",
+        "kind": "egp",
+        "name": "vault-ops-wildcard",
+        "enforcement_level": "hard-mandatory",
+        "paths": [
+          "*"
+        ],
+        "sha256": "6474b0ea65ea2dfd",
+        "imports": [
+          "time"
+        ],
+        "flagged": [
+          "VT-SNT-003"
+        ]
+      },
+      {
+        "namespace": "tn009/",
+        "kind": "rgp",
+        "name": "vault-ops-always-true",
+        "enforcement_level": "hard-mandatory",
+        "paths": [],
+        "sha256": "65cab34f1e46c9a0",
+        "imports": [],
+        "flagged": [
+          "VT-SNT-004"
+        ]
+      },
+      {
+        "namespace": "tn009/",
+        "kind": "rgp",
+        "name": "vault-ops-hard",
+        "enforcement_level": "hard-mandatory",
+        "paths": [],
+        "sha256": "6474b0ea65ea2dfd",
+        "imports": [
+          "time"
+        ],
+        "flagged": []
+      },
+      {
+        "namespace": "tn009/",
+        "kind": "rgp",
+        "name": "vault-ops-soft",
+        "enforcement_level": "soft-mandatory",
+        "paths": [],
+        "sha256": "6474b0ea65ea2dfd",
+        "imports": [
+          "time"
+        ],
+        "flagged": [
+          "VT-SNT-002"
+        ]
+      },
+      {
+        "namespace": "tn009/gdpr/",
+        "kind": "rgp",
+        "name": "vault-ops-hard",
+        "enforcement_level": "hard-mandatory",
+        "paths": [],
+        "sha256": "0438856114d41fd9",
+        "imports": [
+          "time"
+        ],
+        "flagged": []
+      }
+    ],
+    "summary": {
+      "egp": 3,
+      "rgp": 4,
+      "distinct_bodies": 4,
+      "by_enforcement": {
+        "advisory": 2,
+        "hard-mandatory": 4,
+        "soft-mandatory": 1
+      }
+    }
+  },
+  "findings": [
+    {
+      "fingerprint": "9199f51d9c54c26e",
+      "rule_id": "VT-POL-001",
+      "severity": "medium",
+      "category": "access",
+      "namespace": "tn009/gdpr/",
+      "object": {
+        "kind": "acl_policy",
+        "path": "admin",
+        "type": null
+      },
+      "title": "ACL policy grants write or sudo on every path",
+      "detail": "Grants write or sudo on every path (`*`) \u2014 effectively admin in this namespace.",
+      "evidence": {
+        "paths": [
+          "*"
+        ]
+      }
+    },
+    {
+      "fingerprint": "4aadb58f96f15aa8",
+      "rule_id": "VT-POL-001",
+      "severity": "medium",
+      "category": "access",
+      "namespace": "tn009/gdpr/dev/",
+      "object": {
+        "kind": "acl_policy",
+        "path": "admin",
+        "type": null
+      },
+      "title": "ACL policy grants write or sudo on every path",
+      "detail": "Grants write or sudo on every path (`*`) \u2014 effectively admin in this namespace.",
+      "evidence": {
+        "paths": [
+          "*"
+        ]
+      }
+    },
+    {
+      "fingerprint": "ae06119c95e548d5",
+      "rule_id": "VT-POL-001",
+      "severity": "medium",
+      "category": "access",
+      "namespace": "tn009/gdpr/prod/",
+      "object": {
+        "kind": "acl_policy",
+        "path": "admin",
+        "type": null
+      },
+      "title": "ACL policy grants write or sudo on every path",
+      "detail": "Grants write or sudo on every path (`*`) \u2014 effectively admin in this namespace.",
+      "evidence": {
+        "paths": [
+          "*"
+        ]
+      }
+    },
+    {
+      "fingerprint": "50e5cc8cf06320c6",
+      "rule_id": "VT-POL-001",
+      "severity": "medium",
+      "category": "access",
+      "namespace": "tn009/gdpr/staging/",
+      "object": {
+        "kind": "acl_policy",
+        "path": "admin",
+        "type": null
+      },
+      "title": "ACL policy grants write or sudo on every path",
+      "detail": "Grants write or sudo on every path (`*`) \u2014 effectively admin in this namespace.",
+      "evidence": {
+        "paths": [
+          "*"
+        ]
+      }
+    },
+    {
+      "fingerprint": "05dbc3b583752d08",
+      "rule_id": "VT-POL-001",
+      "severity": "medium",
+      "category": "access",
+      "namespace": "tn009/pci-dss/",
+      "object": {
+        "kind": "acl_policy",
+        "path": "admin",
+        "type": null
+      },
+      "title": "ACL policy grants write or sudo on every path",
+      "detail": "Grants write or sudo on every path (`*`) \u2014 effectively admin in this namespace.",
+      "evidence": {
+        "paths": [
+          "*"
+        ]
+      }
+    },
+    {
+      "fingerprint": "a6ccfd12be0b13ea",
+      "rule_id": "VT-POL-001",
+      "severity": "medium",
+      "category": "access",
+      "namespace": "tn009/pci-dss/dev/",
+      "object": {
+        "kind": "acl_policy",
+        "path": "admin",
+        "type": null
+      },
+      "title": "ACL policy grants write or sudo on every path",
+      "detail": "Grants write or sudo on every path (`*`) \u2014 effectively admin in this namespace.",
+      "evidence": {
+        "paths": [
+          "*"
+        ]
+      }
+    },
+    {
+      "fingerprint": "93fc970aa7a0840e",
+      "rule_id": "VT-POL-001",
+      "severity": "medium",
+      "category": "access",
+      "namespace": "tn009/pci-dss/prod/",
+      "object": {
+        "kind": "acl_policy",
+        "path": "admin",
+        "type": null
+      },
+      "title": "ACL policy grants write or sudo on every path",
+      "detail": "Grants write or sudo on every path (`*`) \u2014 effectively admin in this namespace.",
+      "evidence": {
+        "paths": [
+          "*"
+        ]
+      }
+    },
+    {
+      "fingerprint": "85e89eac9c3fa797",
+      "rule_id": "VT-POL-001",
+      "severity": "medium",
+      "category": "access",
+      "namespace": "tn009/pci-dss/staging/",
+      "object": {
+        "kind": "acl_policy",
+        "path": "admin",
+        "type": null
+      },
+      "title": "ACL policy grants write or sudo on every path",
+      "detail": "Grants write or sudo on every path (`*`) \u2014 effectively admin in this namespace.",
+      "evidence": {
+        "paths": [
+          "*"
+        ]
+      }
+    },
+    {
+      "fingerprint": "356a5583b16d06a8",
+      "rule_id": "VT-POL-001",
+      "severity": "medium",
+      "category": "access",
+      "namespace": "tn009/soc2/",
+      "object": {
+        "kind": "acl_policy",
+        "path": "admin",
+        "type": null
+      },
+      "title": "ACL policy grants write or sudo on every path",
+      "detail": "Grants write or sudo on every path (`*`) \u2014 effectively admin in this namespace.",
+      "evidence": {
+        "paths": [
+          "*"
+        ]
+      }
+    },
+    {
+      "fingerprint": "83e3b68e88c1e1af",
+      "rule_id": "VT-POL-001",
+      "severity": "medium",
+      "category": "access",
+      "namespace": "tn009/soc2/dev/",
+      "object": {
+        "kind": "acl_policy",
+        "path": "admin",
+        "type": null
+      },
+      "title": "ACL policy grants write or sudo on every path",
+      "detail": "Grants write or sudo on every path (`*`) \u2014 effectively admin in this namespace.",
+      "evidence": {
+        "paths": [
+          "*"
+        ]
+      }
+    },
+    {
+      "fingerprint": "01c3ec26dcb265b9",
+      "rule_id": "VT-POL-001",
+      "severity": "medium",
+      "category": "access",
+      "namespace": "tn009/soc2/prod/",
+      "object": {
+        "kind": "acl_policy",
+        "path": "admin",
+        "type": null
+      },
+      "title": "ACL policy grants write or sudo on every path",
+      "detail": "Grants write or sudo on every path (`*`) \u2014 effectively admin in this namespace.",
+      "evidence": {
+        "paths": [
+          "*"
+        ]
+      }
+    },
+    {
+      "fingerprint": "272cb4034e8b9a08",
+      "rule_id": "VT-POL-001",
+      "severity": "medium",
+      "category": "access",
+      "namespace": "tn009/soc2/staging/",
+      "object": {
+        "kind": "acl_policy",
+        "path": "admin",
+        "type": null
+      },
+      "title": "ACL policy grants write or sudo on every path",
+      "detail": "Grants write or sudo on every path (`*`) \u2014 effectively admin in this namespace.",
+      "evidence": {
+        "paths": [
+          "*"
+        ]
+      }
+    },
+    {
+      "fingerprint": "9e9d88bf28d87357",
+      "rule_id": "VT-POL-004",
+      "severity": "low",
+      "category": "access",
+      "namespace": "/",
+      "object": {
+        "kind": "acl_policy",
+        "path": "read-only",
+        "type": null
+      },
+      "title": "Same-named ACL policy differs across namespaces",
+      "detail": "`read-only` exists in 12 namespaces with 2 different bodies \u2014 copies have drifted; 1 differs from the most common one.",
+      "evidence": {
+        "examples": [
+          "tn009/soc2/dev/"
+        ],
+        "namespaces": 12,
+        "outliers": 1,
+        "variants": 2
+      }
+    },
+    {
+      "fingerprint": "a3d4e87f89a9c2e8",
+      "rule_id": "VT-SNT-005",
+      "severity": "low",
+      "category": "governance",
+      "namespace": "/",
+      "object": {
+        "kind": "rgp_policy",
+        "path": "vault-ops-hard",
+        "type": "rgp"
+      },
+      "title": "Same-named Sentinel policy differs across namespaces",
+      "detail": "RGP `vault-ops-hard` exists in 2 namespaces with 2 different bodies \u2014 copies have drifted; 1 differs from the most common one.",
+      "evidence": {
+        "examples": [
+          "tn009/gdpr/"
+        ],
+        "namespaces": 2,
+        "outliers": 1,
+        "variants": 2
+      }
+    },
+    {
+      "fingerprint": "966d39787e6d11f3",
+      "rule_id": "VT-SNT-001",
+      "severity": "low",
+      "category": "governance",
+      "namespace": "tn009/",
+      "object": {
+        "kind": "egp_policy",
+        "path": "vault-ops-advisory",
+        "type": "egp"
+      },
+      "title": "Sentinel policy is advisory",
+      "detail": "Enforcement level is `advisory` \u2014 the policy logs violations but never blocks a request.",
+      "evidence": {
+        "enforcement_level": "advisory"
+      }
+    },
+    {
+      "fingerprint": "05539f19cce25fbc",
+      "rule_id": "VT-SNT-004",
+      "severity": "low",
+      "category": "governance",
+      "namespace": "tn009/",
+      "object": {
+        "kind": "rgp_policy",
+        "path": "vault-ops-always-true",
+        "type": "rgp"
+      },
+      "title": "Sentinel policy always evaluates true",
+      "detail": "Policy body always evaluates to true \u2014 it enforces nothing despite appearing in the policy list.",
+      "evidence": {
+        "always_true": true,
+        "policy_line_count": 2
+      }
+    },
+    {
+      "fingerprint": "4c819b845796f2fc",
+      "rule_id": "VT-SNT-001",
+      "severity": "low",
+      "category": "governance",
+      "namespace": "tn009/",
+      "object": {
+        "kind": "egp_policy",
+        "path": "vault-ops-http",
+        "type": "egp"
+      },
+      "title": "Sentinel policy is advisory",
+      "detail": "Enforcement level is `advisory` \u2014 the policy logs violations but never blocks a request.",
+      "evidence": {
+        "enforcement_level": "advisory"
+      }
+    },
+    {
+      "fingerprint": "e1eef75b1d776ff5",
+      "rule_id": "VT-POL-003",
+      "severity": "low",
+      "category": "access",
+      "namespace": "tn009/gdpr/",
+      "object": {
+        "kind": "acl_policy",
+        "path": "admin",
+        "type": null
+      },
+      "title": "ACL policy grants sudo",
+      "detail": "Grants `sudo` on `*`.",
+      "evidence": {
+        "sudo_paths": [
+          "*"
+        ]
+      }
+    },
+    {
+      "fingerprint": "bc30699ec5e5a583",
+      "rule_id": "VT-POL-003",
+      "severity": "low",
+      "category": "access",
+      "namespace": "tn009/gdpr/dev/",
+      "object": {
+        "kind": "acl_policy",
+        "path": "admin",
+        "type": null
+      },
+      "title": "ACL policy grants sudo",
+      "detail": "Grants `sudo` on `*`.",
+      "evidence": {
+        "sudo_paths": [
+          "*"
+        ]
+      }
+    },
+    {
+      "fingerprint": "3bbd506d62859fce",
+      "rule_id": "VT-POL-003",
+      "severity": "low",
+      "category": "access",
+      "namespace": "tn009/gdpr/prod/",
+      "object": {
+        "kind": "acl_policy",
+        "path": "admin",
+        "type": null
+      },
+      "title": "ACL policy grants sudo",
+      "detail": "Grants `sudo` on `*`.",
+      "evidence": {
+        "sudo_paths": [
+          "*"
+        ]
+      }
+    },
+    {
+      "fingerprint": "5978bfcfa55bdbc8",
+      "rule_id": "VT-POL-003",
+      "severity": "low",
+      "category": "access",
+      "namespace": "tn009/gdpr/staging/",
+      "object": {
+        "kind": "acl_policy",
+        "path": "admin",
+        "type": null
+      },
+      "title": "ACL policy grants sudo",
+      "detail": "Grants `sudo` on `*`.",
+      "evidence": {
+        "sudo_paths": [
+          "*"
+        ]
+      }
+    },
+    {
+      "fingerprint": "a965cb32cd8f729a",
+      "rule_id": "VT-POL-003",
+      "severity": "low",
+      "category": "access",
+      "namespace": "tn009/pci-dss/",
+      "object": {
+        "kind": "acl_policy",
+        "path": "admin",
+        "type": null
+      },
+      "title": "ACL policy grants sudo",
+      "detail": "Grants `sudo` on `*`.",
+      "evidence": {
+        "sudo_paths": [
+          "*"
+        ]
+      }
+    },
+    {
+      "fingerprint": "2b05173a1ae9976f",
+      "rule_id": "VT-POL-003",
+      "severity": "low",
+      "category": "access",
+      "namespace": "tn009/pci-dss/dev/",
+      "object": {
+        "kind": "acl_policy",
+        "path": "admin",
+        "type": null
+      },
+      "title": "ACL policy grants sudo",
+      "detail": "Grants `sudo` on `*`.",
+      "evidence": {
+        "sudo_paths": [
+          "*"
+        ]
+      }
+    },
+    {
+      "fingerprint": "5f69c587de52597d",
+      "rule_id": "VT-POL-003",
+      "severity": "low",
+      "category": "access",
+      "namespace": "tn009/pci-dss/prod/",
+      "object": {
+        "kind": "acl_policy",
+        "path": "admin",
+        "type": null
+      },
+      "title": "ACL policy grants sudo",
+      "detail": "Grants `sudo` on `*`.",
+      "evidence": {
+        "sudo_paths": [
+          "*"
+        ]
+      }
+    },
+    {
+      "fingerprint": "5ec38079da611fa5",
+      "rule_id": "VT-POL-003",
+      "severity": "low",
+      "category": "access",
+      "namespace": "tn009/pci-dss/staging/",
+      "object": {
+        "kind": "acl_policy",
+        "path": "admin",
+        "type": null
+      },
+      "title": "ACL policy grants sudo",
+      "detail": "Grants `sudo` on `*`.",
+      "evidence": {
+        "sudo_paths": [
+          "*"
+        ]
+      }
+    },
+    {
+      "fingerprint": "d08eb86a9f37845f",
+      "rule_id": "VT-POL-003",
+      "severity": "low",
+      "category": "access",
+      "namespace": "tn009/soc2/",
+      "object": {
+        "kind": "acl_policy",
+        "path": "admin",
+        "type": null
+      },
+      "title": "ACL policy grants sudo",
+      "detail": "Grants `sudo` on `*`.",
+      "evidence": {
+        "sudo_paths": [
+          "*"
+        ]
+      }
+    },
+    {
+      "fingerprint": "b15b4b38c6425d5c",
+      "rule_id": "VT-POL-003",
+      "severity": "low",
+      "category": "access",
+      "namespace": "tn009/soc2/dev/",
+      "object": {
+        "kind": "acl_policy",
+        "path": "admin",
+        "type": null
+      },
+      "title": "ACL policy grants sudo",
+      "detail": "Grants `sudo` on `*`.",
+      "evidence": {
+        "sudo_paths": [
+          "*"
+        ]
+      }
+    },
+    {
+      "fingerprint": "17e6ba89941e3385",
+      "rule_id": "VT-POL-003",
+      "severity": "low",
+      "category": "access",
+      "namespace": "tn009/soc2/prod/",
+      "object": {
+        "kind": "acl_policy",
+        "path": "admin",
+        "type": null
+      },
+      "title": "ACL policy grants sudo",
+      "detail": "Grants `sudo` on `*`.",
+      "evidence": {
+        "sudo_paths": [
+          "*"
+        ]
+      }
+    },
+    {
+      "fingerprint": "2a857c0bbc00cb98",
+      "rule_id": "VT-POL-003",
+      "severity": "low",
+      "category": "access",
+      "namespace": "tn009/soc2/staging/",
+      "object": {
+        "kind": "acl_policy",
+        "path": "admin",
+        "type": null
+      },
+      "title": "ACL policy grants sudo",
+      "detail": "Grants `sudo` on `*`.",
+      "evidence": {
+        "sudo_paths": [
+          "*"
+        ]
+      }
+    },
+    {
+      "fingerprint": "822397072f44e926",
+      "rule_id": "VT-SNT-007",
+      "severity": "info",
+      "category": "governance",
+      "namespace": "tn009/",
+      "object": {
+        "kind": "egp_policy",
+        "path": "vault-ops-http",
+        "type": "egp"
+      },
+      "title": "Sentinel policy makes outbound HTTP calls",
+      "detail": "Imports `http` \u2014 each request it applies to can wait on an outbound call, so that endpoint's availability and latency gate Vault requests.",
+      "evidence": {
+        "imports": [
+          "http"
+        ]
+      }
+    },
+    {
+      "fingerprint": "2c8426fa986498d0",
+      "rule_id": "VT-SNT-002",
+      "severity": "info",
+      "category": "governance",
+      "namespace": "tn009/",
+      "object": {
+        "kind": "rgp_policy",
+        "path": "vault-ops-soft",
+        "type": "rgp"
+      },
+      "title": "Sentinel policy is overridable",
+      "detail": "Enforcement level is `soft-mandatory` \u2014 a caller with a `sudo`-capable token can override it.",
+      "evidence": {
+        "enforcement_level": "soft-mandatory"
+      }
+    },
+    {
+      "fingerprint": "4de5776dff94128f",
+      "rule_id": "VT-SNT-003",
+      "severity": "info",
+      "category": "governance",
+      "namespace": "tn009/",
+      "object": {
+        "kind": "egp_policy",
+        "path": "vault-ops-wildcard",
+        "type": "egp"
+      },
+      "title": "EGP applies to every path",
+      "detail": "Endpoint path is a wildcard \u2014 the policy applies to every request in this namespace.",
+      "evidence": {
+        "paths": [
+          "*"
+        ]
+      }
+    }
+  ]
+}

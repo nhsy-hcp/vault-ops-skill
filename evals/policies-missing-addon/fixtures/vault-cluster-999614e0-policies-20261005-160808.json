@@ -1,0 +1,107 @@
+{
+  "schema_version": "1.9.0",
+  "tool": {
+    "name": "vault-ops",
+    "version": "0.3.1"
+  },
+  "run": {
+    "cluster_name": "vault-cluster-999614e0",
+    "vault_addr": "<redacted>",
+    "start_namespace": "tn009/",
+    "started_at": "2026-10-05T16:08:08Z",
+    "finished_at": "2026-10-05T16:08:09Z",
+    "duration_seconds": 1.0,
+    "worker_threads": 4
+  },
+  "coverage": {
+    "namespaces_processed": 13,
+    "complete": false,
+    "denied": [
+      {
+        "namespace": "tn009/",
+        "scope": "ACL policy bodies (attach vault-ops-policy-reader)"
+      },
+      {
+        "namespace": "tn009/",
+        "scope": "sentinel EGP policy bodies (attach vault-ops-sentinel-reader)"
+      },
+      {
+        "namespace": "tn009/",
+        "scope": "sentinel RGP policy bodies (attach vault-ops-sentinel-reader)"
+      },
+      {
+        "namespace": "tn009/gdpr/",
+        "scope": "ACL policy bodies (attach vault-ops-policy-reader)"
+      },
+      {
+        "namespace": "tn009/gdpr/",
+        "scope": "sentinel RGP policy bodies (attach vault-ops-sentinel-reader)"
+      },
+      {
+        "namespace": "tn009/gdpr/dev/",
+        "scope": "ACL policy bodies (attach vault-ops-policy-reader)"
+      },
+      {
+        "namespace": "tn009/gdpr/prod/",
+        "scope": "ACL policy bodies (attach vault-ops-policy-reader)"
+      },
+      {
+        "namespace": "tn009/gdpr/staging/",
+        "scope": "ACL policy bodies (attach vault-ops-policy-reader)"
+      },
+      {
+        "namespace": "tn009/pci-dss/",
+        "scope": "ACL policy bodies (attach vault-ops-policy-reader)"
+      },
+      {
+        "namespace": "tn009/pci-dss/dev/",
+        "scope": "ACL policy bodies (attach vault-ops-policy-reader)"
+      },
+      {
+        "namespace": "tn009/pci-dss/prod/",
+        "scope": "ACL policy bodies (attach vault-ops-policy-reader)"
+      },
+      {
+        "namespace": "tn009/pci-dss/staging/",
+        "scope": "ACL policy bodies (attach vault-ops-policy-reader)"
+      },
+      {
+        "namespace": "tn009/soc2/",
+        "scope": "ACL policy bodies (attach vault-ops-policy-reader)"
+      },
+      {
+        "namespace": "tn009/soc2/dev/",
+        "scope": "ACL policy bodies (attach vault-ops-policy-reader)"
+      },
+      {
+        "namespace": "tn009/soc2/prod/",
+        "scope": "ACL policy bodies (attach vault-ops-policy-reader)"
+      },
+      {
+        "namespace": "tn009/soc2/staging/",
+        "scope": "ACL policy bodies (attach vault-ops-policy-reader)"
+      }
+    ],
+    "errors": []
+  },
+  "summary": {
+    "policies": 0,
+    "names": 0,
+    "distinct_bodies": 0,
+    "unparsed": 0,
+    "with_flagged_rules": 0,
+    "by_rule": {}
+  },
+  "policies": [],
+  "sentinel": {
+    "status": "supported",
+    "policies": [],
+    "summary": {
+      "egp": 0,
+      "rgp": 0,
+      "distinct_bodies": 0,
+      "by_enforcement": {}
+    }
+  },
+  "findings": []
+}

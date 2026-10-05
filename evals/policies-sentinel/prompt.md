@@ -1,0 +1,7 @@
+---
+tags: [offline, policies]
+max_turns: 15
+allowed_tools: [Read, Glob, Grep, Skill]
+---
+
+I ran a vault-ops policies review on tn009 earlier. Is anything risky in our ACL or Sentinel policies?
