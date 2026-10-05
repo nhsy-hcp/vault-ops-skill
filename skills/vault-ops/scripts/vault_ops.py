@@ -45,7 +45,7 @@ import requests
 from hvac import exceptions as hvac_exc
 
 TOOL_NAME = "vault-ops"
-TOOL_VERSION = "0.2.2"
+TOOL_VERSION = "0.2.3"
 SCHEMA_VERSION = "1.7.0"
 
 EXIT_OK, EXIT_FATAL, EXIT_GAPS, EXIT_FINDINGS, EXIT_INTERRUPTED = 0, 1, 2, 3, 130
