@@ -46,7 +46,7 @@ from hvac import exceptions as hvac_exc
 
 TOOL_NAME = "vault-ops"
 TOOL_VERSION = "0.1.0"
-SCHEMA_VERSION = "1.4.0"
+SCHEMA_VERSION = "1.5.0"
 
 EXIT_OK, EXIT_FATAL, EXIT_GAPS, EXIT_FINDINGS, EXIT_INTERRUPTED = 0, 1, 2, 3, 130
 
@@ -129,6 +129,7 @@ RULES: dict[str, Rule] = {
     "VT-HLTH-001": Rule("medium", "availability", "Node sealed or no active leader"),
     "VT-HLTH-002": Rule("medium", "replication", "Replication enabled but not healthy"),
     "VT-HLTH-003": Rule("info", "lifecycle", "Vault version below supported window"),
+    "VT-HLTH-004": Rule("medium", "availability", "Raft autopilot reports the cluster or a server unhealthy"),
     "VT-LEASE-001": Rule("low", "lease", "Cluster default lease TTL is long"),
     "VT-ID-001": Rule("low", "identity", "Entity has no aliases"),
     "VT-ID-002": Rule("info", "identity", "Policies attached directly to entity"),
@@ -666,6 +667,7 @@ def collect_health(reader: VaultReader, coverage: Coverage, probe: dict[str, Any
         "leader": None,
         "license": None,
         "replication": None,
+        "raft": None,
         "lease_ttls": None,
     }
 
@@ -707,6 +709,8 @@ def collect_health(reader: VaultReader, coverage: Coverage, probe: dict[str, Any
             result["replication"] = {"mode": repl["mode"]}
         else:
             result["replication"] = {kind: replication_summary(repl.get(kind) or {}) for kind in ("dr", "performance")}
+    if not dr_secondary:
+        result["raft"] = collect_raft(reader, coverage)
     if not dr_secondary and (cfg := optional("sys/config/state/sanitized", "sys/config/state/sanitized")) is not None:
 
         def positive(value: Any) -> int | None:
@@ -718,6 +722,62 @@ def collect_health(reader: VaultReader, coverage: Coverage, probe: dict[str, Any
             "max_lease_ttl_seconds": positive(cfg.get("max_lease_ttl")),
         }
     return result
+
+
+AUTOPILOT_CONFIG_KEYS = (
+    "cleanup_dead_servers",
+    "dead_server_last_contact_threshold",
+    "last_contact_threshold",
+    "max_trailing_logs",
+    "min_quorum",
+    "server_stabilization_time",
+    "disable_upgrade_migration",
+)
+AUTOPILOT_SERVER_KEYS = ("status", "node_type", "node_status", "healthy", "last_contact", "last_term", "last_index", "stable_since", "version")
+
+
+def collect_raft(reader: VaultReader, coverage: Coverage) -> dict[str, Any] | None:
+    """Integrated storage peers and autopilot. None when the cluster does not use raft.
+
+    Peer addresses are omitted, as with the leader address: node IDs identify the peers.
+    """
+
+    def read(path: str) -> dict[str, Any] | None:
+        try:
+            return reader.data(path)
+        except hvac_exc.Forbidden:
+            coverage.deny("", path)
+        except hvac_exc.InvalidPath:
+            pass
+        except hvac_exc.InvalidRequest as exc:
+            if "raft storage is not in use" not in str(exc):
+                coverage.error("", exc)
+        except (hvac_exc.VaultError, requests.exceptions.RequestException) as exc:
+            coverage.error("", exc)
+        return None
+
+    config = read("sys/storage/raft/configuration")
+    autopilot_config = read("sys/storage/raft/autopilot/configuration")
+    state = read("sys/storage/raft/autopilot/state")
+    if config is None and autopilot_config is None and state is None:
+        return None
+    raft: dict[str, Any] = {"peers": None, "autopilot": {"configuration": None, "state": None}}
+    if config is not None:
+        servers = (config.get("config") or {}).get("servers") or []
+        raft["peers"] = [{"node_id": s.get("node_id"), "leader": bool(s.get("leader")), "voter": bool(s.get("voter"))} for s in servers]
+    if autopilot_config is not None:
+        raft["autopilot"]["configuration"] = {k: autopilot_config.get(k) for k in AUTOPILOT_CONFIG_KEYS if k in autopilot_config}
+    if state is not None:
+        servers = state.get("servers") or {}
+        raft["autopilot"]["state"] = {
+            "healthy": state.get("healthy"),
+            "failure_tolerance": state.get("failure_tolerance"),
+            "leader": state.get("leader"),
+            "voters": sorted(state.get("voters") or []),
+            "upgrade_status": (state.get("upgrade_info") or {}).get("status"),
+            "servers": [{"id": sid, **{k: s.get(k) for k in AUTOPILOT_SERVER_KEYS}} for sid, s in sorted(servers.items())],
+        }
+    return raft
 
 
 def replication_summary(status: dict[str, Any]) -> dict[str, Any]:
@@ -984,6 +1044,23 @@ def health_findings(health: dict[str, Any], now: datetime | None = None) -> list
         else:
             continue
         findings.append(finding("VT-HLTH-002", "", "cluster", None, kind, detail, mode=mode, state=state, disconnected_peers=disconnected))
+    autopilot = ((health.get("raft") or {}).get("autopilot") or {}).get("state") or {}
+    unhealthy = sorted(s["id"] for s in autopilot.get("servers") or [] if s.get("healthy") is False)
+    if autopilot.get("healthy") is False or unhealthy:
+        servers = f"unhealthy server(s): {', '.join(unhealthy)}" if unhealthy else "the cluster is unhealthy"
+        findings.append(
+            finding(
+                "VT-HLTH-004",
+                "",
+                "cluster",
+                None,
+                "raft",
+                f"Raft autopilot reports {servers} (failure tolerance {autopilot.get('failure_tolerance')}) — check node status, last contact and trailing logs.",
+                healthy=autopilot.get("healthy"),
+                failure_tolerance=autopilot.get("failure_tolerance"),
+                unhealthy_servers=unhealthy,
+            )
+        )
     version = parse_version(health.get("version") or "")
     if version and version < MIN_SUPPORTED_VERSION:
         minimum = ".".join(map(str, MIN_SUPPORTED_VERSION))

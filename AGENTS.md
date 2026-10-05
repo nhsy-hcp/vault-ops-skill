@@ -12,7 +12,7 @@ A **read-only** HashiCorp Vault ops Claude skill (`skills/vault-ops/`) plus a lo
 | `.claude/skills/vault-ops` | Symlink to `skills/vault-ops`, so sessions in this repo load the skill |
 | `skills/vault-ops/SKILL.md` | Skill workflow and guardrails (what Claude does when the skill triggers) |
 | `skills/vault-ops/scripts/vault_ops.py` | PEP 723 single-file collector: `audit` (findings + inventory), `health`, `inventory`, `usage`, `entities`, `diff` |
-| `skills/vault-ops/schemas/findings.schema.json` | JSON Schema (draft 2020-12) for findings files, `schema_version` 1.4.0 |
+| `skills/vault-ops/schemas/findings.schema.json` | JSON Schema (draft 2020-12) for findings files, `schema_version` 1.5.0 |
 | `skills/vault-ops/references/rules.md` | Rule catalogue (VT-*) with drafted remediation |
 | `skills/vault-ops/policies/vault-ops-readonly.hcl` | Least-privilege Vault policy for the skill's token |
 | `scripts/` | Dev-env automation (bash, called from `Taskfile.yml`) and `seed_vault.py` |
@@ -30,6 +30,7 @@ A **read-only** HashiCorp Vault ops Claude skill (`skills/vault-ops/`) plus a lo
 - **Script stays single-file with PEP 723 deps** (`hvac==2.4.0`, `requests>=2.32,<3`, uv `exclude-newer`), so the published skill runs anywhere with `uv run --script` and no Taskfile. Keep the inline deps and `pyproject.toml` in sync; bump `exclude-newer` deliberately with a dependency update.
 - **The published skill must not depend on this repo.** Nothing under `skills/vault-ops/` may reference `task`, `.env` or this repo's paths. SKILL.md calls the script via `${CLAUDE_SKILL_DIR}`. Output defaults to `.tmp/vault-ops/` in the user's working directory, so Claude reads results without leaving the project. A directory the script creates gets a catch-all `.gitignore`.
 - **DR secondaries: `health` only.** A DR secondary rejects authenticated requests. `connect()` probes unauthenticated `sys/health` first: `health` reads only unauthenticated endpoints there, and `audit`/`inventory`/`usage`/`entities` exit 1. Never add authenticated reads to the DR-secondary path.
+- **Running the skill: follow SKILL.md exactly, even in this repo.** When the `vault-ops` skill is invoked, the agent runs only `uv run --script <skill dir>/scripts/vault_ops.py ...` with the `VAULT_ADDR`/`VAULT_TOKEN` already in the session's environment. If either is unset, stop and give the SKILL.md "Setup problems" answer; never work around it with `task skill:run`, `.env`, `.tmp/audit-token` or a token from any other file. Here the user sets them before starting Claude, e.g. `export VAULT_ADDR=https://127.0.0.1:8210 VAULT_SKIP_VERIFY=true VAULT_TOKEN="$(cat .tmp/audit-token)"`. `task skill:run` is for humans and development, not for an agent acting as the skill.
 - **Stdout = written file paths only**; diagnostics go to stderr. Exit codes: 0 ok, 1 fatal, 2 gaps (`--fail-on-gaps`), 3 findings (`--fail-on`), 130 interrupted.
 
 ## Task interface
@@ -45,7 +46,7 @@ A **read-only** HashiCorp Vault ops Claude skill (`skills/vault-ops/`) plus a lo
 | `task seed` | `scripts/seed_vault.py`: 132 namespaces, mounts, KV data, client activity (root) |
 | `task seed:findings` | Configuration that trips every live-testable rule, plus Sentinel EGP/RGPs (root) |
 | `task token:audit` | Write `vault-ops-readonly` policy, mint 1h token to `.tmp/audit-token` (0600) |
-| `task skill:run -- <cmd>` | Run `vault_ops.py` with the audit token, e.g. `task skill:run -- audit` |
+| `task skill:run -- <cmd>` | Run `vault_ops.py` with the audit token, e.g. `task skill:run -- audit` (humans/dev only; an agent running the skill must not use it) |
 | `task lint` | pre-commit on tracked + untracked files: ruff, ruff-format, shellcheck, gitleaks, yaml/json |
 | `task test` | Unit tests with coverage ≥ 80% |
 | `task test:integration` | Integration tests (audit token, live Vault) |

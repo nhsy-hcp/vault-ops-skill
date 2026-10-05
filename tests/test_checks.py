@@ -104,7 +104,9 @@ def test_is_trivial_policy():
 
 def test_health_findings_all_fire(health):
     found = vo.health_findings(health, now=NOW)
-    assert ids(found) == ["VT-HLTH-001", "VT-HLTH-002", "VT-HLTH-003", "VT-LEASE-001", "VT-LIC-001"]
+    assert ids(found) == ["VT-HLTH-001", "VT-HLTH-002", "VT-HLTH-003", "VT-HLTH-004", "VT-LEASE-001", "VT-LIC-001"]
+    raft = next(f for f in found if f.rule_id == "VT-HLTH-004")
+    assert raft.evidence == {"healthy": False, "failure_tolerance": 0, "unhealthy_servers": ["n2"]}
     lease = next(f for f in found if f.rule_id == "VT-LEASE-001")
     assert lease.evidence == {"default_lease_ttl_seconds": 1000 * 3600, "threshold_seconds": vo.DEFAULT_LEASE_TTL_WARNING_SECONDS}
     lic = next(f for f in found if f.rule_id == "VT-LIC-001")
@@ -121,6 +123,7 @@ def test_health_findings_clear_when_healthy(health):
         license={"expiration_time": "2027-12-01T00:00:00Z"},
         replication={"dr": {"mode": "disabled"}, "performance": {"mode": "primary", "state": "running"}},
         lease_ttls={"default_lease_ttl_seconds": None, "max_lease_ttl_seconds": None},  # unset: built-in 768h
+        raft={"peers": [], "autopilot": {"configuration": None, "state": {"healthy": True, "failure_tolerance": 0, "servers": [{"id": "n1", "healthy": True}]}}},
     )
     assert vo.health_findings(health, now=NOW) == []
     health["lease_ttls"] = None  # DR secondary / unreadable config

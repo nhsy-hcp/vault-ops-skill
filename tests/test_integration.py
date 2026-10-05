@@ -72,6 +72,9 @@ def test_health(capsys, tmp_path):
     assert code == 0
     assert doc["health"]["sealed"] is False
     assert doc["health"]["license"]["expiration_time"]
+    raft = doc["health"]["raft"]
+    assert any(p["leader"] for p in raft["peers"])
+    assert raft["autopilot"]["configuration"] and raft["autopilot"]["state"]["healthy"] is True
     assert doc["coverage"]["complete"] is True, doc["coverage"]
 
 

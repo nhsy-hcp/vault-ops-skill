@@ -78,6 +78,10 @@ def health():
             "performance": {"mode": "secondary", "state": "connecting"},
         },
         "lease_ttls": {"default_lease_ttl_seconds": 1000 * 3600, "max_lease_ttl_seconds": 8760 * 3600},  # VT-LEASE-001
+        "raft": {  # VT-HLTH-004
+            "peers": [{"node_id": "n1", "leader": True, "voter": True}, {"node_id": "n2", "leader": False, "voter": True}],
+            "autopilot": {"configuration": None, "state": {"healthy": False, "failure_tolerance": 0, "servers": [{"id": "n1", "healthy": True}, {"id": "n2", "healthy": False}]}},
+        },
     }
 
 

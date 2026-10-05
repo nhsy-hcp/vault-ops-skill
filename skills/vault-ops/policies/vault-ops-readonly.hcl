@@ -36,6 +36,19 @@ path "sys/internal/counters/activity/monthly" {
   capabilities = ["read"]
 }
 
+# --- integrated storage (raft peers, autopilot) ---
+path "sys/storage/raft/configuration" {
+  capabilities = ["read"]
+}
+
+path "sys/storage/raft/autopilot/configuration" {
+  capabilities = ["read"]
+}
+
+path "sys/storage/raft/autopilot/state" {
+  capabilities = ["read"]
+}
+
 # sys/health, sys/seal-status and sys/leader are unauthenticated: no rule needed.
 
 # --- auth methods ---

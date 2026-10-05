@@ -213,6 +213,68 @@ def test_collect_health_dev_mode_shapes():
     assert not [f for f in vo.health_findings(h) if f.rule_id == "VT-HLTH-002"]
 
 
+RAFT_ROUTES = {
+    ("", "sys/storage/raft/configuration"): {
+        "data": {
+            "config": {
+                "servers": [
+                    {"node_id": "n1", "address": "n1.internal:8201", "leader": True, "voter": True, "protocol_version": "3"},
+                    {"node_id": "n2", "address": "n2.internal:8201", "leader": False, "voter": False, "protocol_version": "3"},
+                ],
+                "index": 0,
+            }
+        }
+    },
+    ("", "sys/storage/raft/autopilot/configuration"): {
+        "data": {
+            "cleanup_dead_servers": False,
+            "dead_server_last_contact_threshold": "24h0m0s",
+            "last_contact_threshold": "10s",
+            "max_trailing_logs": 1000,
+            "min_quorum": 0,
+            "server_stabilization_time": "10s",
+        }
+    },
+    ("", "sys/storage/raft/autopilot/state"): {
+        "data": {
+            "healthy": True,
+            "failure_tolerance": 0,
+            "leader": "n1",
+            "voters": ["n1"],
+            "upgrade_info": {"status": "idle"},
+            "servers": {
+                "n2": {"id": "n2", "address": "n2.internal:8201", "status": "non-voter", "node_type": "voter", "healthy": True, "last_contact": "1s", "last_index": 9},
+                "n1": {"id": "n1", "address": "n1.internal:8201", "status": "leader", "node_type": "voter", "healthy": True, "last_contact": "0s", "last_index": 10},
+            },
+        }
+    },
+}
+
+
+def test_collect_raft_maps_peers_and_autopilot_without_addresses():
+    cov = vo.Coverage()
+    raft = vo.collect_health(FakeReader({("", "sys/health"): {"sealed": False}, **RAFT_ROUTES}), cov)["raft"]
+    assert raft["peers"] == [{"node_id": "n1", "leader": True, "voter": True}, {"node_id": "n2", "leader": False, "voter": False}]
+    assert raft["autopilot"]["configuration"]["max_trailing_logs"] == 1000
+    state = raft["autopilot"]["state"]
+    assert (state["healthy"], state["leader"], state["voters"], state["upgrade_status"]) == (True, "n1", ["n1"], "idle")
+    assert [(s["id"], s["status"], s["last_index"]) for s in state["servers"]] == [("n1", "leader", 10), ("n2", "non-voter", 9)]
+    assert "internal" not in json.dumps(raft)
+    assert cov.complete
+
+
+def test_collect_raft_not_in_use_and_denied():
+    not_raft = vo.hvac_exc.InvalidRequest("raft storage is not in use")
+    routes = {(ns, p): not_raft for ns, p in RAFT_ROUTES}
+    cov = vo.Coverage()
+    assert vo.collect_raft(FakeReader(routes), cov) is None and cov.complete
+    routes = {**RAFT_ROUTES, ("", "sys/storage/raft/autopilot/state"): vo.hvac_exc.Forbidden("denied")}
+    cov = vo.Coverage()
+    raft = vo.collect_raft(FakeReader(routes), cov)
+    assert raft["peers"] and raft["autopilot"]["state"] is None
+    assert cov.denied == [{"namespace": "/", "scope": "sys/storage/raft/autopilot/state"}]
+
+
 DR_PRIMARY_REPL = {
     "data": {
         "dr": {"mode": "primary", "state": "running", "secondaries": [{"node_id": "vault-dr", "connection_status": "connected"}]},
@@ -260,7 +322,8 @@ def test_dr_secondary_health_skips_authenticated_reads(env, monkeypatch, capsys)
     assert doc["health"]["replication"]["dr"]["state"] == "stream-wals"
     assert doc["coverage"]["complete"] is True and doc["findings"] == []
     called = {path for _, path in fake.calls}
-    assert not called & {"auth/token/lookup-self", "sys/license/status", "sys/config/state/sanitized"}
+    assert not called & {"auth/token/lookup-self", "sys/license/status", "sys/config/state/sanitized", *(p for _, p in RAFT_ROUTES)}
+    assert doc["health"]["raft"] is None
 
 
 @pytest.mark.parametrize("command", [["audit"], ["inventory"], ["usage"]])
