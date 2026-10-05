@@ -49,6 +49,11 @@ path "sys/storage/raft/autopilot/state" {
   capabilities = ["read"]
 }
 
+# --- runtime metrics of the queried node (JSON; the script keeps an allowlist) ---
+path "sys/metrics" {
+  capabilities = ["read"]
+}
+
 # --- audit devices (root only) ---
 # Listing devices is a sudo-protected endpoint. The exact path (no glob) grants
 # no access to sys/audit/<path>, so devices can't be enabled or disabled.

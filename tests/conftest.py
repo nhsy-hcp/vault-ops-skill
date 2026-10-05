@@ -93,6 +93,7 @@ def health():
                 }
             ]
         },
+        "metrics": {"node_scope": True, "leases": 150_000, "irrevocable_leases": 3, "goroutines": 400},  # VT-HLTH-005, VT-HLTH-006
         "raft": {  # VT-HLTH-004
             "peers": [{"node_id": "n1", "leader": True, "voter": True}, {"node_id": "n2", "leader": False, "voter": True}],
             "autopilot": {"configuration": None, "state": {"healthy": False, "failure_tolerance": 0, "servers": [{"id": "n1", "healthy": True}, {"id": "n2", "healthy": False}]}},

@@ -46,7 +46,7 @@ from hvac import exceptions as hvac_exc
 
 TOOL_NAME = "vault-ops"
 TOOL_VERSION = "0.2.1"
-SCHEMA_VERSION = "1.6.0"
+SCHEMA_VERSION = "1.7.0"
 
 EXIT_OK, EXIT_FATAL, EXIT_GAPS, EXIT_FINDINGS, EXIT_INTERRUPTED = 0, 1, 2, 3, 130
 
@@ -75,6 +75,22 @@ MIN_SUPPORTED_VERSION = (1, 19)
 # VT-SNAP-002: never judge overdue sooner than this past next_snapshot_start. A config write restarts the
 # schedule but leaves the status's next_snapshot_start stale until the next run; 25h covers daily schedules.
 SNAPSHOT_OVERDUE_MIN_GRACE_SECONDS = 25 * 3600
+# VT-HLTH-006: outstanding leases on the active node. A heuristic: large lease counts slow
+# unseal, leader election and expiration; tune per cluster.
+LEASE_COUNT_WARNING = 100_000
+# health.metrics: allowlisted sys/metrics gauges as output key -> (metric name, aggregation over
+# label sets). Labels are dropped: their values can carry cluster names and addresses.
+METRIC_GAUGES = {
+    "leases": ("vault.expire.num_leases", "max"),
+    "irrevocable_leases": ("vault.expire.num_irrevocable_leases", "max"),
+    "in_flight_requests": ("vault.core.in_flight_requests", "sum"),
+    "raft_fsm_pending": ("vault.raft_storage.stats.fsm_pending", "max"),
+    "raft_oldest_log_age_ms": ("vault.raft.leader.oldestLogAge", "max"),
+    "goroutines": ("vault.runtime.num_goroutines", "max"),
+    "alloc_bytes": ("vault.runtime.alloc_bytes", "max"),
+    "sys_bytes": ("vault.runtime.sys_bytes", "max"),
+    "token_count": ("vault.token.count", "sum"),
+}
 
 BUILTIN_ENGINE_TYPES = frozenset(
     {
@@ -133,6 +149,8 @@ RULES: dict[str, Rule] = {
     "VT-HLTH-002": Rule("medium", "replication", "Replication enabled but not healthy"),
     "VT-HLTH-003": Rule("info", "lifecycle", "Vault version below supported window"),
     "VT-HLTH-004": Rule("medium", "availability", "Raft autopilot reports the cluster or a server unhealthy"),
+    "VT-HLTH-005": Rule("low", "lease", "Irrevocable leases present"),
+    "VT-HLTH-006": Rule("medium", "lease", "Lease count is high"),
     "VT-LEASE-001": Rule("low", "lease", "Cluster default lease TTL is long"),
     "VT-AUD-001": Rule("medium", "audit", "No audit device enabled"),
     "VT-AUD-002": Rule("low", "audit", "Only one audit device enabled"),
@@ -693,6 +711,7 @@ def collect_health(reader: VaultReader, coverage: Coverage, probe: dict[str, Any
         "lease_ttls": None,
         "audit_devices": None,
         "snapshots": None,
+        "metrics": None,
     }
 
     def optional(path: str, scope: str) -> dict[str, Any] | None:
@@ -750,7 +769,48 @@ def collect_health(reader: VaultReader, coverage: Coverage, probe: dict[str, Any
         # Automated snapshots are Enterprise and raft only; elsewhere the endpoint 404s like "none configured".
         if result["enterprise"] and result["raft"] is not None:
             result["snapshots"] = collect_snapshots(reader, coverage)
+        result["metrics"] = collect_metrics(reader, coverage)
     return result
+
+
+def collect_metrics(reader: VaultReader, coverage: Coverage) -> dict[str, Any] | None:
+    """Allowlisted sys/metrics gauges of the queried node. None when unreadable; never fatal.
+
+    Only the METRIC_GAUGES names are kept, aggregated over their label sets, so label
+    values (cluster names, addresses, peer IDs) never leave this function.
+    """
+    try:
+        payload = reader.get("sys/metrics")
+    except hvac_exc.Forbidden:
+        coverage.deny("", "sys/metrics")
+        return None
+    except hvac_exc.InvalidPath:
+        return None  # endpoint not there: nothing to judge
+    except (hvac_exc.VaultError, requests.exceptions.RequestException) as exc:
+        coverage.error("", exc)
+        return None
+    gauges = payload.get("Gauges") if isinstance(payload, dict) else None
+    if not isinstance(gauges, list):
+        coverage.error("", ValueError("unrecognised sys/metrics payload"))
+        return None
+    values: dict[str, list[float]] = {}
+    for gauge in gauges:
+        if isinstance(gauge, dict) and isinstance(gauge.get("Value"), int | float) and not isinstance(gauge.get("Value"), bool):
+            values.setdefault(str(gauge.get("Name")), []).append(gauge["Value"])
+    metrics: dict[str, Any] = {"node_scope": True, "timestamp": metrics_timestamp(payload.get("Timestamp"))}
+    for key, (name, agg) in METRIC_GAUGES.items():
+        found = values.get(name)
+        value = (sum(found) if agg == "sum" else max(found)) if found else None
+        metrics[key] = int(value) if isinstance(value, float) and value.is_integer() else value
+    return metrics
+
+
+def metrics_timestamp(value: Any) -> str | None:
+    """sys/metrics uses Go's time format ("2026-10-05 14:53:30 +0000 UTC"); return RFC3339."""
+    try:
+        return iso(datetime.strptime(str(value)[:25], "%Y-%m-%d %H:%M:%S %z").astimezone(UTC))
+    except ValueError:
+        return None
 
 
 AUTOPILOT_CONFIG_KEYS = (
@@ -1200,6 +1260,7 @@ def health_findings(health: dict[str, Any], now: datetime | None = None) -> list
                 threshold_seconds=DEFAULT_LEASE_TTL_WARNING_SECONDS,
             )
         )
+    findings += metric_findings(health.get("metrics"))
     findings += audit_device_findings(health.get("audit_devices"))
     findings += snapshot_findings(health.get("snapshots"), now or utc_now())
     lic = health.get("license") or {}
@@ -1216,6 +1277,40 @@ def health_findings(health: dict[str, Any], now: datetime | None = None) -> list
                 f"License expires on {expiry[:10]} ({days} day{'s' if days != 1 else ''} remaining) — renew before the grace period ends.",
                 days_remaining=days,
                 expiration_time=expiry,
+            )
+        )
+    return findings
+
+
+def metric_findings(metrics: dict[str, Any] | None) -> list[Finding]:
+    """None (unreadable / DR secondary) or an absent gauge (standby node) is not judged."""
+    metrics = metrics or {}
+    findings: list[Finding] = []
+    irrevocable = metrics.get("irrevocable_leases")
+    if isinstance(irrevocable, int) and irrevocable > 0:
+        findings.append(
+            finding(
+                "VT-HLTH-005",
+                "",
+                "cluster",
+                None,
+                "metrics",
+                f"{irrevocable} irrevocable lease(s): Vault could not revoke them at their backend, so the credentials may still be valid there.",
+                irrevocable_leases=irrevocable,
+            )
+        )
+    leases = metrics.get("leases")
+    if isinstance(leases, int) and leases > LEASE_COUNT_WARNING:
+        findings.append(
+            finding(
+                "VT-HLTH-006",
+                "",
+                "cluster",
+                None,
+                "metrics",
+                f"{leases:,} outstanding leases, above the {LEASE_COUNT_WARNING:,} review threshold: large lease counts slow unseal, leader election and expiration.",
+                leases=leases,
+                threshold=LEASE_COUNT_WARNING,
             )
         )
     return findings

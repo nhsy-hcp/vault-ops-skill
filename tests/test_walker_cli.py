@@ -294,6 +294,78 @@ def test_replication_summary_and_connected_primary_is_healthy():
     assert vo.health_findings(h) == []
 
 
+METRICS_PAYLOAD = {
+    "Timestamp": "2026-10-05 14:53:30 +0000 UTC",
+    "Gauges": [
+        {"Name": "vault.expire.num_leases", "Value": 1234.0, "Labels": {}},
+        {"Name": "vault.expire.num_irrevocable_leases", "Value": 0.0, "Labels": {}},
+        {"Name": "vault.core.in_flight_requests", "Value": 2.0, "Labels": {"cluster": "vault-cluster-secret-name"}},
+        {"Name": "vault.core.in_flight_requests", "Value": 3.0, "Labels": {"cluster": "other"}},
+        {"Name": "vault.raft_storage.stats.fsm_pending", "Value": 4.0, "Labels": {"peer_id": "node-a"}},
+        {"Name": "vault.raft_storage.stats.fsm_pending", "Value": 1.0, "Labels": {"peer_id": "node-b"}},
+        {"Name": "vault.runtime.num_goroutines", "Value": 412.0, "Labels": {}},
+        {"Name": "vault.runtime.alloc_bytes", "Value": 1.5, "Labels": {}},
+        {"Name": "vault.replication.rpc.server.last_heartbeat", "Value": 1.0, "Labels": {"cluster_address": "10.0.0.9:8201"}},
+        {"Name": "vault.runtime.sys_bytes", "Value": "junk"},
+        {"Value": 5.0},
+        "not-a-gauge",
+    ],
+    "Counters": [{"Name": "vault.cache.write", "Count": 1}],
+}
+
+
+def health_with_metrics(metrics_route):
+    routes = {("", "sys/health"): {"cluster_name": "c1", "version": "2.1.1+ent", "sealed": False}}
+    if metrics_route is not None:
+        routes[("", "sys/metrics")] = metrics_route
+    cov = vo.Coverage()
+    return vo.collect_health(FakeReader(routes), cov), cov
+
+
+def test_collect_metrics_allowlists_and_aggregates():
+    h, cov = health_with_metrics(METRICS_PAYLOAD)
+    assert h["metrics"] == {
+        "node_scope": True,
+        "timestamp": "2026-10-05T14:53:30Z",
+        "leases": 1234,
+        "irrevocable_leases": 0,
+        "in_flight_requests": 5,  # summed over clusters
+        "raft_fsm_pending": 4,  # max over peers
+        "raft_oldest_log_age_ms": None,  # leader-only gauge, absent here
+        "goroutines": 412,
+        "alloc_bytes": 1.5,
+        "sys_bytes": None,  # non-numeric value skipped
+        "token_count": None,
+    }
+    assert cov.to_dict()["complete"] is True
+    text = json.dumps(h)
+    assert "vault-cluster-secret-name" not in text and "10.0.0.9" not in text and "node-a" not in text
+
+
+@pytest.mark.parametrize(
+    "route, denied, error",
+    [
+        (vo.hvac_exc.Forbidden("permission denied"), [{"namespace": "/", "scope": "sys/metrics"}], None),
+        (None, [], None),  # 404: endpoint not there
+        (vo.hvac_exc.InvalidRequest("prometheus is not enabled"), [], "InvalidRequest"),
+        (vo.hvac_exc.InternalServerError("boom"), [], "InternalServerError"),
+        (vo.requests.exceptions.ConnectionError("refused"), [], "ConnectionError"),
+        ({"unexpected": "shape"}, [], "ValueError"),
+    ],
+)
+def test_collect_metrics_degrades_gracefully(route, denied, error):
+    h, cov = health_with_metrics(route)
+    assert h["metrics"] is None
+    assert h["cluster_name"] == "c1"  # the rest of health is unaffected
+    assert cov.denied == denied
+    assert [e["message"] for e in cov.errors] == ([error] if error else [])
+    assert vo.health_findings(h) == []
+
+
+def test_metrics_timestamp_unparseable_is_none():
+    assert vo.metrics_timestamp("yesterday") is None and vo.metrics_timestamp(None) is None
+
+
 def test_disconnected_secondary_fires_hlth_002():
     health = {"replication": {"dr": {"mode": "primary", "state": "running", "secondaries": [{"node_id": "vault-dr", "connection_status": "disconnected"}]}}}
     (f,) = vo.health_findings(health)
@@ -324,6 +396,7 @@ def test_dr_secondary_health_skips_authenticated_reads(env, monkeypatch, capsys)
     called = {path for _, path in fake.calls}
     assert not called & {"auth/token/lookup-self", "sys/license/status", "sys/config/state/sanitized", *(p for _, p in RAFT_ROUTES)}
     assert doc["health"]["raft"] is None
+    assert "sys/metrics" not in called and doc["health"]["metrics"] is None
 
 
 @pytest.mark.parametrize("command", [["audit"], ["inventory"], ["usage"]])

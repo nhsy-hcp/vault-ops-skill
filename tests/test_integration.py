@@ -83,6 +83,8 @@ def test_health(capsys, tmp_path):
     assert devices["vault-ops-stdout/"]["options"] == {"hmac_accessor": False, "sink": "stdout"}
     (snap,) = [c for c in doc["health"]["snapshots"]["configs"] if c["name"] == "vault-ops-local"]
     assert snap["storage_scheme"] == "file" and snap["last_snapshot_end"] and snap["consecutive_errors"] == 0
+    metrics = doc["health"]["metrics"]  # needs sys/metrics in vault-ops-readonly.hcl (task token:audit)
+    assert metrics["node_scope"] is True and metrics["goroutines"] > 0 and metrics["leases"] is not None
     assert "/vault/" not in json.dumps(doc)  # audit file path and snapshot URL are never written
     assert doc["coverage"]["complete"] is True, doc["coverage"]
 

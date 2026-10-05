@@ -104,7 +104,20 @@ def test_is_trivial_policy():
 
 def test_health_findings_all_fire(health):
     found = vo.health_findings(health, now=NOW)
-    assert ids(found) == ["VT-AUD-002", "VT-AUD-003", "VT-HLTH-001", "VT-HLTH-002", "VT-HLTH-003", "VT-HLTH-004", "VT-LEASE-001", "VT-LIC-001", "VT-SNAP-002", "VT-SNAP-003"]
+    assert ids(found) == [
+        "VT-AUD-002",
+        "VT-AUD-003",
+        "VT-HLTH-001",
+        "VT-HLTH-002",
+        "VT-HLTH-003",
+        "VT-HLTH-004",
+        "VT-HLTH-005",
+        "VT-HLTH-006",
+        "VT-LEASE-001",
+        "VT-LIC-001",
+        "VT-SNAP-002",
+        "VT-SNAP-003",
+    ]
     aud = next(f for f in found if f.rule_id == "VT-AUD-003")
     assert (aud.object_kind, aud.object_path, dict(aud.evidence)) == ("audit_device", "file/", {"log_raw": True, "hmac_accessor": True})
     snap = next(f for f in found if f.rule_id == "VT-SNAP-002")
@@ -113,6 +126,8 @@ def test_health_findings_all_fire(health):
     assert raft.evidence == {"healthy": False, "failure_tolerance": 0, "unhealthy_servers": ["n2"]}
     lease = next(f for f in found if f.rule_id == "VT-LEASE-001")
     assert lease.evidence == {"default_lease_ttl_seconds": 1000 * 3600, "threshold_seconds": vo.DEFAULT_LEASE_TTL_WARNING_SECONDS}
+    assert next(f for f in found if f.rule_id == "VT-HLTH-005").evidence == {"irrevocable_leases": 3}
+    assert next(f for f in found if f.rule_id == "VT-HLTH-006").evidence == {"leases": 150_000, "threshold": vo.LEASE_COUNT_WARNING}
     lic = next(f for f in found if f.rule_id == "VT-LIC-001")
     assert lic.evidence["days_remaining"] == 15
     repl = [f for f in found if f.rule_id == "VT-HLTH-002"]
@@ -133,11 +148,14 @@ def test_health_findings_clear_when_healthy(health):
             {"path": "socket/", "type": "socket", "local": False, "options": {"log_raw": False}},
         ],
         snapshots={"configs": [snapshot("s3", errors=0, last="2026-10-04T12:00:00Z", next_="2026-10-05T12:00:00Z")]},
+        metrics={"node_scope": True, "leases": vo.LEASE_COUNT_WARNING, "irrevocable_leases": 0},  # at the threshold: not judged
     )
+    assert vo.health_findings(health, now=NOW) == []
+    health["metrics"] = {"node_scope": True, "leases": None, "irrevocable_leases": None}  # standby: lease gauges absent
     assert vo.health_findings(health, now=NOW) == []
     health["snapshots"] = {"configs": [{"name": "new", "status_readable": True}]}  # never run: not judged
     assert vo.health_findings(health, now=NOW) == []
-    health.update(audit_devices=None, snapshots=None)  # unreadable, CE, no raft or DR secondary
+    health.update(audit_devices=None, snapshots=None, metrics=None)  # unreadable, CE, no raft or DR secondary
     assert vo.health_findings(health, now=NOW) == []
     health["lease_ttls"] = None  # DR secondary / unreadable config
     assert vo.health_findings(health, now=NOW) == []
