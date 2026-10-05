@@ -1,0 +1,69 @@
+{
+  "schema_version": "1.9.0",
+  "tool": {
+    "name": "vault-ops",
+    "version": "0.3.3"
+  },
+  "run": {
+    "cluster_name": "vault",
+    "vault_addr": "http://127.0.0.1:8230",
+    "start_namespace": "/",
+    "started_at": "2026-10-05T16:34:50Z",
+    "finished_at": "2026-10-05T16:34:50Z",
+    "duration_seconds": 0.0
+  },
+  "coverage": {
+    "namespaces_processed": 0,
+    "complete": true,
+    "denied": [],
+    "errors": []
+  },
+  "health": {
+    "cluster_name": "vault",
+    "version": "2.1.1",
+    "enterprise": false,
+    "initialized": true,
+    "sealed": true,
+    "standby": true,
+    "performance_standby": false,
+    "replication_dr_mode": "unknown",
+    "replication_performance_mode": "unknown",
+    "dr_secondary": false,
+    "seal": {
+      "type": "shamir",
+      "t": 1,
+      "n": 1,
+      "progress": 0,
+      "migration": false,
+      "recovery_seal": false
+    },
+    "leader": null,
+    "license": null,
+    "replication": null,
+    "raft": null,
+    "lease_ttls": null,
+    "audit_devices": null,
+    "snapshots": null,
+    "metrics": null
+  },
+  "findings": [
+    {
+      "fingerprint": "38b861cd071ff707",
+      "rule_id": "VT-HLTH-001",
+      "severity": "medium",
+      "category": "availability",
+      "namespace": "/",
+      "object": {
+        "kind": "cluster",
+        "path": null,
+        "type": null
+      },
+      "title": "Node sealed or no active leader",
+      "detail": "Node reports `sealed` \u2014 requests to this node will fail until it is resolved.",
+      "evidence": {
+        "active_leader": true,
+        "sealed": true
+      }
+    }
+  ]
+}
