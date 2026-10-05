@@ -52,7 +52,7 @@ uv run --script skills/vault-ops/scripts/vault_ops.py <command> [--output-dir DI
 | Command | Output | Notes |
 | --- | --- | --- |
 | `audit` | `{cluster}-findings-{ts}.json` + `{cluster}-inventory-{ts}.json` | `--namespace`, `-w/--workers`, `--no-sentinel`, `--redact-addr`, `--fail-on {medium,low,info}`, `--fail-on-gaps` |
-| `health` | `{cluster}-health-{ts}.json` | seal, HA leader, raft peers and autopilot, version, license, replication, lease ceilings |
+| `health` | `{cluster}-health-{ts}.json` | seal, HA leader, raft peers and autopilot, version, license, replication, lease ceilings, audit devices, automated snapshots, node metrics (`sys/metrics`) |
 | `inventory` | `{cluster}-inventory-{ts}.json` | namespaces, non-built-in mounts, ACL policy **names**; summary has type distribution (mounts + namespaces per type), max depth, Sentinel counts by enforcement level and namespace `shapes` |
 | `usage` | `{cluster}-usage-{ts}.json` | billing-period client counts plus `current_month` |
 | `entities` | `{cluster}-entities-{ts}.json` | per-namespace entity counts and findings; `--list` adds metadata, aliases and policies per entity |
@@ -76,7 +76,7 @@ Environment: `VAULT_ADDR`, `VAULT_TOKEN`, `VAULT_NAMESPACE`, `VAULT_SKIP_VERIFY`
 | VT-SNT-001..004 | low/info | Sentinel advisory, soft-mandatory, wildcard EGP, always-true |
 | VT-LIC-001 | medium | License expires within 90 days |
 | VT-LEASE-001 | low | Cluster default lease TTL above 768h |
-| VT-HLTH-001..004 | medium/info | Sealed / no leader, unhealthy replication, unsupported version, raft autopilot unhealthy |
+| VT-HLTH-001..006 | medium/low/info | Sealed / no leader, unhealthy replication, unsupported version, raft autopilot unhealthy, irrevocable leases, lease count above 100k (from the queried node's `sys/metrics`) |
 | VT-AUD-001..003 | medium/low | No audit device, only one audit device, device logging raw values or unhashed accessors |
 | VT-SNAP-001..003 | medium/info | No automated Raft snapshots (Enterprise), snapshot failing or overdue, snapshots on the node's local disk |
 | VT-ID-001..003 | low/info | Entity without aliases, policies attached directly to an entity, disabled entity |
