@@ -1,0 +1,559 @@
+{
+  "schema_version": "1.6.0",
+  "tool": {
+    "name": "vault-ops",
+    "version": "0.2.0"
+  },
+  "run": {
+    "cluster_name": "vault-cluster-999614e0",
+    "vault_addr": "https://127.0.0.1:8210",
+    "start_namespace": "/",
+    "started_at": "2026-10-05T14:18:41Z",
+    "finished_at": "2026-10-05T14:18:41Z",
+    "duration_seconds": 0.0,
+    "worker_threads": 4
+  },
+  "cluster_context": {
+    "vault_version": "2.1.1+ent",
+    "enterprise": true,
+    "system_max_lease_ttl_seconds": null,
+    "system_default_lease_ttl_seconds": null,
+    "sentinel": "supported"
+  },
+  "coverage": {
+    "namespaces_processed": 132,
+    "complete": true,
+    "denied": [],
+    "errors": []
+  },
+  "summary": {
+    "total": 27,
+    "by_severity": {
+      "medium": 2,
+      "low": 6,
+      "info": 19
+    },
+    "by_rule": {
+      "VT-AUD-003": 1,
+      "VT-AUTH-001": 1,
+      "VT-LIC-001": 1,
+      "VT-MOUNT-002": 2,
+      "VT-MOUNT-003": 1,
+      "VT-MOUNT-004": 1,
+      "VT-MOUNT-005": 1,
+      "VT-MOUNT-006": 1,
+      "VT-NS-001": 12,
+      "VT-NS-002": 1,
+      "VT-SNAP-003": 1,
+      "VT-SNT-001": 1,
+      "VT-SNT-002": 1,
+      "VT-SNT-003": 1,
+      "VT-SNT-004": 1
+    }
+  },
+  "findings": [
+    {
+      "fingerprint": "ff861aa9963689fd",
+      "rule_id": "VT-LIC-001",
+      "severity": "medium",
+      "category": "lifecycle",
+      "namespace": "/",
+      "object": {
+        "kind": "cluster",
+        "path": null,
+        "type": "license"
+      },
+      "title": "License expires soon",
+      "detail": "License expires on 2026-10-31 (25 days remaining) \u2014 renew before the grace period ends.",
+      "evidence": {
+        "days_remaining": 25,
+        "expiration_time": "2026-10-31T00:00:00Z"
+      }
+    },
+    {
+      "fingerprint": "833d35d433199a02",
+      "rule_id": "VT-AUD-003",
+      "severity": "medium",
+      "category": "audit",
+      "namespace": "/",
+      "object": {
+        "kind": "audit_device",
+        "path": "vault-ops-stdout/",
+        "type": "file"
+      },
+      "title": "Audit device logs raw values or unhashed accessors",
+      "detail": "Audit device `vault-ops-stdout/`: `hmac_accessor=false` writes token accessors unhashed.",
+      "evidence": {
+        "hmac_accessor": false,
+        "log_raw": false
+      }
+    },
+    {
+      "fingerprint": "966d39787e6d11f3",
+      "rule_id": "VT-SNT-001",
+      "severity": "low",
+      "category": "governance",
+      "namespace": "tn009/",
+      "object": {
+        "kind": "egp_policy",
+        "path": "vault-ops-advisory",
+        "type": "egp"
+      },
+      "title": "Sentinel policy is advisory",
+      "detail": "Enforcement level is `advisory` \u2014 the policy logs violations but never blocks a request.",
+      "evidence": {
+        "enforcement_level": "advisory"
+      }
+    },
+    {
+      "fingerprint": "05539f19cce25fbc",
+      "rule_id": "VT-SNT-004",
+      "severity": "low",
+      "category": "governance",
+      "namespace": "tn009/",
+      "object": {
+        "kind": "rgp_policy",
+        "path": "vault-ops-always-true",
+        "type": "rgp"
+      },
+      "title": "Sentinel policy always evaluates true",
+      "detail": "Policy body always evaluates to true \u2014 it enforces nothing despite appearing in the policy list.",
+      "evidence": {
+        "always_true": true,
+        "policy_line_count": 2
+      }
+    },
+    {
+      "fingerprint": "ccff7e950c063880",
+      "rule_id": "VT-MOUNT-002",
+      "severity": "low",
+      "category": "lease",
+      "namespace": "tn009/soc2/dev/",
+      "object": {
+        "kind": "secrets_mount",
+        "path": "kv-long-default/",
+        "type": "kv"
+      },
+      "title": "Mount max lease TTL overrides cluster ceiling",
+      "detail": "`max_lease_ttl` is 87600h, above the 768h review threshold (the cluster system max could not be read).",
+      "evidence": {
+        "baseline_seconds": 2764800,
+        "baseline_source": "fallback",
+        "max_lease_ttl_seconds": 315360000,
+        "multiple": 114.1
+      }
+    },
+    {
+      "fingerprint": "a57b728358e430b1",
+      "rule_id": "VT-MOUNT-004",
+      "severity": "low",
+      "category": "lease",
+      "namespace": "tn009/soc2/dev/",
+      "object": {
+        "kind": "secrets_mount",
+        "path": "kv-long-default/",
+        "type": "kv"
+      },
+      "title": "Mount default lease TTL is long",
+      "detail": "`default_lease_ttl` is 1000h, above the 768h review threshold \u2014 new leases get this TTL by default.",
+      "evidence": {
+        "default_lease_ttl_seconds": 3600000,
+        "threshold_seconds": 2764800
+      }
+    },
+    {
+      "fingerprint": "6a9df717624fd0a3",
+      "rule_id": "VT-MOUNT-002",
+      "severity": "low",
+      "category": "lease",
+      "namespace": "tn009/soc2/dev/",
+      "object": {
+        "kind": "secrets_mount",
+        "path": "kv-long-ttl/",
+        "type": "kv"
+      },
+      "title": "Mount max lease TTL overrides cluster ceiling",
+      "detail": "`max_lease_ttl` is 87600h, above the 768h review threshold (the cluster system max could not be read).",
+      "evidence": {
+        "baseline_seconds": 2764800,
+        "baseline_source": "fallback",
+        "max_lease_ttl_seconds": 315360000,
+        "multiple": 114.1
+      }
+    },
+    {
+      "fingerprint": "8e79a33194457a9d",
+      "rule_id": "VT-AUTH-001",
+      "severity": "low",
+      "category": "exposure",
+      "namespace": "tn009/soc2/dev/",
+      "object": {
+        "kind": "auth_mount",
+        "path": "userpass-public/",
+        "type": "userpass"
+      },
+      "title": "Auth mount listed to unauthenticated callers",
+      "detail": "`listing_visibility: unauth` \u2014 this mount is enumerable by unauthenticated callers.",
+      "evidence": {
+        "listing_visibility": "unauth"
+      }
+    },
+    {
+      "fingerprint": "33fa4c7ad667d688",
+      "rule_id": "VT-NS-001",
+      "severity": "info",
+      "category": "hygiene",
+      "namespace": "/",
+      "object": {
+        "kind": "namespace",
+        "path": null,
+        "type": null
+      },
+      "title": "Namespace has no auth method beyond token",
+      "detail": "No auth method beyond the built-in token backend \u2014 nothing can log in to this namespace directly.",
+      "evidence": {
+        "auth_types": [
+          "token"
+        ]
+      }
+    },
+    {
+      "fingerprint": "fa48f61eb7697c17",
+      "rule_id": "VT-SNAP-003",
+      "severity": "info",
+      "category": "backup",
+      "namespace": "/",
+      "object": {
+        "kind": "snapshot_config",
+        "path": "vault-ops-local",
+        "type": "file"
+      },
+      "title": "Automated snapshots stored on the node's local disk",
+      "detail": "Automated snapshot `vault-ops-local` writes to the node's local disk \u2014 a lost node takes its snapshots with it.",
+      "evidence": {
+        "storage_scheme": "file"
+      }
+    },
+    {
+      "fingerprint": "bf7713f55ba9ddfb",
+      "rule_id": "VT-NS-001",
+      "severity": "info",
+      "category": "hygiene",
+      "namespace": "tn001/",
+      "object": {
+        "kind": "namespace",
+        "path": null,
+        "type": null
+      },
+      "title": "Namespace has no auth method beyond token",
+      "detail": "No auth method beyond the built-in token backend \u2014 nothing can log in to this namespace directly.",
+      "evidence": {
+        "auth_types": [
+          "ns_token"
+        ]
+      }
+    },
+    {
+      "fingerprint": "affdff6a2140d5d1",
+      "rule_id": "VT-NS-001",
+      "severity": "info",
+      "category": "hygiene",
+      "namespace": "tn002/",
+      "object": {
+        "kind": "namespace",
+        "path": null,
+        "type": null
+      },
+      "title": "Namespace has no auth method beyond token",
+      "detail": "No auth method beyond the built-in token backend \u2014 nothing can log in to this namespace directly.",
+      "evidence": {
+        "auth_types": [
+          "ns_token"
+        ]
+      }
+    },
+    {
+      "fingerprint": "ee238ec0e2d8b826",
+      "rule_id": "VT-NS-001",
+      "severity": "info",
+      "category": "hygiene",
+      "namespace": "tn003/",
+      "object": {
+        "kind": "namespace",
+        "path": null,
+        "type": null
+      },
+      "title": "Namespace has no auth method beyond token",
+      "detail": "No auth method beyond the built-in token backend \u2014 nothing can log in to this namespace directly.",
+      "evidence": {
+        "auth_types": [
+          "ns_token"
+        ]
+      }
+    },
+    {
+      "fingerprint": "f06322daf1d6dbe8",
+      "rule_id": "VT-NS-001",
+      "severity": "info",
+      "category": "hygiene",
+      "namespace": "tn004/",
+      "object": {
+        "kind": "namespace",
+        "path": null,
+        "type": null
+      },
+      "title": "Namespace has no auth method beyond token",
+      "detail": "No auth method beyond the built-in token backend \u2014 nothing can log in to this namespace directly.",
+      "evidence": {
+        "auth_types": [
+          "ns_token"
+        ]
+      }
+    },
+    {
+      "fingerprint": "44679099ce1696cf",
+      "rule_id": "VT-NS-001",
+      "severity": "info",
+      "category": "hygiene",
+      "namespace": "tn005/",
+      "object": {
+        "kind": "namespace",
+        "path": null,
+        "type": null
+      },
+      "title": "Namespace has no auth method beyond token",
+      "detail": "No auth method beyond the built-in token backend \u2014 nothing can log in to this namespace directly.",
+      "evidence": {
+        "auth_types": [
+          "ns_token"
+        ]
+      }
+    },
+    {
+      "fingerprint": "b7b516429fe08e29",
+      "rule_id": "VT-NS-001",
+      "severity": "info",
+      "category": "hygiene",
+      "namespace": "tn006/",
+      "object": {
+        "kind": "namespace",
+        "path": null,
+        "type": null
+      },
+      "title": "Namespace has no auth method beyond token",
+      "detail": "No auth method beyond the built-in token backend \u2014 nothing can log in to this namespace directly.",
+      "evidence": {
+        "auth_types": [
+          "ns_token"
+        ]
+      }
+    },
+    {
+      "fingerprint": "417aa95d94958bc9",
+      "rule_id": "VT-NS-001",
+      "severity": "info",
+      "category": "hygiene",
+      "namespace": "tn007/",
+      "object": {
+        "kind": "namespace",
+        "path": null,
+        "type": null
+      },
+      "title": "Namespace has no auth method beyond token",
+      "detail": "No auth method beyond the built-in token backend \u2014 nothing can log in to this namespace directly.",
+      "evidence": {
+        "auth_types": [
+          "ns_token"
+        ]
+      }
+    },
+    {
+      "fingerprint": "c3fca3d44d9072c5",
+      "rule_id": "VT-NS-001",
+      "severity": "info",
+      "category": "hygiene",
+      "namespace": "tn008/",
+      "object": {
+        "kind": "namespace",
+        "path": null,
+        "type": null
+      },
+      "title": "Namespace has no auth method beyond token",
+      "detail": "No auth method beyond the built-in token backend \u2014 nothing can log in to this namespace directly.",
+      "evidence": {
+        "auth_types": [
+          "ns_token"
+        ]
+      }
+    },
+    {
+      "fingerprint": "ccbcb19b411a1d88",
+      "rule_id": "VT-NS-001",
+      "severity": "info",
+      "category": "hygiene",
+      "namespace": "tn009/",
+      "object": {
+        "kind": "namespace",
+        "path": null,
+        "type": null
+      },
+      "title": "Namespace has no auth method beyond token",
+      "detail": "No auth method beyond the built-in token backend \u2014 nothing can log in to this namespace directly.",
+      "evidence": {
+        "auth_types": [
+          "ns_token"
+        ]
+      }
+    },
+    {
+      "fingerprint": "2c8426fa986498d0",
+      "rule_id": "VT-SNT-002",
+      "severity": "info",
+      "category": "governance",
+      "namespace": "tn009/",
+      "object": {
+        "kind": "rgp_policy",
+        "path": "vault-ops-soft",
+        "type": "rgp"
+      },
+      "title": "Sentinel policy is overridable",
+      "detail": "Enforcement level is `soft-mandatory` \u2014 a caller with a `sudo`-capable token can override it.",
+      "evidence": {
+        "enforcement_level": "soft-mandatory"
+      }
+    },
+    {
+      "fingerprint": "4de5776dff94128f",
+      "rule_id": "VT-SNT-003",
+      "severity": "info",
+      "category": "governance",
+      "namespace": "tn009/",
+      "object": {
+        "kind": "egp_policy",
+        "path": "vault-ops-wildcard",
+        "type": "egp"
+      },
+      "title": "EGP applies to every path",
+      "detail": "Endpoint path is a wildcard \u2014 the policy applies to every request in this namespace.",
+      "evidence": {
+        "paths": [
+          "*"
+        ]
+      }
+    },
+    {
+      "fingerprint": "d7cca73952190325",
+      "rule_id": "VT-MOUNT-005",
+      "severity": "info",
+      "category": "hygiene",
+      "namespace": "tn009/soc2/dev/",
+      "object": {
+        "kind": "secrets_mount",
+        "path": null,
+        "type": null
+      },
+      "title": "Many mounts of one type in a namespace",
+      "detail": "26 kv mounts in one namespace \u2014 consider fewer mounts with per-path policies.",
+      "evidence": {
+        "mounts_by_type": {
+          "kv": 26
+        },
+        "threshold": 20
+      }
+    },
+    {
+      "fingerprint": "39914e7339500b9e",
+      "rule_id": "VT-MOUNT-003",
+      "severity": "info",
+      "category": "replication",
+      "namespace": "tn009/soc2/dev/",
+      "object": {
+        "kind": "secrets_mount",
+        "path": "kv-local/",
+        "type": "kv"
+      },
+      "title": "Mount is local (not replicated)",
+      "detail": "Mount is `local` \u2014 it is not replicated to performance secondaries or DR.",
+      "evidence": {
+        "local": true
+      }
+    },
+    {
+      "fingerprint": "595e2911bb18a553",
+      "rule_id": "VT-MOUNT-006",
+      "severity": "info",
+      "category": "hygiene",
+      "namespace": "tn009/soc2/dev/",
+      "object": {
+        "kind": "secrets_mount",
+        "path": "kv-v1/",
+        "type": "kv"
+      },
+      "title": "KV version 1 mount",
+      "detail": "KV version 1 \u2014 no secret versioning, soft delete or check-and-set.",
+      "evidence": {
+        "kv_version": 1
+      }
+    },
+    {
+      "fingerprint": "f32d377ccf9afd31",
+      "rule_id": "VT-NS-001",
+      "severity": "info",
+      "category": "hygiene",
+      "namespace": "tn010/",
+      "object": {
+        "kind": "namespace",
+        "path": null,
+        "type": null
+      },
+      "title": "Namespace has no auth method beyond token",
+      "detail": "No auth method beyond the built-in token backend \u2014 nothing can log in to this namespace directly.",
+      "evidence": {
+        "auth_types": [
+          "ns_token"
+        ]
+      }
+    },
+    {
+      "fingerprint": "278042b81f0fe521",
+      "rule_id": "VT-NS-001",
+      "severity": "info",
+      "category": "hygiene",
+      "namespace": "tn010/prototypes/empty-leaf/",
+      "object": {
+        "kind": "namespace",
+        "path": null,
+        "type": null
+      },
+      "title": "Namespace has no auth method beyond token",
+      "detail": "No auth method beyond the built-in token backend \u2014 nothing can log in to this namespace directly.",
+      "evidence": {
+        "auth_types": [
+          "ns_token"
+        ]
+      }
+    },
+    {
+      "fingerprint": "e7f26ebf6559f54c",
+      "rule_id": "VT-NS-002",
+      "severity": "info",
+      "category": "hygiene",
+      "namespace": "tn010/prototypes/empty-leaf/",
+      "object": {
+        "kind": "namespace",
+        "path": null,
+        "type": null
+      },
+      "title": "Leaf namespace appears unused",
+      "detail": "No secrets engine beyond the Vault built-ins, and no child namespaces \u2014 the namespace appears unused.",
+      "evidence": {
+        "secrets_engine_types": [
+          "ns_agent_registry",
+          "ns_cubbyhole",
+          "ns_identity",
+          "ns_system"
+        ]
+      }
+    }
+  ]
+}

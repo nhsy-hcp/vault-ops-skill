@@ -1,0 +1,61 @@
+{
+  "schema_version": "1.6.0",
+  "tool": {
+    "name": "vault-ops",
+    "version": "0.2.0"
+  },
+  "run": {
+    "cluster_name": "vault-cluster-da647de2",
+    "vault_addr": "https://127.0.0.1:8220",
+    "start_namespace": "/",
+    "started_at": "2026-10-05T14:29:13Z",
+    "finished_at": "2026-10-05T14:29:13Z",
+    "duration_seconds": 0.0
+  },
+  "coverage": {
+    "namespaces_processed": 0,
+    "complete": true,
+    "denied": [],
+    "errors": []
+  },
+  "health": {
+    "cluster_name": "vault-cluster-da647de2",
+    "version": "2.1.1+ent",
+    "enterprise": true,
+    "initialized": true,
+    "sealed": false,
+    "standby": false,
+    "performance_standby": false,
+    "replication_dr_mode": "secondary",
+    "replication_performance_mode": "disabled",
+    "dr_secondary": true,
+    "leader": {
+      "ha_enabled": true,
+      "is_self": true,
+      "leader_address_present": true,
+      "raft_committed_index": 26322
+    },
+    "license": null,
+    "replication": {
+      "dr": {
+        "mode": "secondary",
+        "state": "stream-wals",
+        "connection_state": "ready",
+        "primaries": [
+          {
+            "connection_status": "connected"
+          }
+        ]
+      },
+      "performance": {
+        "mode": "disabled",
+        "state": null
+      }
+    },
+    "raft": null,
+    "lease_ttls": null,
+    "audit_devices": null,
+    "snapshots": null
+  },
+  "findings": []
+}

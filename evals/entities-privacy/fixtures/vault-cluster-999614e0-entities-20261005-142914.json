@@ -1,0 +1,391 @@
+{
+  "schema_version": "1.6.0",
+  "tool": {
+    "name": "vault-ops",
+    "version": "0.2.0"
+  },
+  "run": {
+    "cluster_name": "vault-cluster-999614e0",
+    "vault_addr": "https://127.0.0.1:8210",
+    "start_namespace": "tn009/soc2/dev/",
+    "started_at": "2026-10-05T14:29:14Z",
+    "finished_at": "2026-10-05T14:29:14Z",
+    "duration_seconds": 0.0,
+    "worker_threads": 4
+  },
+  "coverage": {
+    "namespaces_processed": 1,
+    "complete": true,
+    "denied": [],
+    "errors": []
+  },
+  "summary": {
+    "namespaces": 1,
+    "namespaces_with_entities": 1,
+    "entities": 12,
+    "disabled": 1,
+    "without_aliases": 3,
+    "with_direct_policies": 1,
+    "by_rule": {
+      "VT-ID-001": 3,
+      "VT-ID-002": 1,
+      "VT-ID-003": 1,
+      "VT-ID-005": 1
+    }
+  },
+  "namespaces": [
+    {
+      "namespace": "tn009/soc2/dev/",
+      "entities": 12,
+      "disabled": 1,
+      "without_aliases": 3,
+      "with_direct_policies": 1,
+      "alias_mount_types": {
+        "approle": 3,
+        "userpass": 6
+      },
+      "entity_list": [
+        {
+          "id": "01111b27-b8f4-ffcf-501c-6239fceac3a9",
+          "name": "alice",
+          "disabled": false,
+          "metadata": {
+            "email": "alice@example.com",
+            "team": "engineering"
+          },
+          "alias_count": 1,
+          "aliases": [
+            {
+              "name": "alice",
+              "mount_path": "auth/userpass/",
+              "mount_type": "userpass",
+              "metadata": {}
+            }
+          ],
+          "policies": [],
+          "group_count": 1,
+          "last_update_time": "2026-10-05T13:41:05.082831463Z"
+        },
+        {
+          "id": "fcd48dcb-3ba2-ce83-3df6-842ff486b62a",
+          "name": "bob",
+          "disabled": false,
+          "metadata": {
+            "email": "bob@example.com",
+            "team": "platform"
+          },
+          "alias_count": 1,
+          "aliases": [
+            {
+              "name": "bob",
+              "mount_path": "auth/userpass/",
+              "mount_type": "userpass",
+              "metadata": {}
+            }
+          ],
+          "policies": [],
+          "group_count": 1,
+          "last_update_time": "2026-10-05T13:41:05.087470632Z"
+        },
+        {
+          "id": "8db49a75-21ec-38b0-e8c4-7d54e6a8642a",
+          "name": "carol",
+          "disabled": false,
+          "metadata": {
+            "email": "carol@example.com",
+            "team": "security"
+          },
+          "alias_count": 1,
+          "aliases": [
+            {
+              "name": "carol",
+              "mount_path": "auth/userpass/",
+              "mount_type": "userpass",
+              "metadata": {}
+            }
+          ],
+          "policies": [],
+          "group_count": 1,
+          "last_update_time": "2026-10-05T13:41:05.092847175Z"
+        },
+        {
+          "id": "e9e2ed03-f530-3272-d922-98bc314e4d2d",
+          "name": "ci-bot",
+          "disabled": false,
+          "metadata": {
+            "owner": "platform",
+            "type": "service"
+          },
+          "alias_count": 1,
+          "aliases": [
+            {
+              "name": "1d7f5d20-7103-79aa-e337-10ebd6a0adfe",
+              "mount_path": "auth/approle/",
+              "mount_type": "approle",
+              "metadata": {
+                "role_name": "ci-deploy"
+              }
+            }
+          ],
+          "policies": [],
+          "group_count": 1,
+          "last_update_time": "2026-10-05T13:41:05.128491854Z"
+        },
+        {
+          "id": "411a7cee-5af2-cfc1-32d4-1cb2eb0a8c8f",
+          "name": "dave",
+          "disabled": false,
+          "metadata": {
+            "email": "dave@example.com",
+            "team": "data"
+          },
+          "alias_count": 1,
+          "aliases": [
+            {
+              "name": "dave",
+              "mount_path": "auth/userpass/",
+              "mount_type": "userpass",
+              "metadata": {}
+            }
+          ],
+          "policies": [],
+          "group_count": 1,
+          "last_update_time": "2026-10-05T13:41:05.098657719Z"
+        },
+        {
+          "id": "e6d6dde0-5a3f-94da-5a48-c28f57af4bd9",
+          "name": "svc-api",
+          "disabled": false,
+          "metadata": {
+            "owner": "engineering",
+            "type": "service"
+          },
+          "alias_count": 1,
+          "aliases": [
+            {
+              "name": "69ebb3a1-c524-c1b2-24d9-2ea97c3a02d7",
+              "mount_path": "auth/approle/",
+              "mount_type": "approle",
+              "metadata": {
+                "role_name": "app-backend"
+              }
+            }
+          ],
+          "policies": [],
+          "group_count": 1,
+          "last_update_time": "2026-10-05T13:41:05.108439805Z"
+        },
+        {
+          "id": "4aa7fe57-b460-f1f0-9fb5-90deda280a1a",
+          "name": "svc-worker",
+          "disabled": false,
+          "metadata": {
+            "owner": "engineering",
+            "type": "service"
+          },
+          "alias_count": 1,
+          "aliases": [
+            {
+              "name": "46471ff2-0647-4adb-b2f1-4bc241a6c433",
+              "mount_path": "auth/approle/",
+              "mount_type": "approle",
+              "metadata": {
+                "role_name": "app-worker"
+              }
+            }
+          ],
+          "policies": [],
+          "group_count": 1,
+          "last_update_time": "2026-10-05T13:41:05.120832101Z"
+        },
+        {
+          "id": "5e175235-0f54-a59a-5434-dfe58649bd20",
+          "name": "vault-ops-direct",
+          "disabled": false,
+          "metadata": {
+            "owner": "vault-ops"
+          },
+          "alias_count": 0,
+          "aliases": [],
+          "policies": [
+            "default"
+          ],
+          "group_count": 0,
+          "last_update_time": "2026-10-05T13:58:19.192986323Z"
+        },
+        {
+          "id": "07e525bc-6840-403d-049c-e50a2440f635",
+          "name": "vault-ops-disabled",
+          "disabled": true,
+          "metadata": {},
+          "alias_count": 0,
+          "aliases": [],
+          "policies": [],
+          "group_count": 0,
+          "last_update_time": "2026-10-05T13:58:19.266007093Z"
+        },
+        {
+          "id": "4b46e44a-372c-b32a-b259-91004dbc546a",
+          "name": "vault-ops-dup-a",
+          "disabled": false,
+          "metadata": {},
+          "alias_count": 1,
+          "aliases": [
+            {
+              "name": "vault-ops-dup",
+              "mount_path": "auth/userpass-public/",
+              "mount_type": "userpass",
+              "metadata": {}
+            }
+          ],
+          "policies": [],
+          "group_count": 0,
+          "last_update_time": "2026-10-05T13:58:19.413819635Z"
+        },
+        {
+          "id": "9bb7b5a4-507f-fc1b-1433-80c4ce481b7f",
+          "name": "vault-ops-dup-b",
+          "disabled": false,
+          "metadata": {},
+          "alias_count": 1,
+          "aliases": [
+            {
+              "name": "vault-ops-dup",
+              "mount_path": "auth/userpass-dup/",
+              "mount_type": "userpass",
+              "metadata": {}
+            }
+          ],
+          "policies": [],
+          "group_count": 0,
+          "last_update_time": "2026-10-05T13:58:19.698226503Z"
+        },
+        {
+          "id": "e2e0b708-c6a5-82ac-a060-19bbb2983779",
+          "name": "vault-ops-orphan",
+          "disabled": false,
+          "metadata": {
+            "team": "platform"
+          },
+          "alias_count": 0,
+          "aliases": [],
+          "policies": [],
+          "group_count": 0,
+          "last_update_time": "2026-10-05T13:58:19.12138672Z"
+        }
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "fingerprint": "b0acf85357401da4",
+      "rule_id": "VT-ID-005",
+      "severity": "low",
+      "category": "identity",
+      "namespace": "tn009/soc2/dev/",
+      "object": {
+        "kind": "namespace",
+        "path": null,
+        "type": null
+      },
+      "title": "Alias name shared by several entities",
+      "detail": "1 alias name(s) appear on 2 separate entities \u2014 the same user logging in through different auth mounts is counted as separate clients.",
+      "evidence": {
+        "entities_affected": 2,
+        "shared_alias_names": 1
+      }
+    },
+    {
+      "fingerprint": "0bde5906321d0c52",
+      "rule_id": "VT-ID-001",
+      "severity": "low",
+      "category": "identity",
+      "namespace": "tn009/soc2/dev/",
+      "object": {
+        "kind": "entity",
+        "path": "vault-ops-direct",
+        "type": null
+      },
+      "title": "Entity has no aliases",
+      "detail": "Entity has no aliases \u2014 no login maps to it, so it is orphaned or was created by hand and never linked.",
+      "evidence": {
+        "entity_id": "5e175235-0f54-a59a-5434-dfe58649bd20",
+        "group_count": 0
+      }
+    },
+    {
+      "fingerprint": "ab9003384f2dc79c",
+      "rule_id": "VT-ID-001",
+      "severity": "low",
+      "category": "identity",
+      "namespace": "tn009/soc2/dev/",
+      "object": {
+        "kind": "entity",
+        "path": "vault-ops-disabled",
+        "type": null
+      },
+      "title": "Entity has no aliases",
+      "detail": "Entity has no aliases \u2014 no login maps to it, so it is orphaned or was created by hand and never linked.",
+      "evidence": {
+        "entity_id": "07e525bc-6840-403d-049c-e50a2440f635",
+        "group_count": 0
+      }
+    },
+    {
+      "fingerprint": "23731b2abb8b948b",
+      "rule_id": "VT-ID-001",
+      "severity": "low",
+      "category": "identity",
+      "namespace": "tn009/soc2/dev/",
+      "object": {
+        "kind": "entity",
+        "path": "vault-ops-orphan",
+        "type": null
+      },
+      "title": "Entity has no aliases",
+      "detail": "Entity has no aliases \u2014 no login maps to it, so it is orphaned or was created by hand and never linked.",
+      "evidence": {
+        "entity_id": "e2e0b708-c6a5-82ac-a060-19bbb2983779",
+        "group_count": 0
+      }
+    },
+    {
+      "fingerprint": "c559f03d3ed07f26",
+      "rule_id": "VT-ID-002",
+      "severity": "info",
+      "category": "identity",
+      "namespace": "tn009/soc2/dev/",
+      "object": {
+        "kind": "entity",
+        "path": "vault-ops-direct",
+        "type": null
+      },
+      "title": "Policies attached directly to entity",
+      "detail": "Policies attached directly to the entity (default) \u2014 prefer granting through groups so access is reviewable in one place.",
+      "evidence": {
+        "entity_id": "5e175235-0f54-a59a-5434-dfe58649bd20",
+        "policies": [
+          "default"
+        ]
+      }
+    },
+    {
+      "fingerprint": "222ee8435d196ccf",
+      "rule_id": "VT-ID-003",
+      "severity": "info",
+      "category": "identity",
+      "namespace": "tn009/soc2/dev/",
+      "object": {
+        "kind": "entity",
+        "path": "vault-ops-disabled",
+        "type": null
+      },
+      "title": "Entity is disabled",
+      "detail": "Entity is disabled \u2014 its tokens are refused; remove it if the identity is gone for good.",
+      "evidence": {
+        "alias_count": 0,
+        "entity_id": "07e525bc-6840-403d-049c-e50a2440f635"
+      }
+    }
+  ]
+}
