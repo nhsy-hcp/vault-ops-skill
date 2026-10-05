@@ -12,15 +12,17 @@ task up:all     # both nodes: init, unseal, create the 'root' token
 
 `task down` keeps node data in `.tmp/vault/`, so `task up:all` alone resumes the existing replicated pair. Run `task clean` first for a clean test.
 
-## 2. Seed the primary and enable DR
+## 2. Enable DR, then seed the primary
 
 ```bash
+task dr:enable          # should end: primary running/connected, secondary stream-wals
+task dr:status
 task seed               # about 1–2 min, 132 namespaces
 task seed:findings
 task token:audit        # 1h read-only token, saved to .tmp/audit-token
-task dr:enable          # should end: primary running/connected, secondary stream-wals
-task dr:status
 ```
+
+Enable DR **before** seeding. `dr:enable` briefly restarts the primary and drops client activity Vault hasn't saved yet, so seeding first leaves the client count at 1 instead of about 841. See [dr.md](dr.md#behaviour-to-know).
 
 ## 3. Run the tests
 

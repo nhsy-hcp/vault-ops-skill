@@ -67,8 +67,8 @@ Requires [task](https://taskfile.dev), [uv](https://docs.astral.sh/uv/), the `va
 ```bash
 task init && task deps    # one-time setup, then validate the environment
 task up:all               # primary https://127.0.0.1:8210 + DR node https://127.0.0.1:8220 (raft, TLS)
+task dr:enable            # DR replication primary -> secondary (before seeding)
 task seed && task seed:findings && task token:audit
-task dr:enable            # DR replication primary -> secondary
 task skill:run -- audit   # run the skill script with the read-only token
 task test:all && task lint
 ```

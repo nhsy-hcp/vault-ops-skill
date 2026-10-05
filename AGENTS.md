@@ -50,7 +50,7 @@ A **read-only** HashiCorp Vault ops Claude skill (`.claude/skills/vault-ops/`) p
 | `task test:ci` | `lint` + `test` (no Vault needed) |
 | `task clean` | Remove caches, `outputs/`, `.tmp/vault` (all node data, unseal keys, TLS), `.tmp/audit-token`, `.tmp/*.log` |
 
-Full end-to-end check: `task down && task clean && task up:all && task seed && task seed:findings && task token:audit && task dr:enable && task test:all && task lint`.
+Full end-to-end check: `task down && task clean && task up:all && task dr:enable && task seed && task seed:findings && task token:audit && task test:all && task lint`. Keep `dr:enable` before `seed`: enabling DR briefly restarts the primary and drops unsaved client activity (see `docs/dr.md`).
 
 ## Environment notes
 

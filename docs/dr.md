@@ -13,8 +13,8 @@ Replication runs over the cluster port (8201) on the private `vault-ops` podman 
 
 ```bash
 task up:all        # start, init and unseal both nodes (raft storage, TLS)
-task seed          # seed the primary (optional, before or after DR)
 task dr:enable     # primary enable -> secondary token -> secondary enable; waits for stream-wals
+task seed          # seed the primary AFTER dr:enable (see "Behaviour to know")
 task dr:status     # mode/state/connection on both nodes
 ```
 
@@ -40,6 +40,7 @@ task dr:status     # mode/state/connection on both nodes
 
 - **The secondary's storage is replaced.** Enabling the DR secondary replaces its storage with the primary's. Its own `root` token and data are gone; the primary's (including token `root`) replicate in.
 - **Unseal keys switch to the primary's.** After activation the secondary unseals with the primary's key. `vault_up.sh` tries the node's own key, then the primary's.
+- **Enabling DR can drop unsaved client activity.** Vault holds new client activity in memory and writes it to storage periodically. `dr:enable` briefly restarts the primary ("Vault will be unavailable for a brief period"), and any activity not yet written is lost. Seeding before `dr:enable` left the current month at 1 client; re-seeding afterwards showed all 841. Run `dr:enable` before `seed`. If you already seeded, run `task seed` again (it is idempotent).
 - **Client requests are disabled on the secondary.** It rejects authenticated requests (`path disabled in replication DR secondary mode`). Only unauthenticated status endpoints answer: `sys/health`, `sys/seal-status`, `sys/leader`, `sys/replication/*status`.
 
 ## Checking DR with the skill
