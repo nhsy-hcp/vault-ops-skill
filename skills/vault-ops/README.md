@@ -26,10 +26,11 @@ An admin loads the policy once (root namespace):
 vault policy write vault-ops-readonly policies/vault-ops-readonly.hcl
 ```
 
-For a policy permission review, also load the read-only add-on and add `-policy=vault-ops-policy-reader` to the token below:
+For a policy permission review, also load the read-only add-ons and add `-policy=vault-ops-policy-reader` (ACL bodies) and `-policy=vault-ops-sentinel-reader` (Sentinel bodies, also used by `audit`) to the token below:
 
 ```bash
 vault policy write vault-ops-policy-reader policies/vault-ops-policy-reader.hcl
+vault policy write vault-ops-sentinel-reader policies/vault-ops-sentinel-reader.hcl
 ```
 
 Each session, export the environment and start Claude:
@@ -72,11 +73,11 @@ claude -p "Is my vault healthy?" \
 - "Show the entities and their aliases in team-a/prod"
 - "What changed since the last audit?"
 - "Are we creating too many entities or clients?"
-- "Are there any policies with excessive permissions?" (needs the policy-reader add-on)
+- "Are there any policies with excessive permissions?" (needs the policy-reader and sentinel-reader add-ons)
 
 ## Safety
 
-- **Hard boundary:** the token policy. It grants `read`/`list` only and never exposes ACL policy bodies. The two exact list paths, `sys/audit` and `sys/storage/raft/snapshot-auto/config`, also get `sudo` because Vault protects them; neither grants writes, and snapshot configs (which hold storage credentials) stay unreadable.
+- **Hard boundary:** the token policy. It grants `read`/`list` only and never exposes ACL or Sentinel policy bodies; the opt-in add-ons do, and the script keeps those bodies in memory. The two exact list paths, `sys/audit` and `sys/storage/raft/snapshot-auto/config`, also get `sudo` because Vault protects them; neither grants writes, and snapshot configs (which hold storage credentials) stay unreadable.
 - **`allowed-tools` doesn't block:** it pre-approves the bundled script but doesn't block other commands. For defence in depth, add deny rules to your Claude Code settings:
   ```json
   { "permissions": { "deny": ["Bash(vault write:*)", "Bash(vault delete:*)", "Bash(vault token:*)", "Bash(vault login:*)"] } }
@@ -92,6 +93,7 @@ claude -p "Is my vault healthy?" \
 | `scripts/vault_ops.py` | Read-only collector (`audit`, `health`, `inventory`, `usage`, `entities`, `policies`, `diff`) |
 | `policies/vault-ops-readonly.hcl` | Least-privilege policy |
 | `policies/vault-ops-policy-reader.hcl` | Optional add-on for `policies`: read-only access to ACL policy bodies |
+| `policies/vault-ops-sentinel-reader.hcl` | Optional add-on for Sentinel checks: read-only access to EGP/RGP policy bodies |
 | `references/rules.md` | Rule catalogue (VT-*) with remediation |
 | `schemas/findings.schema.json` | JSON Schema for findings files |
 

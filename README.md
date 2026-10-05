@@ -56,7 +56,7 @@ uv run --script skills/vault-ops/scripts/vault_ops.py <command> [--output-dir DI
 | `inventory` | `{cluster}-inventory-{ts}.json` | namespaces, non-built-in mounts, ACL policy **names**; summary has type distribution (mounts + namespaces per type), max depth, Sentinel counts by enforcement level and namespace `shapes` |
 | `usage` | `{cluster}-usage-{ts}.json` | billing-period client counts plus `current_month` |
 | `entities` | `{cluster}-entities-{ts}.json` | per-namespace entity counts and findings; `--list` adds metadata, aliases and policies per entity |
-| `policies` | `{cluster}-policies-{ts}.json` | ACL policy permission assessment (VT-POL-*): per policy a body hash and flagged rules (path + capabilities), never the body. Needs the `vault-ops-policy-reader` add-on token policy; without it every body is a coverage denial |
+| `policies` | `{cluster}-policies-{ts}.json` | ACL and Sentinel policy assessment (VT-POL-*, VT-SNT-*): per policy a body hash and flagged rules (path + capabilities), never the body; a `sentinel` block with EGP/RGP names, enforcement levels, EGP paths, imports and hashes, never the source. `--no-sentinel` skips Sentinel. ACL bodies need the `vault-ops-policy-reader` add-on and Sentinel bodies `vault-ops-sentinel-reader`; without them every body is a coverage denial |
 | `diff OLD NEW` | `diff-{ts}.json` | new / resolved / unchanged findings by fingerprint |
 
 Environment: `VAULT_ADDR`, `VAULT_TOKEN`, `VAULT_NAMESPACE`, `VAULT_SKIP_VERIFY`, `VAULT_CACERT`, `VAULT_OPS_OUTPUT_DIR`. Files are written 0600; stdout carries only their paths.
@@ -74,7 +74,7 @@ Environment: `VAULT_ADDR`, `VAULT_TOKEN`, `VAULT_NAMESPACE`, `VAULT_SKIP_VERIFY`
 | VT-MOUNT-006 | info | KV version 1 mount |
 | VT-NS-001 | info | Namespace with no auth beyond token |
 | VT-NS-002 | info | Unused leaf namespace |
-| VT-SNT-001..004 | low/info | Sentinel advisory, soft-mandatory, wildcard EGP, always-true |
+| VT-SNT-001..007 | medium/low/info | Sentinel advisory, soft-mandatory, wildcard EGP, always-true (from `audit` and `policies`); drifted copies across namespaces, hard-mandatory always-false, `http` import (from `policies`). All need the `vault-ops-sentinel-reader` add-on |
 | VT-LIC-001 | medium | License expires within 90 days |
 | VT-LEASE-001 | low | Cluster default lease TTL above 768h |
 | VT-HLTH-001..006 | medium/low/info | Sealed / no leader, unhealthy replication, unsupported version, raft autopilot unhealthy, irrevocable leases, lease count above 100k (from the queried node's `sys/metrics`) |
@@ -94,7 +94,7 @@ vault policy write vault-ops-readonly skills/vault-ops/policies/vault-ops-readon
 vault token create -policy=vault-ops-readonly -no-default-policy -orphan -ttl=1h -explicit-max-ttl=1h
 ```
 
-The policy is read/list only and never grants reading ACL policy bodies. For a policy review with `policies`, an admin also loads `skills/vault-ops/policies/vault-ops-policy-reader.hcl` (`read` on `sys/policies/acl/*` per namespace level, no `list` or `sudo`) and adds `-policy=vault-ops-policy-reader` to the token; the script parses bodies in memory and writes only names, hashes and flagged rules. The two exact list paths, `sys/audit` and `sys/storage/raft/snapshot-auto/config`, also get `sudo` because Vault protects them; neither grants writes, and snapshot configs (which hold storage credentials) stay unreadable.
+The policy is read/list only and never grants reading ACL or Sentinel policy bodies. For a policy review with `policies`, an admin also loads `skills/vault-ops/policies/vault-ops-policy-reader.hcl` (`read` on `sys/policies/acl/*` per namespace level, no `list` or `sudo`) and adds `-policy=vault-ops-policy-reader` to the token; the script parses bodies in memory and writes only names, hashes and flagged rules. Sentinel checks (VT-SNT-*, in `audit` and `policies`) likewise need `skills/vault-ops/policies/vault-ops-sentinel-reader.hcl` (`read` on `sys/policies/{egp,rgp}/*`) and `-policy=vault-ops-sentinel-reader`; Sentinel source is never written. The two exact list paths, `sys/audit` and `sys/storage/raft/snapshot-auto/config`, also get `sudo` because Vault protects them; neither grants writes, and snapshot configs (which hold storage credentials) stay unreadable.
 
 ## Local development
 

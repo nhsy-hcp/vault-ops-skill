@@ -60,13 +60,23 @@ These come from `policies` (needs the read-only `vault-ops-policy-reader` add-on
 | VT-POL-004 | low | A policy name exists in several namespaces with different bodies (`evidence.variants`, `evidence.outliers`, `evidence.examples`): copies have drifted. | Compare an outlier with a typical copy: `vault policy read -namespace=<ns> <name>` in each. Decide which is right, update the source and re-apply to every namespace with `vault policy write`. | Differences can be deliberate (per-environment paths). The finding gives namespaces only; bodies are not compared in the output. |
 | VT-POL-005 | info | A policy body could not be parsed, so it was not assessed. | Review by hand: `vault policy read -namespace=<ns> <name>`. | Usually unusual HCL (heredocs, odd quoting). Vault accepted it, so it is valid; the skill's parser is the limit. |
 
+### Sentinel policies
+
+Every VT-SNT rule needs Sentinel policy bodies, which the token reads only with the read-only `vault-ops-sentinel-reader` add-on; without it, coverage denies `sentinel EGP/RGP policy bodies` and no VT-SNT rule is judged. VT-SNT-001..004 come from `audit` and `policies` with identical fingerprints; VT-SNT-005..007 from `policies` only. The script hashes and scans each body in memory and reports names, enforcement levels, EGP paths and import names, never the source.
+
+| rule_id | Sev | What it means | Draft remediation | Watch out for |
+| --- | --- | --- | --- | --- |
+| VT-SNT-005 | low | An EGP or RGP name exists in several namespaces with different bodies (`evidence.variants`, `evidence.outliers`, `evidence.examples`): copies have drifted. | Compare an outlier with a typical copy: `vault read -namespace=<ns> sys/policies/<egp\|rgp>/<name>` in each. Decide which is right, update the source and re-apply it to every namespace with `vault write -namespace=<ns> sys/policies/<egp\|rgp>/<name> enforcement_level=<level> policy=@<file> [paths=...]`. | Differences can be deliberate (a stricter copy in a regulated namespace). Re-applying a body with a stricter rule can start blocking requests. |
+| VT-SNT-006 | medium | A `hard-mandatory` policy whose `main` is always false (`evidence.paths` for an EGP): it denies every request it applies to, and nothing can override it. | Review: `vault read -namespace=<ns> sys/policies/<egp\|rgp>/<name>`. If callers are locked out, an operator whose own requests the policy doesn't cover (or a root token) relaxes it first: `vault write -namespace=<ns> sys/policies/<egp\|rgp>/<name> enforcement_level=advisory policy=@<file> [paths=...]`, then fixes or deletes it (`vault delete -namespace=<ns> sys/policies/<kind>/<name>`). | An EGP applies to root tokens too, so on wildcard paths it can block the fix itself; check `paths` before any change. The rule only spots a literal `false` main, not one that is false in practice. |
+| VT-SNT-007 | info | The policy imports `http` (`evidence.imports`): each request it applies to can wait on an outbound call, so that endpoint's availability and latency gate Vault requests. | Review: `vault read -namespace=<ns> sys/policies/<egp\|rgp>/<name>`. Prefer data Vault already has (request, identity, time); if the call is needed, narrow EGP `paths` and confirm the endpoint's timeout and failure behaviour. | The import alone is flagged, even when `main` never calls it; a failing call can deny requests under `hard-mandatory`. |
+
 ## Severity ranking guidance
 
 Rank for the environment, not just by severity label:
 
 1. `coverage.complete == false` comes first — every conclusion is partial.
-2. VT-HLTH-001/002, VT-LIC-001, VT-AUD-001 and VT-SNAP-001/002 (cluster-wide availability, lifecycle, audit trail and recoverability); VT-POL-001/002 (policies that grant admin or let holders raise their own access).
-3. VT-HLTH-006 (lease growth threatens availability), VT-POL-003 (sudo), VT-MOUNT-001 (breaks on upgrade), VT-SNT-004/001 (controls that don't control), VT-AUD-003 (secrets or accessors in audit logs), VT-AUD-002 (one audit sink can block all requests).
+2. VT-HLTH-001/002, VT-LIC-001, VT-AUD-001 and VT-SNAP-001/002 (cluster-wide availability, lifecycle, audit trail and recoverability); VT-POL-001/002 (policies that grant admin or let holders raise their own access); VT-SNT-006 (hard-mandatory deny-all, a lockout risk).
+3. VT-HLTH-006 (lease growth threatens availability), VT-POL-003 (sudo), VT-MOUNT-001 (breaks on upgrade), VT-SNT-004/001 (controls that don't control), VT-SNT-005 (drifted Sentinel copies), VT-AUD-003 (secrets or accessors in audit logs), VT-AUD-002 (one audit sink can block all requests).
 4. VT-AUTH-001, VT-MOUNT-002, VT-MOUNT-004 grouped by mount type; VT-LEASE-001; VT-HLTH-005 (credentials possibly still live at a backend); VT-POL-004 (drifted policy copies); client and identity anti-patterns (VT-ID-004/005, VT-CLI-001..003), which grow cost and identity sprawl.
 5. Info rules — summarise counts, list examples, don't enumerate hundreds.
 
