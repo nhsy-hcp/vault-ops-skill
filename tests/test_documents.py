@@ -103,3 +103,15 @@ def test_usage_document():
     assert doc["total"] == {"clients": 7, "entity_clients": 5, "non_entity_clients": 2}
     assert doc["namespaces_reported"] == 2
     assert doc["top_namespaces"] == [{"namespace": "tn001/kubernetes/prod/", "counts": {"clients": 5}, "mounts": 2}]
+
+
+def test_default_output_dir_is_per_user(monkeypatch, tmp_path):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.delenv("VAULT_OPS_OUTPUT_DIR", raising=False)
+    args = vo.build_parser().parse_args(["diff", "a", "b"])
+    assert args.output_dir == vo.DEFAULT_OUTPUT_DIR
+    path = vo.write_json(vo.output_path(args.output_dir, "c1", "health", vo.utc_now()), {})
+    assert path.parent == tmp_path / ".vault-ops" / "outputs"
+    assert stat.S_IMODE(path.parent.stat().st_mode) == 0o700
+    monkeypatch.setenv("VAULT_OPS_OUTPUT_DIR", str(tmp_path / "custom"))
+    assert vo.build_parser().parse_args(["diff", "a", "b"]).output_dir == str(tmp_path / "custom")

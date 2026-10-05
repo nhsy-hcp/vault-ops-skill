@@ -16,7 +16,10 @@ Check logic is ported from nhsy-hcp/vault-tools (src/namespace_audit/report.py).
 
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["hvac>=2.2.0", "requests>=2.32"]
+# dependencies = ["hvac==2.4.0", "requests>=2.32,<3"]
+#
+# [tool.uv]
+# exclude-newer = "2026-10-05T00:00:00Z"
 # ///
 
 from __future__ import annotations
@@ -45,6 +48,9 @@ TOOL_VERSION = "0.1.0"
 SCHEMA_VERSION = "1.2.0"
 
 EXIT_OK, EXIT_FATAL, EXIT_GAPS, EXIT_FINDINGS, EXIT_INTERRUPTED = 0, 1, 2, 3, 130
+
+# Per-user default, outside any project tree: output can hold hostnames, emails and role_ids.
+DEFAULT_OUTPUT_DIR = "~/.vault-ops/outputs"
 
 # Fallback lease ceiling when sys/config/state/sanitized is unreadable: Vault's stock 768h.
 LONG_MAX_LEASE_TTL_SECONDS = 768 * 3600
@@ -1199,7 +1205,7 @@ def diff_documents(old: dict[str, Any], new: dict[str, Any]) -> dict[str, Any]:
 
 
 def write_json(path: Path, document: dict[str, Any]) -> Path:
-    path.parent.mkdir(parents=True, exist_ok=True)
+    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "w") as handle:
         json.dump(document, handle, indent=2, sort_keys=False)
@@ -1210,7 +1216,7 @@ def write_json(path: Path, document: dict[str, Any]) -> Path:
 
 def output_path(output_dir: str, cluster: str, kind: str, ts: datetime) -> Path:
     safe = re.sub(r"[^A-Za-z0-9_.-]", "-", cluster) or "vault"
-    return Path(output_dir).resolve() / f"{safe}-{kind}-{ts.strftime('%Y%m%d-%H%M%S')}.json"
+    return Path(output_dir).expanduser().resolve() / f"{safe}-{kind}-{ts.strftime('%Y%m%d-%H%M%S')}.json"
 
 
 def exit_code_for(document: dict[str, Any], fail_on: str | None, fail_on_gaps: bool) -> int:
@@ -1331,10 +1337,10 @@ def build_parser() -> argparse.ArgumentParser:
         prog="vault_ops.py",
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="Env: VAULT_ADDR, VAULT_TOKEN, VAULT_NAMESPACE, VAULT_SKIP_VERIFY, VAULT_CACERT, VAULT_OPS_OUTPUT_DIR",
+        epilog=f"Env: VAULT_ADDR, VAULT_TOKEN (required); VAULT_CACERT, VAULT_SKIP_VERIFY, VAULT_NAMESPACE, VAULT_OPS_OUTPUT_DIR (default {DEFAULT_OUTPUT_DIR})",
     )
     common = argparse.ArgumentParser(add_help=False)
-    common.add_argument("--output-dir", default=os.getenv("VAULT_OPS_OUTPUT_DIR", "outputs"))
+    common.add_argument("--output-dir", default=os.getenv("VAULT_OPS_OUTPUT_DIR") or DEFAULT_OUTPUT_DIR)
     live = argparse.ArgumentParser(add_help=False)
     live.add_argument("--namespace", default=None, help="start namespace (default: VAULT_NAMESPACE or root)")
     live.add_argument("--redact-addr", action="store_true", help="write vault_addr as <redacted>")

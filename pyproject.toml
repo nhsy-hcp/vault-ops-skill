@@ -4,8 +4,8 @@ version = "0.1.0"
 description = "Read-only HashiCorp Vault ops Claude skill and its local dev environment"
 requires-python = ">=3.12"
 dependencies = [
-    "hvac>=2.2.0",
-    "requests>=2.32",
+    "hvac==2.4.0",
+    "requests>=2.32,<3",
 ]
 
 [dependency-groups]
@@ -29,7 +29,7 @@ select = ["E", "F", "W", "I", "B", "UP", "SIM"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = [".claude/skills/vault-ops/scripts"]
+pythonpath = ["skills/vault-ops/scripts"]
 markers = ["integration: needs a running, seeded dev Vault (task up && task seed)"]
 addopts = "-m 'not integration'"
 # Dev Vault uses a self-signed cert with VAULT_SKIP_VERIFY=true

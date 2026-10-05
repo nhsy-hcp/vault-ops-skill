@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 import vault_ops as vo
 
-SCHEMA_PATH = Path(__file__).resolve().parents[1] / ".claude/skills/vault-ops/schemas/findings.schema.json"
+SCHEMA_PATH = Path(__file__).resolve().parents[1] / "skills/vault-ops/schemas/findings.schema.json"
 FAKE_TOKEN = "hvs.FAKE-TOKEN-must-never-appear"
 
 

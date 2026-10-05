@@ -1,0 +1,14 @@
+{
+  "name": "vault-ops-skill",
+  "description": "Read-only HashiCorp Vault operations skills for Claude Code.",
+  "owner": {
+    "name": "nhsy-hcp"
+  },
+  "plugins": [
+    {
+      "name": "vault-ops",
+      "source": ".",
+      "description": "Read-only HashiCorp Vault operations review skill."
+    }
+  ]
+}

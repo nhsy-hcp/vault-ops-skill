@@ -4,9 +4,35 @@ A read-only HashiCorp Vault operations skill for Claude Code. It audits a namesp
 
 Check logic is ported from [nhsy-hcp/vault-tools](https://github.com/nhsy-hcp/vault-tools) `namespace-audit`.
 
+## Install (Claude Code plugin)
+
+No Taskfile or repo checkout is needed. You need `uv` and network access to Vault.
+
+```text
+/plugin marketplace add nhsy-hcp/vault-ops-skill
+/plugin install vault-ops@vault-ops-skill
+```
+
+Export the environment, then start Claude:
+
+```bash
+export VAULT_ADDR=https://vault.example.com:8200 VAULT_CACERT=/path/to/ca.pem
+export VAULT_TOKEN="$(vault token create -policy=vault-ops-readonly -no-default-policy -orphan -ttl=1h -field=token)"
+claude
+```
+
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `VAULT_ADDR`, `VAULT_TOKEN` | yes | Vault address and a token from [`vault-ops-readonly.hcl`](skills/vault-ops/policies/vault-ops-readonly.hcl) |
+| `VAULT_CACERT` / `VAULT_SKIP_VERIFY` | recommended / dev only | TLS verification |
+| `VAULT_NAMESPACE` | no | Start namespace for `audit`, `inventory`, `entities` |
+| `VAULT_OPS_OUTPUT_DIR` | no | Results location (default `~/.vault-ops/outputs`) |
+
+The other variables in `.env.template` (`VAULT_LICENSE`, `VAULT_IMAGE`, `VAULT_HOST_*`, `VAULT_DR_*`, `CONTAINER_CLI`) are only for this repo's local dev cluster. Setup details and safety notes: [skills/vault-ops/README.md](skills/vault-ops/README.md).
+
 ## Using the skill
 
-Open Claude Code in this repo with `VAULT_ADDR` and a least-privilege `VAULT_TOKEN` in the environment, then ask, for example:
+With the plugin installed (or in this repo, where `.claude/skills/vault-ops` links to `skills/vault-ops`), ask, for example:
 
 - "Audit my Vault" / "what's wrong with our namespaces?"
 - "Is the cluster healthy? When does the license expire?"
@@ -20,7 +46,7 @@ The skill reports coverage gaps first, ranks and groups findings, and drafts rem
 ### Script subcommands
 
 ```bash
-uv run --script .claude/skills/vault-ops/scripts/vault_ops.py <command> [--output-dir outputs]
+uv run --script skills/vault-ops/scripts/vault_ops.py <command> [--output-dir DIR]   # default ~/.vault-ops/outputs
 ```
 
 | Command | Output | Notes |
@@ -49,12 +75,12 @@ Environment: `VAULT_ADDR`, `VAULT_TOKEN`, `VAULT_NAMESPACE`, `VAULT_SKIP_VERIFY`
 | VT-HLTH-001..003 | medium/info | Sealed / no leader, unhealthy replication, unsupported version |
 | VT-ID-001..003 | low/info | Entity without aliases, policies attached directly to an entity, disabled entity |
 
-Details and remediation: [`references/rules.md`](.claude/skills/vault-ops/references/rules.md). Schema: [`findings.schema.json`](.claude/skills/vault-ops/schemas/findings.schema.json).
+Details and remediation: [`references/rules.md`](skills/vault-ops/references/rules.md). Schema: [`findings.schema.json`](skills/vault-ops/schemas/findings.schema.json).
 
 ### Least-privilege token
 
 ```bash
-vault policy write vault-ops-readonly .claude/skills/vault-ops/policies/vault-ops-readonly.hcl
+vault policy write vault-ops-readonly skills/vault-ops/policies/vault-ops-readonly.hcl
 vault token create -policy=vault-ops-readonly -no-default-policy -orphan -ttl=1h -explicit-max-ttl=1h
 ```
 
@@ -75,3 +101,5 @@ task test:all && task lint
 
 - DR setup, node lifecycle and failure drills: [docs/dr.md](docs/dr.md)
 - All tasks and repo conventions: [AGENTS.md](AGENTS.md)
+
+License: [MPL-2.0](LICENSE).

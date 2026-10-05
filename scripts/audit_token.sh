@@ -4,7 +4,7 @@ set -euo pipefail
 
 : "${VAULT_ADDR:?VAULT_ADDR must be set}"
 : "${VAULT_TOKEN:?VAULT_TOKEN must be set}"
-POLICY_FILE=".claude/skills/vault-ops/policies/vault-ops-readonly.hcl"
+POLICY_FILE="skills/vault-ops/policies/vault-ops-readonly.hcl"
 TOKEN_FILE=".tmp/audit-token"
 
 mkdir -p .tmp

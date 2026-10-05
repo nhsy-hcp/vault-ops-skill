@@ -701,8 +701,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "hvac", specifier = ">=2.2.0" },
-    { name = "requests", specifier = ">=2.32" },
+    { name = "hvac", specifier = "==2.4.0" },
+    { name = "requests", specifier = ">=2.32,<3" },
 ]
 
 [package.metadata.requires-dev]
