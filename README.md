@@ -56,6 +56,7 @@ uv run --script skills/vault-ops/scripts/vault_ops.py <command> [--output-dir DI
 | `inventory` | `{cluster}-inventory-{ts}.json` | namespaces, non-built-in mounts, ACL policy **names**; summary has type distribution (mounts + namespaces per type), max depth, Sentinel counts by enforcement level and namespace `shapes` |
 | `usage` | `{cluster}-usage-{ts}.json` | billing-period client counts plus `current_month` |
 | `entities` | `{cluster}-entities-{ts}.json` | per-namespace entity counts and findings; `--list` adds metadata, aliases and policies per entity |
+| `policies` | `{cluster}-policies-{ts}.json` | ACL policy permission assessment (VT-POL-*): per policy a body hash and flagged rules (path + capabilities), never the body. Needs the `vault-ops-policy-reader` add-on token policy; without it every body is a coverage denial |
 | `diff OLD NEW` | `diff-{ts}.json` | new / resolved / unchanged findings by fingerprint |
 
 Environment: `VAULT_ADDR`, `VAULT_TOKEN`, `VAULT_NAMESPACE`, `VAULT_SKIP_VERIFY`, `VAULT_CACERT`, `VAULT_OPS_OUTPUT_DIR`. Files are written 0600; stdout carries only their paths.
@@ -81,6 +82,7 @@ Environment: `VAULT_ADDR`, `VAULT_TOKEN`, `VAULT_NAMESPACE`, `VAULT_SKIP_VERIFY`
 | VT-SNAP-001..003 | medium/info | No automated Raft snapshots (Enterprise), snapshot failing or overdue, snapshots on the node's local disk |
 | VT-ID-001..003 | low/info | Entity without aliases, policies attached directly to an entity, disabled entity |
 | VT-ID-004..005 | low | Far more entities than active clients, alias name shared by several entities |
+| VT-POL-001..005 | medium/low/info | ACL policy with write or sudo on every path, policy that can change access control (policies, auth, mounts, tokens, identity), sudo, same-named policy drifted across namespaces, unparseable policy (from `policies`) |
 | VT-CLI-001..004 | low/info | Token-only client sprawl, sharp client growth, mount creating new clients every month, most clients in root (from `usage`) |
 
 Details and remediation: [`references/rules.md`](skills/vault-ops/references/rules.md). Schema: [`findings.schema.json`](skills/vault-ops/schemas/findings.schema.json).
@@ -92,7 +94,7 @@ vault policy write vault-ops-readonly skills/vault-ops/policies/vault-ops-readon
 vault token create -policy=vault-ops-readonly -no-default-policy -orphan -ttl=1h -explicit-max-ttl=1h
 ```
 
-The policy is read/list only and never grants reading ACL policy bodies. The two exact list paths, `sys/audit` and `sys/storage/raft/snapshot-auto/config`, also get `sudo` because Vault protects them; neither grants writes, and snapshot configs (which hold storage credentials) stay unreadable.
+The policy is read/list only and never grants reading ACL policy bodies. For a policy review with `policies`, an admin also loads `skills/vault-ops/policies/vault-ops-policy-reader.hcl` (`read` on `sys/policies/acl/*` per namespace level, no `list` or `sudo`) and adds `-policy=vault-ops-policy-reader` to the token; the script parses bodies in memory and writes only names, hashes and flagged rules. The two exact list paths, `sys/audit` and `sys/storage/raft/snapshot-auto/config`, also get `sudo` because Vault protects them; neither grants writes, and snapshot configs (which hold storage credentials) stay unreadable.
 
 ## Local development
 

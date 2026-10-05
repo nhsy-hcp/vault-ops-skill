@@ -2,7 +2,7 @@
 
 > **READ-ONLY. Observe and report only: this skill NEVER makes changes to Vault.** It never writes, deletes, enables, tunes or merges anything, never mints or revokes tokens, and never runs the fixes it drafts. An operator runs them.
 
-A read-only HashiCorp Vault operations review for Claude Code. Ask Claude to audit Vault, check health and DR status, inventory namespaces and mounts, review identity entities, count clients, or compare two audits. A bundled script reads Vault (GET/LIST only) and writes small JSON files. Claude reads those files, explains them and drafts fixes as text. It never changes Vault.
+A read-only HashiCorp Vault operations review for Claude Code. Ask Claude to audit Vault, check health and DR status, inventory namespaces and mounts, review identity entities, assess ACL policy permissions, count clients, or compare two audits. A bundled script reads Vault (GET/LIST only) and writes small JSON files. Claude reads those files, explains them and drafts fixes as text. It never changes Vault.
 
 ## Prerequisites
 
@@ -24,6 +24,12 @@ An admin loads the policy once (root namespace):
 
 ```bash
 vault policy write vault-ops-readonly policies/vault-ops-readonly.hcl
+```
+
+For a policy permission review, also load the read-only add-on and add `-policy=vault-ops-policy-reader` to the token below:
+
+```bash
+vault policy write vault-ops-policy-reader policies/vault-ops-policy-reader.hcl
 ```
 
 Each session, export the environment and start Claude:
@@ -66,6 +72,7 @@ claude -p "Is my vault healthy?" \
 - "Show the entities and their aliases in team-a/prod"
 - "What changed since the last audit?"
 - "Are we creating too many entities or clients?"
+- "Are there any policies with excessive permissions?" (needs the policy-reader add-on)
 
 ## Safety
 
@@ -82,8 +89,9 @@ claude -p "Is my vault healthy?" \
 | Path | Contents |
 | --- | --- |
 | `SKILL.md` | Instructions Claude follows |
-| `scripts/vault_ops.py` | Read-only collector (`audit`, `health`, `inventory`, `usage`, `entities`, `diff`) |
+| `scripts/vault_ops.py` | Read-only collector (`audit`, `health`, `inventory`, `usage`, `entities`, `policies`, `diff`) |
 | `policies/vault-ops-readonly.hcl` | Least-privilege policy |
+| `policies/vault-ops-policy-reader.hcl` | Optional add-on for `policies`: read-only access to ACL policy bodies |
 | `references/rules.md` | Rule catalogue (VT-*) with remediation |
 | `schemas/findings.schema.json` | JSON Schema for findings files |
 
