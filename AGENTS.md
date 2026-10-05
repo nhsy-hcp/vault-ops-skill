@@ -50,7 +50,7 @@ A **read-only** HashiCorp Vault ops Claude skill (`skills/vault-ops/`) plus a lo
 | `task test` | Unit tests with coverage ≥ 80% |
 | `task test:integration` | Integration tests (audit token, live Vault) |
 | `task test:all` | Unit + integration with coverage ≥ 80% |
-| `task test:ci` | `lint` + `plugin:validate` + `test` (no Vault needed); what `.github/workflows/ci.yml` runs on push to `main` and on PRs |
+| `task test:ci` | `lint` + `plugin:validate` + `test` (no Vault needed); `.github/workflows/ci.yml` runs the same as a `lint` job then a `test-ci` job on push to `main` and on PRs |
 | `task plugin:validate` | `claude plugin validate --strict` on the marketplace and plugin manifests |
 | `task clean` | Remove caches, `outputs/`, `.tmp/vault` (all node data, unseal keys, TLS), `.tmp/audit-token`, `.tmp/*.log` |
 
