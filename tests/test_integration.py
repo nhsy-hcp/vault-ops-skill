@@ -19,6 +19,7 @@ SEEDED_RULES = {
     "VT-AUTH-001",
     "VT-MOUNT-002",
     "VT-MOUNT-003",
+    "VT-MOUNT-004",
     "VT-NS-001",
     "VT-NS-002",
     "VT-SNT-001",

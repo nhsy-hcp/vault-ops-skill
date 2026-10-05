@@ -33,14 +33,14 @@ def cluster_data():
             "team-a/prod": {"token/": mount("ns_token"), "approle/": mount("approle")},
             "team-b": {
                 "token/": mount("ns_token"),
-                "oidc/": mount("oidc", config={"max_lease_ttl": 3600}),
+                "oidc/": mount("oidc", config={"default_lease_ttl": 3600, "max_lease_ttl": 3600}),
             },
         },
         secrets={
             "": {
                 **builtin_secrets,
                 "old/": mount("kv", deprecation_status="pending-removal"),
-                "long/": mount("kv", config={"max_lease_ttl": 90 * 24 * 3600}),
+                "long/": mount("kv", config={"default_lease_ttl": 40 * 24 * 3600, "max_lease_ttl": 90 * 24 * 3600}),
             },
             "team-a": dict(builtin_secrets),  # has a child: not a leaf, no VT-NS-002
             "team-a/prod": {**builtin_secrets, "kv-local/": mount("kv", local=True, options={"version": "2"})},
@@ -77,5 +77,5 @@ def health():
             "dr": {"mode": "primary", "state": "idle"},
             "performance": {"mode": "secondary", "state": "connecting"},
         },
-        "lease_ttls": {"default_lease_ttl_seconds": 2764800, "max_lease_ttl_seconds": 2764800},
+        "lease_ttls": {"default_lease_ttl_seconds": 1000 * 3600, "max_lease_ttl_seconds": 8760 * 3600},  # VT-LEASE-001
     }

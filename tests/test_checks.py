@@ -11,7 +11,7 @@ def ids(findings):
 
 def test_mount_findings_fire_once_each(cluster_data):
     found = vo.mount_findings(cluster_data, 32 * 24 * 3600)
-    assert ids(found) == ["VT-AUTH-001", "VT-MOUNT-001", "VT-MOUNT-002", "VT-MOUNT-003"]
+    assert ids(found) == ["VT-AUTH-001", "VT-MOUNT-001", "VT-MOUNT-002", "VT-MOUNT-003", "VT-MOUNT-004"]
     lease = next(f for f in found if f.rule_id == "VT-MOUNT-002")
     assert lease.evidence["baseline_source"] == "cluster"
     assert lease.object_path == "long/"
@@ -22,6 +22,19 @@ def test_lease_fallback_baseline(cluster_data):
     lease = next(f for f in vo.mount_findings(cluster_data, None) if f.rule_id == "VT-MOUNT-002")
     assert lease.evidence["baseline_source"] == "fallback"
     assert lease.evidence["baseline_seconds"] == vo.LONG_MAX_LEASE_TTL_SECONDS
+
+
+def test_default_lease_ttl_override(cluster_data):
+    default = [f for f in vo.mount_findings(cluster_data, None) if f.rule_id == "VT-MOUNT-004"]
+    assert [(f.namespace, f.object_path) for f in default] == [("", "long/")]  # oidc/ 1h is the control
+    assert default[0].evidence == {"default_lease_ttl_seconds": 40 * 24 * 3600, "threshold_seconds": vo.DEFAULT_LEASE_TTL_WARNING_SECONDS}
+    assert "960h, above the 768h review threshold" in default[0].detail
+
+
+def test_default_lease_ttl_inherited_or_at_threshold_ignored(cluster_data):
+    for value in (0, vo.DEFAULT_LEASE_TTL_WARNING_SECONDS):
+        cluster_data.secrets[""]["long/"]["config"]["default_lease_ttl"] = value
+        assert "VT-MOUNT-004" not in ids(vo.mount_findings(cluster_data, None))
 
 
 def test_builtin_local_mounts_ignored(cluster_data):
@@ -54,7 +67,9 @@ def test_is_trivial_policy():
 
 def test_health_findings_all_fire(health):
     found = vo.health_findings(health, now=NOW)
-    assert ids(found) == ["VT-HLTH-001", "VT-HLTH-002", "VT-HLTH-003", "VT-LIC-001"]
+    assert ids(found) == ["VT-HLTH-001", "VT-HLTH-002", "VT-HLTH-003", "VT-LEASE-001", "VT-LIC-001"]
+    lease = next(f for f in found if f.rule_id == "VT-LEASE-001")
+    assert lease.evidence == {"default_lease_ttl_seconds": 1000 * 3600, "threshold_seconds": vo.DEFAULT_LEASE_TTL_WARNING_SECONDS}
     lic = next(f for f in found if f.rule_id == "VT-LIC-001")
     assert lic.evidence["days_remaining"] == 15
     repl = [f for f in found if f.rule_id == "VT-HLTH-002"]
@@ -68,7 +83,10 @@ def test_health_findings_clear_when_healthy(health):
         leader={"ha_enabled": True, "leader_address_present": True},
         license={"expiration_time": "2027-12-01T00:00:00Z"},
         replication={"dr": {"mode": "disabled"}, "performance": {"mode": "primary", "state": "running"}},
+        lease_ttls={"default_lease_ttl_seconds": None, "max_lease_ttl_seconds": None},  # unset: built-in 768h
     )
+    assert vo.health_findings(health, now=NOW) == []
+    health["lease_ttls"] = None  # DR secondary / unreadable config
     assert vo.health_findings(health, now=NOW) == []
 
 

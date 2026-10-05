@@ -68,10 +68,12 @@ Environment: `VAULT_ADDR`, `VAULT_TOKEN`, `VAULT_NAMESPACE`, `VAULT_SKIP_VERIFY`
 | VT-AUTH-001 | low | Auth mount listed to unauthenticated callers |
 | VT-MOUNT-002 | low | Mount max lease TTL above the cluster ceiling |
 | VT-MOUNT-003 | info | Local (non-replicated) mount |
+| VT-MOUNT-004 | low | Mount default lease TTL above 768h |
 | VT-NS-001 | info | Namespace with no auth beyond token |
 | VT-NS-002 | info | Unused leaf namespace |
 | VT-SNT-001..004 | low/info | Sentinel advisory, soft-mandatory, wildcard EGP, always-true |
 | VT-LIC-001 | medium | License expires within 90 days |
+| VT-LEASE-001 | low | Cluster default lease TTL above 768h |
 | VT-HLTH-001..003 | medium/info | Sealed / no leader, unhealthy replication, unsupported version |
 | VT-ID-001..003 | low/info | Entity without aliases, policies attached directly to an entity, disabled entity |
 

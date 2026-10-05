@@ -32,6 +32,10 @@ step "VT-MOUNT-002 kv-long-ttl (max-lease-ttl above the cluster ceiling)"
 try vault secrets enable -namespace="$NS" -path=kv-long-ttl kv-v2
 vault secrets tune -namespace="$NS" -max-lease-ttl=87600h kv-long-ttl >/dev/null
 
+step "VT-MOUNT-004 kv-long-default (default-lease-ttl above 768h)"
+try vault secrets enable -namespace="$NS" -path=kv-long-default kv-v2
+vault secrets tune -namespace="$NS" -max-lease-ttl=87600h -default-lease-ttl=1000h kv-long-default >/dev/null
+
 step "VT-MOUNT-003 kv-local (local mount)"
 try vault secrets enable -namespace="$NS" -path=kv-local -local kv-v2
 

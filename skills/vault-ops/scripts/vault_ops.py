@@ -54,6 +54,8 @@ DEFAULT_OUTPUT_DIR = "~/.vault-ops/outputs"
 
 # Fallback lease ceiling when sys/config/state/sanitized is unreadable: Vault's stock 768h.
 LONG_MAX_LEASE_TTL_SECONDS = 768 * 3600
+# Default lease TTLs above Vault's built-in 768h default are flagged (VT-MOUNT-004, VT-LEASE-001).
+DEFAULT_LEASE_TTL_WARNING_SECONDS = 768 * 3600
 LICENSE_EXPIRY_WARNING_DAYS = 90
 # Oldest Vault major.minor still treated as supported. Update when HashiCorp ships a release.
 MIN_SUPPORTED_VERSION = (1, 19)
@@ -101,6 +103,7 @@ RULES: dict[str, Rule] = {
     "VT-AUTH-001": Rule("low", "exposure", "Auth mount listed to unauthenticated callers"),
     "VT-MOUNT-002": Rule("low", "lease", "Mount max lease TTL overrides cluster ceiling"),
     "VT-MOUNT-003": Rule("info", "replication", "Mount is local (not replicated)"),
+    "VT-MOUNT-004": Rule("low", "lease", "Mount default lease TTL is long"),
     "VT-NS-001": Rule("info", "hygiene", "Namespace has no auth method beyond token"),
     "VT-NS-002": Rule("info", "hygiene", "Leaf namespace appears unused"),
     "VT-SNT-001": Rule("low", "governance", "Sentinel policy is advisory"),
@@ -111,6 +114,7 @@ RULES: dict[str, Rule] = {
     "VT-HLTH-001": Rule("medium", "availability", "Node sealed or no active leader"),
     "VT-HLTH-002": Rule("medium", "replication", "Replication enabled but not healthy"),
     "VT-HLTH-003": Rule("info", "lifecycle", "Vault version below supported window"),
+    "VT-LEASE-001": Rule("low", "lease", "Cluster default lease TTL is long"),
     "VT-ID-001": Rule("low", "identity", "Entity has no aliases"),
     "VT-ID-002": Rule("info", "identity", "Policies attached directly to entity"),
     "VT-ID-003": Rule("info", "identity", "Entity is disabled"),
@@ -761,6 +765,21 @@ def mount_findings(data: ClusterData, system_max_lease_ttl: int | None) -> list[
                         )
                     )
 
+                default_ttl = config.get("default_lease_ttl")
+                if isinstance(default_ttl, int) and default_ttl > DEFAULT_LEASE_TTL_WARNING_SECONDS:
+                    findings.append(
+                        finding(
+                            "VT-MOUNT-004",
+                            ns,
+                            kind,
+                            path,
+                            mtype,
+                            f"`default_lease_ttl` is {format_ttl(default_ttl)}, above the {format_ttl(DEFAULT_LEASE_TTL_WARNING_SECONDS)} review threshold — new leases get this TTL by default.",
+                            default_lease_ttl_seconds=default_ttl,
+                            threshold_seconds=DEFAULT_LEASE_TTL_WARNING_SECONDS,
+                        )
+                    )
+
                 if mount.get("local") is True and mtype not in BUILTIN_ENGINE_TYPES:
                     findings.append(
                         finding(
@@ -920,6 +939,20 @@ def health_findings(health: dict[str, Any], now: datetime | None = None) -> list
                 f"Vault {health.get('version')} is older than {minimum}, the oldest release this tool treats as supported.",
                 version=health.get("version"),
                 min_supported=minimum,
+            )
+        )
+    default_ttl = (health.get("lease_ttls") or {}).get("default_lease_ttl_seconds")
+    if isinstance(default_ttl, int) and default_ttl > DEFAULT_LEASE_TTL_WARNING_SECONDS:
+        findings.append(
+            finding(
+                "VT-LEASE-001",
+                "",
+                "cluster",
+                None,
+                "lease_ttl",
+                f"Cluster `default_lease_ttl` is {format_ttl(default_ttl)}, above the {format_ttl(DEFAULT_LEASE_TTL_WARNING_SECONDS)} review threshold — mounts without their own default inherit it.",
+                default_lease_ttl_seconds=default_ttl,
+                threshold_seconds=DEFAULT_LEASE_TTL_WARNING_SECONDS,
             )
         )
     lic = health.get("license") or {}
