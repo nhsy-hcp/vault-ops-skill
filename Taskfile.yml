@@ -123,6 +123,11 @@ tasks:
       - sh: test -s .tmp/audit-token
         msg: "No audit token; run: task token:audit"
 
+  test:oss:
+    desc: OSS smoke tests against a throwaway Community `vault server -dev` (local only, not in CI)
+    cmds:
+      - scripts/test_oss.sh {{.CLI_ARGS}}
+
   test:all:
     desc: Unit + integration tests with coverage
     cmds:

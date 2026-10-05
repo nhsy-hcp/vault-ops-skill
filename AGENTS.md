@@ -20,7 +20,7 @@ A **read-only** HashiCorp Vault ops Claude skill (`skills/vault-ops/`) plus a lo
 | `scripts/` | Dev-env automation (bash, called from `Taskfile.yml`) and `seed_vault.py` |
 | `docs/dr.md` | DR pair design, node lifecycle, failure drills |
 | `evals/` | `claude plugin eval` suite: one dir per case (`prompt.md`, `graders/*.md`, optional `case.yaml` + `scaffold.sh`). `fixtures/stage.sh` copies fixture JSON into the run's `.tmp/vault-ops/`: cases on the shared `fixtures/vault-ops/` set symlink it as `scaffold.sh`; cases with their own `fixtures/` use a small `scaffold.sh` that passes that dir (the harness resolves symlinks, so a symlink can't find its case dir). Fixtures come from `task skill:run -- <cmd> --output-dir ...` on the dev nodes; never commit tokens or real personal data. Offline only: Bash-granting cases are refused while `~/.docker/config.json` is a symlink |
-| `tests/` | Unit tests (no Vault); `test_integration.py` and `test_dr.py` (`-m integration`, need the dev nodes; `test_dr.py` skips unless DR is active) |
+| `tests/` | Unit tests (no Vault); `test_integration.py` and `test_dr.py` (`-m integration`, need the dev nodes; `test_dr.py` skips unless DR is active); `test_oss.py` (`-m oss`, run by `task test:oss`) |
 | `.tmp/spec.md` | Options analysis and spec (gitignored working doc) |
 
 ## Hard rules
@@ -55,6 +55,7 @@ A **read-only** HashiCorp Vault ops Claude skill (`skills/vault-ops/`) plus a lo
 | `task lint` | pre-commit on tracked + untracked files: ruff, ruff-format, shellcheck, gitleaks, yaml/json |
 | `task test` | Unit tests with coverage ≥ 80% |
 | `task test:integration` | Integration tests (audit token, live Vault) |
+| `task test:oss` | OSS smoke tests: `scripts/test_oss.sh` starts a throwaway Community `vault server -dev` on `127.0.0.1:8230` (in memory, stopped on exit), writes the three policies with its own root token and runs `tests/test_oss.py` with a 15m `vault-ops-readonly` + add-ons token. Needs a Community `vault` binary; local only, not in CI or `test:all` |
 | `task test:all` | Unit + integration with coverage ≥ 80% |
 | `task test:ci` | `lint` + `plugin:validate` + `test` (no Vault needed); `.github/workflows/ci.yml` runs the same as a `lint` job then a `test-ci` job on push to `main` and on PRs |
 | `task eval` | Skill evals: `claude plugin eval . --tag offline --scaffold` with a no-plugin baseline arm (about $8 of API credits; not in CI), e.g. `task eval -- --runs 1 --case refuse-write`. Extra `--tag` values are ORed with `offline`, so filter with `--case` |
