@@ -14,8 +14,11 @@ import vault_ops as vo
 
 pytestmark = pytest.mark.integration
 
-# Rules the dev seed can trip; MOUNT-001/LIC-001/HLTH-* depend on cluster state and are unit-tested.
+# Rules the dev seed can trip; MOUNT-001/LIC-001/HLTH-* depend on cluster state, and AUD-001/002 and
+# SNAP-001/002 contradict the seeded devices and snapshot config: all are unit-tested.
 SEEDED_RULES = {
+    "VT-AUD-003",
+    "VT-SNAP-003",
     "VT-AUTH-001",
     "VT-MOUNT-002",
     "VT-MOUNT-003",
@@ -75,6 +78,12 @@ def test_health(capsys, tmp_path):
     raft = doc["health"]["raft"]
     assert any(p["leader"] for p in raft["peers"])
     assert raft["autopilot"]["configuration"] and raft["autopilot"]["state"]["healthy"] is True
+    devices = {d["path"]: d for d in doc["health"]["audit_devices"]}
+    assert devices["vault-ops-file/"]["options"] == {"sink": "file"}
+    assert devices["vault-ops-stdout/"]["options"] == {"hmac_accessor": False, "sink": "stdout"}
+    (snap,) = [c for c in doc["health"]["snapshots"]["configs"] if c["name"] == "vault-ops-local"]
+    assert snap["storage_scheme"] == "file" and snap["last_snapshot_end"] and snap["consecutive_errors"] == 0
+    assert "/vault/" not in json.dumps(doc)  # audit file path and snapshot URL are never written
     assert doc["coverage"]["complete"] is True, doc["coverage"]
 
 

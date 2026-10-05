@@ -49,6 +49,25 @@ path "sys/storage/raft/autopilot/state" {
   capabilities = ["read"]
 }
 
+# --- audit devices (root only) ---
+# Listing devices is a sudo-protected endpoint. The exact path (no glob) grants
+# no access to sys/audit/<path>, so devices can't be enabled or disabled.
+path "sys/audit" {
+  capabilities = ["read", "sudo"]
+}
+
+# --- automated raft snapshots (Enterprise) ---
+# Config names and per-config status only. Listing is sudo-protected; the exact
+# path (no glob) still leaves snapshot-auto/config/<name> unreadable. Never grant
+# read on snapshot-auto/config/*: it returns storage credentials in plaintext.
+path "sys/storage/raft/snapshot-auto/config" {
+  capabilities = ["list", "sudo"]
+}
+
+path "sys/storage/raft/snapshot-auto/status/*" {
+  capabilities = ["read"]
+}
+
 # sys/health, sys/seal-status and sys/leader are unauthenticated: no rule needed.
 
 # --- auth methods ---

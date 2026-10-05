@@ -77,6 +77,8 @@ Environment: `VAULT_ADDR`, `VAULT_TOKEN`, `VAULT_NAMESPACE`, `VAULT_SKIP_VERIFY`
 | VT-LIC-001 | medium | License expires within 90 days |
 | VT-LEASE-001 | low | Cluster default lease TTL above 768h |
 | VT-HLTH-001..004 | medium/info | Sealed / no leader, unhealthy replication, unsupported version, raft autopilot unhealthy |
+| VT-AUD-001..003 | medium/low | No audit device, only one audit device, device logging raw values or unhashed accessors |
+| VT-SNAP-001..003 | medium/info | No automated Raft snapshots (Enterprise), snapshot failing or overdue, snapshots on the node's local disk |
 | VT-ID-001..003 | low/info | Entity without aliases, policies attached directly to an entity, disabled entity |
 | VT-ID-004..005 | low | Far more entities than active clients, alias name shared by several entities |
 | VT-CLI-001..004 | low/info | Token-only client sprawl, sharp client growth, mount creating new clients every month, most clients in root (from `usage`) |
@@ -90,7 +92,7 @@ vault policy write vault-ops-readonly skills/vault-ops/policies/vault-ops-readon
 vault token create -policy=vault-ops-readonly -no-default-policy -orphan -ttl=1h -explicit-max-ttl=1h
 ```
 
-The policy is read/list only and never grants reading ACL policy bodies.
+The policy is read/list only and never grants reading ACL policy bodies. The two exact list paths, `sys/audit` and `sys/storage/raft/snapshot-auto/config`, also get `sudo` because Vault protects them; neither grants writes, and snapshot configs (which hold storage credentials) stay unreadable.
 
 ## Local development
 

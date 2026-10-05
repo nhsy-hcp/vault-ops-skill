@@ -46,7 +46,7 @@ from hvac import exceptions as hvac_exc
 
 TOOL_NAME = "vault-ops"
 TOOL_VERSION = "0.1.0"
-SCHEMA_VERSION = "1.5.0"
+SCHEMA_VERSION = "1.6.0"
 
 EXIT_OK, EXIT_FATAL, EXIT_GAPS, EXIT_FINDINGS, EXIT_INTERRUPTED = 0, 1, 2, 3, 130
 
@@ -72,6 +72,9 @@ ENTITY_ACTIVE_RATIO_WARNING = 3  # VT-ID-004: entities per active entity client
 ENTITY_RULE_MIN_ENTITIES = 100
 # Oldest Vault major.minor still treated as supported. Update when HashiCorp ships a release.
 MIN_SUPPORTED_VERSION = (1, 19)
+# VT-SNAP-002: never judge overdue sooner than this past next_snapshot_start. A config write restarts the
+# schedule but leaves the status's next_snapshot_start stale until the next run; 25h covers daily schedules.
+SNAPSHOT_OVERDUE_MIN_GRACE_SECONDS = 25 * 3600
 
 BUILTIN_ENGINE_TYPES = frozenset(
     {
@@ -131,6 +134,12 @@ RULES: dict[str, Rule] = {
     "VT-HLTH-003": Rule("info", "lifecycle", "Vault version below supported window"),
     "VT-HLTH-004": Rule("medium", "availability", "Raft autopilot reports the cluster or a server unhealthy"),
     "VT-LEASE-001": Rule("low", "lease", "Cluster default lease TTL is long"),
+    "VT-AUD-001": Rule("medium", "audit", "No audit device enabled"),
+    "VT-AUD-002": Rule("low", "audit", "Only one audit device enabled"),
+    "VT-AUD-003": Rule("medium", "audit", "Audit device logs raw values or unhashed accessors"),
+    "VT-SNAP-001": Rule("medium", "backup", "No automated Raft snapshots configured"),
+    "VT-SNAP-002": Rule("medium", "backup", "Automated snapshot failing or overdue"),
+    "VT-SNAP-003": Rule("info", "backup", "Automated snapshots stored on the node's local disk"),
     "VT-ID-001": Rule("low", "identity", "Entity has no aliases"),
     "VT-ID-002": Rule("info", "identity", "Policies attached directly to entity"),
     "VT-ID-003": Rule("info", "identity", "Entity is disabled"),
@@ -245,6 +254,19 @@ def days_until(timestamp: str, now: datetime | None = None) -> int | None:
     except (ValueError, AttributeError):
         return None
     return (expiry - (now or datetime.now(UTC))).days
+
+
+def parse_time(timestamp: Any) -> datetime | None:
+    try:
+        parsed = datetime.fromisoformat(str(timestamp).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+
+
+def as_bool(value: Any) -> bool:
+    """Vault stores audit options as strings ("true"/"false"); parse them like Go's ParseBool."""
+    return value is True or str(value).strip().lower() in ("1", "t", "true")
 
 
 def parse_version(version: str) -> tuple[int, int] | None:
@@ -669,6 +691,8 @@ def collect_health(reader: VaultReader, coverage: Coverage, probe: dict[str, Any
         "replication": None,
         "raft": None,
         "lease_ttls": None,
+        "audit_devices": None,
+        "snapshots": None,
     }
 
     def optional(path: str, scope: str) -> dict[str, Any] | None:
@@ -721,6 +745,11 @@ def collect_health(reader: VaultReader, coverage: Coverage, probe: dict[str, Any
             "default_lease_ttl_seconds": positive(cfg.get("default_lease_ttl")),
             "max_lease_ttl_seconds": positive(cfg.get("max_lease_ttl")),
         }
+    if not dr_secondary:
+        result["audit_devices"] = collect_audit_devices(reader, coverage)
+        # Automated snapshots are Enterprise and raft only; elsewhere the endpoint 404s like "none configured".
+        if result["enterprise"] and result["raft"] is not None:
+            result["snapshots"] = collect_snapshots(reader, coverage)
     return result
 
 
@@ -778,6 +807,87 @@ def collect_raft(reader: VaultReader, coverage: Coverage) -> dict[str, Any] | No
             "servers": [{"id": sid, **{k: s.get(k) for k in AUTOPILOT_SERVER_KEYS}} for sid, s in sorted(servers.items())],
         }
     return raft
+
+
+AUDIT_OPTION_FLAGS = ("hmac_accessor", "log_raw", "elide_list_responses", "fallback")
+AUDIT_FORMATS = frozenset({"json", "jsonx"})
+AUDIT_FILE_SINKS = frozenset({"stdout", "discard"})
+SNAPSHOT_TIME_KEYS = ("last_snapshot_start", "last_snapshot_end", "next_snapshot_start")
+URL_SCHEME = re.compile(r"^([a-z][a-z0-9+.-]{0,15}):")
+
+
+def collect_audit_devices(reader: VaultReader, coverage: Coverage) -> list[dict[str, Any]] | None:
+    """Enabled audit devices (root only; sys/audit needs read+sudo). None when unreadable.
+
+    Options are allowlisted and coerced to booleans/enums: file paths, socket addresses,
+    syslog tags, prefixes, headers and descriptions never leave this function.
+    """
+    try:
+        devices = reader.data("sys/audit")
+    except hvac_exc.Forbidden:
+        coverage.deny("", "sys/audit")
+        return None
+    except hvac_exc.InvalidPath:
+        return None  # no devices is a 200 with an empty table; a 404 means the endpoint is not there
+    except (hvac_exc.VaultError, requests.exceptions.RequestException) as exc:
+        coverage.error("", exc)
+        return None
+    rows = []
+    for path, device in sorted(devices.items()):
+        if not isinstance(device, dict) or "type" not in device:
+            continue
+        raw = device.get("options") if isinstance(device.get("options"), dict) else {}
+        options: dict[str, Any] = {k: as_bool(raw[k]) for k in AUDIT_OPTION_FLAGS if k in raw}
+        if raw.get("format") in AUDIT_FORMATS:
+            options["format"] = raw["format"]
+        if device.get("type") == "file":
+            options["sink"] = raw.get("file_path") if raw.get("file_path") in AUDIT_FILE_SINKS else "file"
+        rows.append({"path": path, "type": device.get("type"), "local": bool(device.get("local")), "options": options})
+    return rows
+
+
+def snapshot_status(status: dict[str, Any]) -> dict[str, Any]:
+    """Allowlisted automated-snapshot status: no snapshot URL (bucket/path) and no error text."""
+    errors = status.get("consecutive_errors")
+    times = {k: iso(t.astimezone(UTC)) if (t := parse_time(status[k])) else None for k in SNAPSHOT_TIME_KEYS if status.get(k)}
+    scheme = URL_SCHEME.match(str(status.get("last_snapshot_url") or "").lower())
+    return {
+        "consecutive_errors": errors if isinstance(errors, int) else None,
+        **{k: times.get(k) for k in SNAPSHOT_TIME_KEYS},
+        "in_progress": bool(status.get("snapshot_start")),
+        "storage_scheme": scheme[1] if scheme else None,
+    }
+
+
+def collect_snapshots(reader: VaultReader, coverage: Coverage) -> dict[str, Any] | None:
+    """Raft automated snapshots: config names plus each one's status. None when unreadable.
+
+    The configs themselves are never read: they return storage credentials in plaintext.
+    """
+    base = "sys/storage/raft/snapshot-auto"
+    try:
+        names = reader.list(f"{base}/config")
+    except hvac_exc.Forbidden:
+        coverage.deny("", f"{base}/config")
+        return None
+    except hvac_exc.InvalidPath:
+        names = []
+    except (hvac_exc.VaultError, requests.exceptions.RequestException) as exc:
+        coverage.error("", exc)
+        return None
+    configs = []
+    for name in sorted(names):
+        status: dict[str, Any] | None = None
+        try:
+            status = reader.data(f"{base}/status/{name}")
+        except hvac_exc.Forbidden:
+            coverage.deny("", f"{base}/status")
+        except hvac_exc.InvalidPath:
+            status = {}
+        except (hvac_exc.VaultError, requests.exceptions.RequestException) as exc:
+            coverage.error("", exc)
+        configs.append({"name": name, "status_readable": status is not None, **snapshot_status(status or {})})
+    return {"configs": configs}
 
 
 def replication_summary(status: dict[str, Any]) -> dict[str, Any]:
@@ -1090,6 +1200,8 @@ def health_findings(health: dict[str, Any], now: datetime | None = None) -> list
                 threshold_seconds=DEFAULT_LEASE_TTL_WARNING_SECONDS,
             )
         )
+    findings += audit_device_findings(health.get("audit_devices"))
+    findings += snapshot_findings(health.get("snapshots"), now or utc_now())
     lic = health.get("license") or {}
     expiry = lic.get("expiration_time") or ""
     days = days_until(expiry, now) if expiry else None
@@ -1106,6 +1218,95 @@ def health_findings(health: dict[str, Any], now: datetime | None = None) -> list
                 expiration_time=expiry,
             )
         )
+    return findings
+
+
+def audit_device_findings(devices: list[dict[str, Any]] | None) -> list[Finding]:
+    """None (unreadable / DR secondary) is not judged."""
+    if devices is None:
+        return []
+    findings: list[Finding] = []
+    if not devices:
+        findings.append(finding("VT-AUD-001", "", "cluster", None, "audit", "No audit device is enabled — requests to this cluster leave no audit trail.", devices=0))
+    elif len(devices) == 1:
+        only = devices[0]
+        findings.append(
+            finding(
+                "VT-AUD-002",
+                "",
+                "cluster",
+                None,
+                "audit",
+                f"Only one audit device (`{only['path']}`) is enabled — if it cannot write, Vault refuses every request.",
+                devices=1,
+                device_path=only["path"],
+                device_type=only.get("type"),
+            )
+        )
+    for device in devices:
+        options = device.get("options") or {}
+        problems = [p for p, bad in (("log_raw", options.get("log_raw") is True), ("hmac_accessor", options.get("hmac_accessor") is False)) if bad]
+        if problems:
+            what = {"log_raw": "`log_raw=true` writes secrets in clear text", "hmac_accessor": "`hmac_accessor=false` writes token accessors unhashed"}
+            findings.append(
+                finding(
+                    "VT-AUD-003",
+                    "",
+                    "audit_device",
+                    device["path"],
+                    device.get("type"),
+                    f"Audit device `{device['path']}`: {'; '.join(what[p] for p in problems)}.",
+                    log_raw=options.get("log_raw", False),
+                    hmac_accessor=options.get("hmac_accessor", True),
+                )
+            )
+    return findings
+
+
+def snapshot_findings(snapshots: dict[str, Any] | None, now: datetime) -> list[Finding]:
+    """None (CE, no raft, DR secondary, unreadable) is not judged; a config that has never run is not judged either."""
+    if snapshots is None:
+        return []
+    configs = snapshots.get("configs") or []
+    if not configs:
+        return [finding("VT-SNAP-001", "", "cluster", None, "raft", "No automated Raft snapshot is configured — recovery depends on manual snapshots.", configs=0)]
+    findings: list[Finding] = []
+    for cfg in configs:
+        errors = cfg.get("consecutive_errors") or 0
+        last_start, next_start = parse_time(cfg.get("last_snapshot_start")), parse_time(cfg.get("next_snapshot_start"))
+        overdue = 0
+        if last_start and next_start:
+            grace = max((next_start - last_start).total_seconds(), SNAPSHOT_OVERDUE_MIN_GRACE_SECONDS)
+            late = (now - next_start).total_seconds()
+            overdue = int(late) // 60 * 60 if late > grace else 0
+        if errors or overdue:
+            reason = f"the last {errors} attempt(s) failed" if errors else f"no snapshot has started for {format_ttl(overdue)} past its scheduled time"
+            findings.append(
+                finding(
+                    "VT-SNAP-002",
+                    "",
+                    "snapshot_config",
+                    cfg["name"],
+                    cfg.get("storage_scheme"),
+                    f"Automated snapshot `{cfg['name']}`: {reason} — check the status and the storage target.",
+                    consecutive_errors=errors,
+                    overdue_seconds=overdue,
+                    last_snapshot_end=cfg.get("last_snapshot_end"),
+                    next_snapshot_start=cfg.get("next_snapshot_start"),
+                )
+            )
+        if cfg.get("storage_scheme") == "file":
+            findings.append(
+                finding(
+                    "VT-SNAP-003",
+                    "",
+                    "snapshot_config",
+                    cfg["name"],
+                    "file",
+                    f"Automated snapshot `{cfg['name']}` writes to the node's local disk — a lost node takes its snapshots with it.",
+                    storage_scheme="file",
+                )
+            )
     return findings
 
 

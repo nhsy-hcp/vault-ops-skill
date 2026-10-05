@@ -104,7 +104,11 @@ def test_is_trivial_policy():
 
 def test_health_findings_all_fire(health):
     found = vo.health_findings(health, now=NOW)
-    assert ids(found) == ["VT-HLTH-001", "VT-HLTH-002", "VT-HLTH-003", "VT-HLTH-004", "VT-LEASE-001", "VT-LIC-001"]
+    assert ids(found) == ["VT-AUD-002", "VT-AUD-003", "VT-HLTH-001", "VT-HLTH-002", "VT-HLTH-003", "VT-HLTH-004", "VT-LEASE-001", "VT-LIC-001", "VT-SNAP-002", "VT-SNAP-003"]
+    aud = next(f for f in found if f.rule_id == "VT-AUD-003")
+    assert (aud.object_kind, aud.object_path, dict(aud.evidence)) == ("audit_device", "file/", {"log_raw": True, "hmac_accessor": True})
+    snap = next(f for f in found if f.rule_id == "VT-SNAP-002")
+    assert (snap.object_path, snap.evidence["consecutive_errors"], snap.evidence["overdue_seconds"]) == ("daily", 2, 0)
     raft = next(f for f in found if f.rule_id == "VT-HLTH-004")
     assert raft.evidence == {"healthy": False, "failure_tolerance": 0, "unhealthy_servers": ["n2"]}
     lease = next(f for f in found if f.rule_id == "VT-LEASE-001")
@@ -124,10 +128,43 @@ def test_health_findings_clear_when_healthy(health):
         replication={"dr": {"mode": "disabled"}, "performance": {"mode": "primary", "state": "running"}},
         lease_ttls={"default_lease_ttl_seconds": None, "max_lease_ttl_seconds": None},  # unset: built-in 768h
         raft={"peers": [], "autopilot": {"configuration": None, "state": {"healthy": True, "failure_tolerance": 0, "servers": [{"id": "n1", "healthy": True}]}}},
+        audit_devices=[
+            {"path": "file/", "type": "file", "local": False, "options": {"sink": "file", "hmac_accessor": True}},
+            {"path": "socket/", "type": "socket", "local": False, "options": {"log_raw": False}},
+        ],
+        snapshots={"configs": [snapshot("s3", errors=0, last="2026-10-04T12:00:00Z", next_="2026-10-05T12:00:00Z")]},
     )
+    assert vo.health_findings(health, now=NOW) == []
+    health["snapshots"] = {"configs": [{"name": "new", "status_readable": True}]}  # never run: not judged
+    assert vo.health_findings(health, now=NOW) == []
+    health.update(audit_devices=None, snapshots=None)  # unreadable, CE, no raft or DR secondary
     assert vo.health_findings(health, now=NOW) == []
     health["lease_ttls"] = None  # DR secondary / unreadable config
     assert vo.health_findings(health, now=NOW) == []
+
+
+def snapshot(scheme, errors, last, next_, name="daily"):
+    return {"name": name, "status_readable": True, "consecutive_errors": errors, "last_snapshot_start": last, "next_snapshot_start": next_, "storage_scheme": scheme}
+
+
+def test_audit_device_findings():
+    assert ids(vo.audit_device_findings([])) == ["VT-AUD-001"]
+    one = [{"path": "stdout/", "type": "file", "options": {"sink": "stdout", "hmac_accessor": False}}]
+    found = vo.audit_device_findings(one)
+    assert ids(found) == ["VT-AUD-002", "VT-AUD-003"]
+    assert "hmac_accessor=false" in found[1].detail and "log_raw" not in found[1].detail
+
+
+def test_snapshot_overdue_uses_interval_with_minimum_grace():
+    # 24h interval: overdue only once a whole interval has passed after next_snapshot_start
+    daily = snapshot("s3", 0, "2026-10-03T00:00:00Z", "2026-10-04T00:00:00Z")
+    assert vo.snapshot_findings({"configs": [daily]}, NOW) == []
+    late = snapshot("s3", 0, "2026-10-01T00:00:00Z", "2026-10-02T00:00:00Z")
+    (found,) = vo.snapshot_findings({"configs": [late]}, NOW)
+    assert found.rule_id == "VT-SNAP-002" and found.evidence["overdue_seconds"] == 3 * 86400
+    # stale status after an interval change (30s -> 24h): the 25h minimum grace stops it firing before the next run
+    short = snapshot("file", 0, "2026-10-04T00:00:00Z", "2026-10-04T00:00:30Z")
+    assert ids(vo.snapshot_findings({"configs": [short]}, NOW)) == ["VT-SNAP-003"]
 
 
 def test_fingerprint_stable_and_ignores_evidence(cluster_data):

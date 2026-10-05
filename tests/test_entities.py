@@ -120,6 +120,7 @@ def test_every_rule_is_produced_somewhere(cluster_data, health, activity):
         + vo.namespace_findings(cluster_data)
         + vo.sentinel_findings(cluster_data)
         + vo.health_findings(health)
+        + vo.health_findings({**health, "audit_devices": [], "snapshots": {"configs": []}})  # VT-AUD-001, VT-SNAP-001
         + vo.entity_findings(entities, {})
         + vo.usage_findings(activity, None, enterprise=True)
     }

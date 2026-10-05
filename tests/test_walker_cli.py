@@ -347,3 +347,88 @@ def test_validate_reports_vault_errors_without_traceback(env, monkeypatch, capsy
     monkeypatch.setattr(vo, "VaultReader", lambda cfg: Reader())
     assert vo.main(["health"]) == vo.EXIT_FATAL
     assert "token validation failed" in capsys.readouterr().err
+
+
+CANARY = "CANARY-must-never-appear"
+AUDIT_ROUTE = {
+    "data": {
+        "file/": {"type": "file", "description": CANARY, "local": False, "options": {"file_path": f"/var/log/{CANARY}.log", "format": "json", "prefix": CANARY}},
+        "stdout/": {"type": "file", "local": True, "options": {"file_path": "stdout", "hmac_accessor": "false", "log_raw": "true"}},
+        "socket/": {"type": "socket", "options": {"address": f"{CANARY}:9090", "socket_type": "tcp", "format": CANARY, "fallback": "true"}},
+        "syslog/": {"type": "syslog", "options": {"tag": CANARY, "facility": "AUTH", "elide_list_responses": "1"}},
+    },
+}
+SNAPSHOT_ROUTES = {
+    ("", "sys/storage/raft/snapshot-auto/config"): {"data": {"keys": ["s3-daily", "local"]}},
+    ("", "sys/storage/raft/snapshot-auto/status/s3-daily"): {
+        "data": {
+            "consecutive_errors": 3,
+            "last_snapshot_error": f"AccessDenied: {CANARY} AKIAEXAMPLE",
+            "last_snapshot_start": "2026-10-04T00:00:00Z",
+            "last_snapshot_end": "2026-10-04T00:00:02Z",
+            "last_snapshot_url": f"s3://{CANARY}-bucket/vault/snap.snap",
+            "next_snapshot_start": "2026-10-05T00:00:00Z",
+            "snapshot_start": "2026-10-05T00:00:00Z",
+            "snapshot_url": f"s3://{CANARY}-bucket/vault/next.snap",
+        }
+    },
+    ("", "sys/storage/raft/snapshot-auto/status/local"): {"data": {"last_snapshot_url": f"file:///{CANARY}/snap.snap", "consecutive_errors": 0}},
+    ("", "sys/storage/raft/snapshot-auto/config/s3-daily"): {"data": {"aws_secret_access_key": CANARY}},  # must never be requested
+}
+
+
+def secure_health_routes():
+    return {("", "sys/health"): {"cluster_name": "c1", "version": "2.1.1+ent", "sealed": False}, **RAFT_ROUTES, ("", "sys/audit"): AUDIT_ROUTE, **SNAPSHOT_ROUTES}
+
+
+def test_collect_audit_devices_and_snapshots_allowlisted():
+    reader = FakeReader(secure_health_routes())
+    cov = vo.Coverage()
+    h = vo.collect_health(reader, cov)
+    assert cov.complete
+    devices = {d["path"]: d for d in h["audit_devices"]}
+    assert devices["file/"] == {"path": "file/", "type": "file", "local": False, "options": {"format": "json", "sink": "file"}}
+    assert devices["stdout/"]["options"] == {"hmac_accessor": False, "log_raw": True, "sink": "stdout"}
+    assert devices["socket/"]["options"] == {"fallback": True}
+    assert devices["syslog/"]["options"] == {"elide_list_responses": True}
+    configs = {c["name"]: c for c in h["snapshots"]["configs"]}
+    assert configs["s3-daily"] == {
+        "name": "s3-daily",
+        "status_readable": True,
+        "consecutive_errors": 3,
+        "last_snapshot_start": "2026-10-04T00:00:00Z",
+        "last_snapshot_end": "2026-10-04T00:00:02Z",
+        "next_snapshot_start": "2026-10-05T00:00:00Z",
+        "in_progress": True,
+        "storage_scheme": "s3",
+    }
+    assert configs["local"]["storage_scheme"] == "file"
+    assert not [p for _, p in reader.calls if p.startswith("sys/storage/raft/snapshot-auto/config/")]  # configs hold credentials
+
+
+def test_audit_and_snapshot_secrets_never_reach_output():
+    h = vo.collect_health(FakeReader(secure_health_routes()), vo.Coverage())
+    findings = vo.health_findings(h)
+    assert {"VT-AUD-003", "VT-SNAP-002", "VT-SNAP-003"} <= {f.rule_id for f in findings}
+    text = json.dumps(h) + json.dumps([f.to_dict() for f in findings])
+    assert CANARY not in text and "AKIA" not in text and "bucket" not in text
+
+
+def test_audit_and_snapshot_reads_denied_or_absent():
+    routes = secure_health_routes()
+    routes[("", "sys/audit")] = vo.hvac_exc.Forbidden("denied")
+    routes[("", "sys/storage/raft/snapshot-auto/config")] = vo.hvac_exc.Forbidden("denied")
+    cov = vo.Coverage()
+    h = vo.collect_health(FakeReader(routes), cov)
+    assert h["audit_devices"] is None and h["snapshots"] is None
+    assert sorted(d["scope"] for d in cov.denied) == ["sys/audit", "sys/storage/raft/snapshot-auto/config"]
+    assert not [f for f in vo.health_findings(h) if f.rule_id.startswith(("VT-AUD-", "VT-SNAP-"))]
+    # Enterprise raft cluster with no snapshot config: the list 404s, which means none configured
+    del routes[("", "sys/storage/raft/snapshot-auto/config")]
+    routes[("", "sys/audit")] = {"data": {}}
+    h = vo.collect_health(FakeReader(routes), vo.Coverage())
+    assert h["audit_devices"] == [] and h["snapshots"] == {"configs": []}
+    assert {"VT-AUD-001", "VT-SNAP-001"} <= {f.rule_id for f in vo.health_findings(h)}
+    # CE (no "+ent") or no raft: snapshots are not read at all
+    routes[("", "sys/health")] = {"cluster_name": "c1", "version": "2.1.1", "sealed": False}
+    assert vo.collect_health(FakeReader(routes), vo.Coverage())["snapshots"] is None

@@ -12,7 +12,7 @@ A **read-only** HashiCorp Vault ops Claude skill (`skills/vault-ops/`) plus a lo
 | `.claude/skills/vault-ops` | Symlink to `skills/vault-ops`, so sessions in this repo load the skill |
 | `skills/vault-ops/SKILL.md` | Skill workflow and guardrails (what Claude does when the skill triggers) |
 | `skills/vault-ops/scripts/vault_ops.py` | PEP 723 single-file collector: `audit` (findings + inventory), `health`, `inventory`, `usage`, `entities`, `diff` |
-| `skills/vault-ops/schemas/findings.schema.json` | JSON Schema (draft 2020-12) for findings files, `schema_version` 1.5.0 |
+| `skills/vault-ops/schemas/findings.schema.json` | JSON Schema (draft 2020-12) for findings files, `schema_version` 1.6.0 |
 | `skills/vault-ops/references/rules.md` | Rule catalogue (VT-*) with drafted remediation |
 | `skills/vault-ops/policies/vault-ops-readonly.hcl` | Least-privilege Vault policy for the skill's token |
 | `scripts/` | Dev-env automation (bash, called from `Taskfile.yml`) and `seed_vault.py` |
@@ -22,7 +22,7 @@ A **read-only** HashiCorp Vault ops Claude skill (`skills/vault-ops/`) plus a lo
 
 ## Hard rules
 
-- **Read-only, always.** `vault_ops.py` may only issue GET/LIST requests. Never add a code path that writes to Vault, and never add write capabilities to `vault-ops-readonly.hcl`. ACL policy **bodies** stay unreadable (`list` only).
+- **Read-only, always.** `vault_ops.py` may only issue GET/LIST requests. Never add a code path that writes to Vault, and never add write capabilities to `vault-ops-readonly.hcl`. ACL policy **bodies** stay unreadable (`list` only). `sudo` is allowed only on the exact sudo-protected read paths `sys/audit` and `sys/storage/raft/snapshot-auto/config` (no globs). Never read `snapshot-auto/config/<name>`: it returns storage credentials in plaintext, so snapshot checks use `snapshot-auto/status/<name>` only.
 - **Never use the root token for the skill or the integration tests.** Use `task token:audit` (a 1h token from `vault-ops-readonly.hcl`); `test_integration.py` fails when `VAULT_TOKEN=root`. Root is only for `seed`, `seed:findings` and `token:audit`.
 - **`~/Projects/vault-tools` is reference-only.** Port logic from it; never modify it.
 - **No secrets in outputs.** Findings and other outputs must never contain tokens, accessors, Sentinel policy source, namespace `custom_metadata` or raw error text. Entity `metadata` and alias names (emails, usernames, AppRole role_ids) are written **only** in `entities --list` rows, never in the default output or in findings; tests enforce both. Errors go through `sanitise_error()` (class + HTTP status). Output files are written 0600.
@@ -44,7 +44,7 @@ A **read-only** HashiCorp Vault ops Claude skill (`skills/vault-ops/`) plus a lo
 | `task dr:enable` / `task dr:status` | Enable DR replication primary → secondary (idempotent, waits for `stream-wals`); show status on both |
 | `task status` / `task logs` | `vault status` (primary); tail `.tmp/vault/<node>/logs/vault.log` (`NODE=vault-dr task logs`) |
 | `task seed` | `scripts/seed_vault.py`: 132 namespaces, mounts, KV data, client activity (root) |
-| `task seed:findings` | Configuration that trips every live-testable rule, plus Sentinel EGP/RGPs (root) |
+| `task seed:findings` | Configuration that trips every live-testable rule, plus Sentinel EGP/RGPs, two audit devices (`vault-ops-file` to `/vault/logs/vault-ops-audit.log`, `vault-ops-stdout`) and a local 24h automated snapshot (`.tmp/vault/<node>/data/snapshots/`) (root) |
 | `task token:audit` | Write `vault-ops-readonly` policy, mint 1h token to `.tmp/audit-token` (0600) |
 | `task skill:run -- <cmd>` | Run `vault_ops.py` with the audit token, e.g. `task skill:run -- audit` (humans/dev only; an agent running the skill must not use it) |
 | `task lint` | pre-commit on tracked + untracked files: ruff, ruff-format, shellcheck, gitleaks, yaml/json |

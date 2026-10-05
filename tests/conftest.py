@@ -78,6 +78,21 @@ def health():
             "performance": {"mode": "secondary", "state": "connecting"},
         },
         "lease_ttls": {"default_lease_ttl_seconds": 1000 * 3600, "max_lease_ttl_seconds": 8760 * 3600},  # VT-LEASE-001
+        "audit_devices": [{"path": "file/", "type": "file", "local": False, "options": {"log_raw": True, "sink": "file"}}],  # VT-AUD-002, VT-AUD-003
+        "snapshots": {  # VT-SNAP-002 (failing), VT-SNAP-003 (local disk)
+            "configs": [
+                {
+                    "name": "daily",
+                    "status_readable": True,
+                    "consecutive_errors": 2,
+                    "last_snapshot_start": "2026-10-04T00:00:00Z",
+                    "last_snapshot_end": "2026-10-04T00:00:05Z",
+                    "next_snapshot_start": "2026-10-05T00:00:00Z",
+                    "in_progress": False,
+                    "storage_scheme": "file",
+                }
+            ]
+        },
         "raft": {  # VT-HLTH-004
             "peers": [{"node_id": "n1", "leader": True, "voter": True}, {"node_id": "n2", "leader": False, "voter": True}],
             "autopilot": {"configuration": None, "state": {"healthy": False, "failure_tolerance": 0, "servers": [{"id": "n1", "healthy": True}, {"id": "n2", "healthy": False}]}},

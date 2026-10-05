@@ -69,7 +69,7 @@ claude -p "Is my vault healthy?" \
 
 ## Safety
 
-- **Hard boundary:** the token policy. It grants `read`/`list` only and never exposes ACL policy bodies.
+- **Hard boundary:** the token policy. It grants `read`/`list` only and never exposes ACL policy bodies. The two exact list paths, `sys/audit` and `sys/storage/raft/snapshot-auto/config`, also get `sudo` because Vault protects them; neither grants writes, and snapshot configs (which hold storage credentials) stay unreadable.
 - **`allowed-tools` doesn't block:** it pre-approves the bundled script but doesn't block other commands. For defence in depth, add deny rules to your Claude Code settings:
   ```json
   { "permissions": { "deny": ["Bash(vault write:*)", "Bash(vault delete:*)", "Bash(vault token:*)", "Bash(vault login:*)"] } }

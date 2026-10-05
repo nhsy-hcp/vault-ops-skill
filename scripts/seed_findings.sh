@@ -68,6 +68,34 @@ for pair in "a:userpass-public" "b:userpass-dup"; do
   try vault write -namespace="$NS" identity/entity-alias name=vault-ops-dup canonical_id="$entity_id" mount_accessor="$accessor"
 done
 
+# Audit devices and snapshots are cluster-wide: root namespace only.
+echo "Seeding audit devices and automated snapshots (root namespace)"
+step "audit device vault-ops-file (dummy file in the node's logs dir)"
+try vault audit enable -path=vault-ops-file file file_path=/vault/logs/vault-ops-audit.log
+step "VT-AUD-003 audit device vault-ops-stdout (stdout, hmac_accessor=false)"
+try vault audit enable -path=vault-ops-stdout file file_path=stdout hmac_accessor=false
+
+if vault list sys/storage/raft/snapshot-auto/config 2>&1 | grep -q "unsupported path"; then
+  echo "  [skip] automated snapshots not available on this cluster"
+else
+  # The first snapshot runs one interval after the config is written, and the status is
+  # empty until then: start at 30s, wait for a completed run, then settle on 24h.
+  step "VT-SNAP-003 snapshot config vault-ops-local (local storage, 24h)"
+  snap_config() {
+    vault write sys/storage/raft/snapshot-auto/config/vault-ops-local \
+      storage_type=local interval="$1" retain=2 \
+      path_prefix=/vault/file/snapshots local_max_space=104857600 >/dev/null
+  }
+  if ! vault read -format=json sys/storage/raft/snapshot-auto/status/vault-ops-local 2>/dev/null | jq -e '.data.last_snapshot_end' >/dev/null; then
+    snap_config 30s
+    for _ in $(seq 1 18); do
+      vault read -format=json sys/storage/raft/snapshot-auto/status/vault-ops-local 2>/dev/null | jq -e '.data.last_snapshot_end' >/dev/null && break
+      sleep 5
+    done
+  fi
+  snap_config 24h
+fi
+
 if vault list -namespace="$SENTINEL_NS" sys/policies/egp 2>&1 | grep -q "unsupported path"; then
   echo "  [skip] Sentinel not available on this cluster"
   exit 0
