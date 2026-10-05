@@ -507,3 +507,38 @@ def test_audit_and_snapshot_reads_denied_or_absent():
     # CE (no "+ent") or no raft: snapshots are not read at all
     routes[("", "sys/health")] = {"cluster_name": "c1", "version": "2.1.1", "sealed": False}
     assert vo.collect_health(FakeReader(routes), vo.Coverage())["snapshots"] is None
+
+
+@pytest.mark.parametrize("probe", [{"initialized": True, "sealed": True, "standby": True, "version": "2.1.1+ent"}, {"initialized": False, "sealed": True, "version": "2.1.1"}])
+def test_sealed_or_uninitialized_health_reads_only_unauthenticated_status(env, monkeypatch, capsys, probe):
+    """Regression: a sealed node answers 503 to every authenticated read, so `health` used to exit 1 with VaultDown."""
+    sealed = vo.hvac_exc.VaultDown("Vault is sealed")
+    routes = {
+        ("", "sys/health"): probe,
+        ("", "sys/seal-status"): {"type": "shamir", "t": 3, "n": 5, "progress": 1, "nonce": "secret-ish", "migration": False, "recovery_seal": False},
+        ("", "auth/token/lookup-self"): sealed,
+        ("", "sys/leader"): sealed,
+        ("", "sys/replication/status"): sealed,
+        ("", "sys/license/status"): sealed,
+        ("", "sys/metrics"): sealed,
+    }
+    fake = _ValidatingFake(routes)
+    monkeypatch.setattr(vo, "VaultReader", lambda cfg: fake)
+    assert vo.main(["health"]) == vo.EXIT_OK
+    doc = json.loads(Path(capsys.readouterr().out.strip()).read_text())
+    assert {path for _, path in fake.calls} == {"sys/health", "sys/seal-status"}
+    assert doc["coverage"]["complete"] is True
+    assert doc["health"]["seal"] == {"type": "shamir", "t": 3, "n": 5, "progress": 1, "migration": False, "recovery_seal": False}
+    assert [f["rule_id"] for f in doc["findings"]] == ["VT-HLTH-001"]
+    assert doc["health"]["leader"] is None and doc["health"]["metrics"] is None
+
+
+@pytest.mark.parametrize("command", [["audit"], ["inventory"], ["usage"], ["entities"], ["policies"]])
+@pytest.mark.parametrize("probe, message", [({"sealed": True, "initialized": True}, "is sealed"), ({"sealed": True, "initialized": False}, "is not initialized")])
+def test_sealed_refused_for_authenticated_subcommands(env, monkeypatch, capsys, command, probe, message):
+    fake = _ValidatingFake({("", "sys/health"): probe})
+    monkeypatch.setattr(vo, "VaultReader", lambda cfg: fake)
+    assert vo.main(command) == vo.EXIT_FATAL
+    err = capsys.readouterr().err
+    assert message in err and "VaultDown" not in err
+    assert fake.calls == [("", "sys/health")]  # never tries the token

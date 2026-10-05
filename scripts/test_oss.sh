@@ -1,7 +1,8 @@
 #!/bin/bash
 # Run the OSS smoke tests (tests/test_oss.py) against a throwaway `vault server -dev`.
 # Community edition: no namespaces, Sentinel, license, Raft or snapshots. In-memory, no
-# container or license needed; the server is stopped on exit. Root is used only for setup.
+# container or license needed; the server is stopped on exit. Root is used only for setup
+# and, after the first pass, to seal the server for the sealed-node pass.
 set -euo pipefail
 
 PORT="${OSS_PORT:-8230}"
@@ -42,3 +43,6 @@ audit_token="$(
 )"
 
 VAULT_TOKEN="$audit_token" VAULT_OPS_OSS=1 uv run pytest -q -m oss "$@"
+# Then seal the throwaway server: `health` must still report it, everything else must refuse.
+VAULT_TOKEN="$ROOT_TOKEN" vault operator seal >/dev/null
+VAULT_TOKEN="$audit_token" VAULT_OPS_OSS=sealed uv run pytest -q -m oss "$@"

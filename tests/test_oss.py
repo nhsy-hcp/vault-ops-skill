@@ -12,7 +12,10 @@ import jsonschema
 import pytest
 import vault_ops as vo
 
-pytestmark = [pytest.mark.oss, pytest.mark.skipif(os.getenv("VAULT_OPS_OSS") != "1", reason="run with task test:oss")]
+MODE = os.getenv("VAULT_OPS_OSS")  # "1" = unsealed pass, "sealed" = after scripts/test_oss.sh seals the server
+pytestmark = [pytest.mark.oss, pytest.mark.skipif(MODE not in ("1", "sealed"), reason="run with task test:oss")]
+unsealed = pytest.mark.skipif(MODE != "1", reason="unsealed pass only")
+sealed = pytest.mark.skipif(MODE != "sealed", reason="sealed pass only")
 
 
 def run(capsys, *args):
@@ -21,6 +24,7 @@ def run(capsys, *args):
     return code, [json.loads(Path(p).read_text()) for p in paths]
 
 
+@unsealed
 def test_audit(capsys, tmp_path, schema):
     code, (findings, inventory) = run(capsys, "audit", "--fail-on-gaps", "--output-dir", str(tmp_path))
     assert code == vo.EXIT_OK
@@ -33,6 +37,7 @@ def test_audit(capsys, tmp_path, schema):
     assert inventory["summary"]["sentinel"] == "unsupported" and inventory["summary"]["namespaces"] == 1
 
 
+@unsealed
 def test_health(capsys, tmp_path):
     code, (doc,) = run(capsys, "health", "--output-dir", str(tmp_path))
     assert code == vo.EXIT_OK
@@ -42,6 +47,7 @@ def test_health(capsys, tmp_path):
     assert health["replication"]["mode"] == "disabled"
 
 
+@unsealed
 @pytest.mark.parametrize("args", [["inventory"], ["usage"], ["entities"], ["entities", "--list"]])
 def test_other_subcommands(capsys, tmp_path, args):
     code, (doc,) = run(capsys, *args, "--output-dir", str(tmp_path))
@@ -49,9 +55,27 @@ def test_other_subcommands(capsys, tmp_path, args):
     assert doc["coverage"]["complete"] is True, doc["coverage"]
 
 
+@unsealed
 def test_policies(capsys, tmp_path):
     code, (doc,) = run(capsys, "policies", "--output-dir", str(tmp_path))
     assert code == vo.EXIT_OK
     assert doc["coverage"]["complete"] is True, doc["coverage"]
     assert doc["sentinel"]["status"] == "unsupported" and doc["sentinel"]["policies"] == []
     assert ("VT-POL-001", "admin") in {(f["rule_id"], f["object"]["path"]) for f in doc["findings"]}
+
+
+@sealed
+def test_sealed_health(capsys, tmp_path):
+    """Regression: a sealed node made every subcommand, `health` included, exit 1 with VaultDown."""
+    code, (doc,) = run(capsys, "health", "--output-dir", str(tmp_path))
+    assert code == vo.EXIT_OK
+    assert doc["health"]["sealed"] is True and doc["health"]["seal"]["type"] == "shamir"
+    assert doc["coverage"]["complete"] is True
+    assert [f["rule_id"] for f in doc["findings"]] == ["VT-HLTH-001"]
+
+
+@sealed
+@pytest.mark.parametrize("command", ["audit", "inventory", "usage", "entities", "policies"])
+def test_sealed_refuses_authenticated_subcommands(capsys, tmp_path, command):
+    assert vo.main([command, "--output-dir", str(tmp_path)]) == vo.EXIT_FATAL
+    assert "is sealed" in capsys.readouterr().err

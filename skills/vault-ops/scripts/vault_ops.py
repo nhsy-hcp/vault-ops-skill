@@ -442,15 +442,32 @@ class VaultReader:
             raise SystemExit(f"error: cannot reach Vault at {self.config.addr}: {sanitise_error(exc)}") from exc
 
 
-def connect(namespace: str | None, allow_dr_secondary: bool = False) -> tuple[Config, VaultReader, dict[str, Any]]:
-    """Probe the node, refuse DR secondaries where the subcommand needs authenticated reads, validate the token."""
+def unauthenticated_only(probe: dict[str, Any]) -> str | None:
+    """Why this node rejects authenticated reads (uninitialized, sealed, DR secondary), or None."""
+    if probe.get("initialized") is False:
+        return "uninitialized"
+    if probe.get("sealed") is True:
+        return "sealed"
+    if probe.get("replication_dr_mode") == "secondary":
+        return "dr_secondary"
+    return None
+
+
+def connect(namespace: str | None, health_only: bool = False) -> tuple[Config, VaultReader, dict[str, Any]]:
+    """Probe the node, refuse nodes that reject authenticated reads unless the subcommand is `health`, validate the token."""
     config = Config.from_env(namespace)
     reader = VaultReader(config)
     probe = reader.probe()
-    if probe.get("replication_dr_mode") == "secondary":
-        if not allow_dr_secondary:
-            raise SystemExit(f"error: {config.addr} is a DR secondary, which rejects authenticated reads; only `health` works there. Run this against the primary.")
-        return config, reader, probe  # token endpoints are disabled on a DR secondary
+    if reason := unauthenticated_only(probe):
+        if not health_only:
+            raise SystemExit(
+                {
+                    "dr_secondary": f"error: {config.addr} is a DR secondary, which rejects authenticated reads; only `health` works there. Run this against the primary.",
+                    "sealed": f"error: {config.addr} is sealed, so it rejects authenticated reads; only `health` works until an operator unseals it.",
+                    "uninitialized": f"error: {config.addr} is not initialized, so it rejects authenticated reads; only `health` works until an operator initializes it.",
+                }[reason]
+            )
+        return config, reader, probe  # token endpoints answer 503 (sealed) or are disabled (DR secondary)
     reader.validate()
     return config, reader, probe
 
@@ -959,7 +976,8 @@ def collect_health(reader: VaultReader, coverage: Coverage, probe: dict[str, Any
     """Cluster-level status. Every read is optional; failures land in coverage.
 
     On a DR secondary only the unauthenticated endpoints answer (health, leader,
-    replication status), so license and lease reads are skipped there.
+    replication status), so license and lease reads are skipped there. A sealed or
+    uninitialized node answers only sys/health and sys/seal-status, so nothing else is read.
     """
     health: dict[str, Any] = probe or {}
     if probe is None:
@@ -968,6 +986,7 @@ def collect_health(reader: VaultReader, coverage: Coverage, probe: dict[str, Any
         except (hvac_exc.VaultError, requests.exceptions.RequestException) as exc:
             coverage.error("", exc)
     dr_secondary = health.get("replication_dr_mode") == "secondary"
+    unavailable = health.get("sealed") is True or health.get("initialized") is False
 
     result: dict[str, Any] = {
         "cluster_name": health.get("cluster_name") or "vault",
@@ -980,6 +999,7 @@ def collect_health(reader: VaultReader, coverage: Coverage, probe: dict[str, Any
         "replication_dr_mode": health.get("replication_dr_mode"),
         "replication_performance_mode": health.get("replication_performance_mode"),
         "dr_secondary": dr_secondary,
+        "seal": None,
         "leader": None,
         "license": None,
         "replication": None,
@@ -1001,6 +1021,11 @@ def collect_health(reader: VaultReader, coverage: Coverage, probe: dict[str, Any
             coverage.error("", exc)
         return None
 
+    if unavailable:
+        # Every other endpoint answers 503 "Vault is sealed"; seal-status is unauthenticated.
+        if (seal := optional("sys/seal-status", "sys/seal-status")) is not None:
+            result["seal"] = {k: seal.get(k) for k in ("type", "t", "n", "progress", "migration", "recovery_seal")}
+        return result
     if (leader := optional("sys/leader", "sys/leader")) is not None:
         result["leader"] = {
             "ha_enabled": leader.get("ha_enabled"),
@@ -2315,7 +2340,7 @@ def cmd_audit(args: argparse.Namespace) -> int:
 
 
 def cmd_health(args: argparse.Namespace) -> int:
-    config, reader, probe = connect(args.namespace, allow_dr_secondary=True)
+    config, reader, probe = connect(args.namespace, health_only=True)
     started = utc_now()
     coverage = Coverage()
     health = collect_health(reader, coverage, probe)
