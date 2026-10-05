@@ -51,7 +51,7 @@ VAULT_ADDR=$VAULT_DR_ADDR task skill:run -- health    # secondary: dr secondary/
 ```
 
 - `health` against the DR secondary reads only the unauthenticated endpoints. It sets `dr_secondary: true` and leaves license and lease data as `null`.
-- `audit`, `inventory` and `usage` refuse a DR secondary (exit 1) and tell you to use the primary.
+- `audit`, `inventory`, `usage` and `entities` refuse a DR secondary (exit 1) and tell you to use the primary.
 - **VT-HLTH-002** fires when replication is enabled but its state is unhealthy, or a peer is not `connected`.
 
 Failure drill:

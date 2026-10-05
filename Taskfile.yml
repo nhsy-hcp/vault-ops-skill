@@ -2,10 +2,6 @@ version: "3"
 
 dotenv: [".env"]
 
-env:
-  # Local dev keeps results in ./outputs (gitignored); the published default is ~/.vault-ops/outputs.
-  VAULT_OPS_OUTPUT_DIR: outputs
-
 vars:
   SKILL_SCRIPT: skills/vault-ops/scripts/vault_ops.py
 
@@ -21,7 +17,7 @@ tasks:
       - test -f .env || cp .env.template .env
       - uv sync
       - uv run pre-commit install
-      - mkdir -p .tmp .plans outputs
+      - mkdir -p .tmp .plans
 
   deps:
     desc: Check required tools, container runtime, loopback IP and .env
@@ -95,7 +91,7 @@ tasks:
       - scripts/audit_token.sh
 
   skill:run:
-    desc: "Run the skill script with the audit token: task skill:run -- <audit|health|inventory|usage|diff>"
+    desc: "Run the skill script with the audit token: task skill:run -- <audit|health|inventory|usage|entities|diff>"
     cmds:
       # No subcommand given: show the script's help instead of an argparse error.
       - VAULT_TOKEN="$(cat .tmp/audit-token)" uv run --script {{.SKILL_SCRIPT}} {{.CLI_ARGS | default "--help"}}
@@ -141,8 +137,8 @@ tasks:
       - claude plugin validate --strict .claude-plugin/plugin.json
 
   clean:
-    desc: Remove caches, outputs and temporary files (keeps .tmp/spec.md and todo.md)
+    desc: Remove caches, results (.tmp/vault-ops) and temporary files (keeps .tmp/spec.md and todo.md)
     cmds:
-      - rm -rf .pytest_cache .ruff_cache .coverage htmlcov outputs
+      - rm -rf .pytest_cache .ruff_cache .coverage htmlcov
       - find . -name __pycache__ -type d -prune -exec rm -rf {} +
-      - rm -rf .tmp/vault .tmp/audit-token .tmp/*.log
+      - rm -rf .tmp/vault .tmp/vault-ops .tmp/audit-token .tmp/*.log

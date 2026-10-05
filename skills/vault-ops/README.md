@@ -42,7 +42,7 @@ claude
 | `VAULT_CACERT` | recommended | CA bundle for TLS verification |
 | `VAULT_SKIP_VERIFY` | dev only | `true` disables TLS verification |
 | `VAULT_NAMESPACE` | no | Namespace to start `audit` / `inventory` / `entities` from (default: root) |
-| `VAULT_OPS_OUTPUT_DIR` | no | Where results are written (default `~/.vault-ops/outputs`) |
+| `VAULT_OPS_OUTPUT_DIR` | no | Where results are written (default `.tmp/vault-ops/` in the working directory) |
 
 Credentials only ever come from the environment. The skill never asks for a token, never reads `.env` or token files, and never mints tokens.
 
@@ -74,7 +74,7 @@ claude -p "Is my vault healthy?" \
   ```json
   { "permissions": { "deny": ["Bash(vault write:*)", "Bash(vault delete:*)", "Bash(vault token:*)", "Bash(vault login:*)"] } }
   ```
-- **Results files:** written 0600 under `~/.vault-ops/outputs` (directory 0700). They contain internal hostnames and namespace names. `entities --list` adds entity metadata and alias names (emails, usernames, AppRole role_ids). Treat them as confidential.
+- **Results files:** written 0600 under `.tmp/vault-ops/` in the working directory (directory 0700). A directory the script creates gets a `.gitignore` containing `*`, so results are never committed. They contain internal hostnames and namespace names. `entities --list` adds entity metadata and alias names (emails, usernames, AppRole role_ids). Treat them as confidential.
 - **Fixes:** remediation is drafted for an operator to run, never executed, even when you ask Claude to apply it.
 
 ## What's inside

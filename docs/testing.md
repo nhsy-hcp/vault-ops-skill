@@ -5,7 +5,7 @@ An end-to-end manual test of the dev environment, DR replication and the vault-o
 ## 1. Start from scratch
 
 ```bash
-task clean      # deletes node data, unseal keys, TLS and the audit token
+task clean      # deletes node data, unseal keys, TLS, the audit token and results
 task deps       # should be all "ok" (if podman is down: podman machine start)
 task up:all     # both nodes: init, unseal, create the 'root' token
 ```
@@ -29,15 +29,26 @@ Enable DR **before** seeding. `dr:enable` briefly restarts the primary and drops
 ```bash
 task test:all           # unit + integration (incl. DR); expect all passed, coverage >= 80%
 task lint
+task test:ci            # what CI runs: lint, plugin manifests, unit tests (no Vault)
+```
+
+To run the GitHub Actions workflow locally (podman socket shown):
+
+```bash
+DOCKER_HOST=unix://$(podman machine inspect --format '{{.ConnectionInfo.PodmanSocket.Path}}') \
+  act push -P ubuntu-latest=catthehacker/ubuntu:act-latest --container-daemon-socket -
 ```
 
 ## 4. Run the skill script by hand
 
+Results are written to `.tmp/vault-ops/` (0600, git-ignored); stdout carries only the file paths.
+
 ```bash
-task skill:run -- audit                                       # prints the path to the findings file
+task skill:run -- audit                                       # prints the findings and inventory file paths
 task skill:run -- health                                      # primary: dr primary, secondary connected
 VAULT_ADDR=https://127.0.0.1:8220 task skill:run -- health    # DR secondary health
 VAULT_ADDR=https://127.0.0.1:8220 task skill:run -- audit     # should refuse: "is a DR secondary"
+task skill:run -- usage                                       # billing period + current month client counts
 task skill:run -- entities                                    # counts + VT-ID findings, no metadata
 task skill:run -- entities --namespace tn001 --list           # adds metadata, aliases, policies per entity
 ```
@@ -46,6 +57,7 @@ To read a result, pipe it through `jq`, for example:
 
 ```bash
 task skill:run -- health | xargs jq .health.replication
+task skill:run -- audit | tail -1 | xargs jq '.summary | {namespaces, max_depth, auth_types, secrets_types}'
 ```
 
 ## 5. Failure drill
@@ -76,7 +88,7 @@ VT-LIC-001 will fire if the dev license expires within 90 days.
 
 ```bash
 task down     # remove containers, keep node data
-task clean    # also delete node data, keys, TLS and the token
+task clean    # also delete node data, keys, TLS, the token and results
 ```
 
 The podman machine keeps running until you run `podman machine stop`.

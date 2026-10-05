@@ -50,8 +50,10 @@ SCHEMA_VERSION = "1.4.0"
 
 EXIT_OK, EXIT_FATAL, EXIT_GAPS, EXIT_FINDINGS, EXIT_INTERRUPTED = 0, 1, 2, 3, 130
 
-# Per-user default, outside any project tree: output can hold hostnames, emails and role_ids.
-DEFAULT_OUTPUT_DIR = "~/.vault-ops/outputs"
+# Relative to the working directory (the user's project), so Claude can read results without
+# leaving the project. Output can hold hostnames, emails and role_ids: a directory the script
+# creates gets a catch-all .gitignore so results are never committed.
+DEFAULT_OUTPUT_DIR = ".tmp/vault-ops"
 
 # Fallback lease ceiling when sys/config/state/sanitized is unreadable: Vault's stock 768h.
 LONG_MAX_LEASE_TTL_SECONDS = 768 * 3600
@@ -1494,7 +1496,9 @@ def diff_documents(old: dict[str, Any], new: dict[str, Any]) -> dict[str, Any]:
 
 
 def write_json(path: Path, document: dict[str, Any]) -> Path:
-    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if not path.parent.exists():
+        path.parent.mkdir(mode=0o700, parents=True)
+        (path.parent / ".gitignore").write_text("# vault-ops results are confidential: never commit them\n*\n")
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "w") as handle:
         json.dump(document, handle, indent=2, sort_keys=False)

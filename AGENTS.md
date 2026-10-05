@@ -28,8 +28,8 @@ A **read-only** HashiCorp Vault ops Claude skill (`skills/vault-ops/`) plus a lo
 - **No secrets in outputs.** Findings and other outputs must never contain tokens, accessors, Sentinel policy source, namespace `custom_metadata` or raw error text. Entity `metadata` and alias names (emails, usernames, AppRole role_ids) are written **only** in `entities --list` rows, never in the default output or in findings; tests enforce both. Errors go through `sanitise_error()` (class + HTTP status). Output files are written 0600.
 - **Rule IDs are permanent.** Never renumber or reuse a `VT-*` ID. A new rule means adding it to `RULES`, the schema `category` enum if needed, `references/rules.md`, and a fixture that fires it. Adding optional fields is a minor `SCHEMA_VERSION` bump; renaming or removing is a major bump.
 - **Script stays single-file with PEP 723 deps** (`hvac==2.4.0`, `requests>=2.32,<3`, uv `exclude-newer`), so the published skill runs anywhere with `uv run --script` and no Taskfile. Keep the inline deps and `pyproject.toml` in sync; bump `exclude-newer` deliberately with a dependency update.
-- **The published skill must not depend on this repo.** Nothing under `skills/vault-ops/` may reference `task`, `.env`, `.tmp/` or repo paths. SKILL.md calls the script via `${CLAUDE_SKILL_DIR}`. Output defaults to `~/.vault-ops/outputs`; the Taskfile sets `VAULT_OPS_OUTPUT_DIR=outputs` for local dev.
-- **DR secondaries: `health` only.** A DR secondary rejects authenticated requests. `connect()` probes unauthenticated `sys/health` first: `health` reads only unauthenticated endpoints there, and `audit`/`inventory`/`usage` exit 1. Never add authenticated reads to the DR-secondary path.
+- **The published skill must not depend on this repo.** Nothing under `skills/vault-ops/` may reference `task`, `.env` or this repo's paths. SKILL.md calls the script via `${CLAUDE_SKILL_DIR}`. Output defaults to `.tmp/vault-ops/` in the user's working directory, so Claude reads results without leaving the project. A directory the script creates gets a catch-all `.gitignore`.
+- **DR secondaries: `health` only.** A DR secondary rejects authenticated requests. `connect()` probes unauthenticated `sys/health` first: `health` reads only unauthenticated endpoints there, and `audit`/`inventory`/`usage`/`entities` exit 1. Never add authenticated reads to the DR-secondary path.
 - **Stdout = written file paths only**; diagnostics go to stderr. Exit codes: 0 ok, 1 fatal, 2 gaps (`--fail-on-gaps`), 3 findings (`--fail-on`), 130 interrupted.
 
 ## Task interface
@@ -52,7 +52,7 @@ A **read-only** HashiCorp Vault ops Claude skill (`skills/vault-ops/`) plus a lo
 | `task test:all` | Unit + integration with coverage ≥ 80% |
 | `task test:ci` | `lint` + `plugin:validate` + `test` (no Vault needed); `.github/workflows/ci.yml` runs the same as a `lint` job then a `test-ci` job on push to `main` and on PRs |
 | `task plugin:validate` | `claude plugin validate --strict` on the marketplace and plugin manifests |
-| `task clean` | Remove caches, `outputs/`, `.tmp/vault` (all node data, unseal keys, TLS), `.tmp/audit-token`, `.tmp/*.log` |
+| `task clean` | Remove caches, `.tmp/vault-ops` (results), `.tmp/vault` (all node data, unseal keys, TLS), `.tmp/audit-token`, `.tmp/*.log` |
 
 Full end-to-end check: `task down && task clean && task up:all && task dr:enable && task seed && task seed:findings && task token:audit && task test:all && task lint`. Keep `dr:enable` before `seed`: enabling DR briefly restarts the primary and drops unsaved client activity (see `docs/dr.md`).
 

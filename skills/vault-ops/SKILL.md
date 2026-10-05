@@ -24,7 +24,7 @@ Code collects and checks; you interpret. All Vault access goes through the bundl
 - Never read, print or echo `.env`, token files, `VAULT_TOKEN` or any environment variable value. The user provides credentials via the environment before the session.
 - Remediation is **drafted as text** for a human to run. Never execute it, even if asked in the same breath — say it must be run by an operator. Label every drafted command as "for an operator to run".
 - Take remediation commands from `references/rules.md`, filling in the placeholders from the finding. Never invent Vault endpoints or flags. If the catalogue has no command for a case, describe the change in words and say the operator should confirm the exact command in the Vault docs.
-- Never load raw API dumps whole. The script's JSON files are designed to be read in full; nothing else is.
+- Never load raw API dumps whole. The script's JSON files are designed to be read in full, except a large `inventory.json` (see Reading the files); nothing else is.
 - Output files contain internal hostnames and namespace names: treat as internal-confidential.
 
 ## Subcommands
@@ -38,7 +38,7 @@ Code collects and checks; you interpret. All Vault access goes through the bundl
 | Identity entities, aliases, entity metadata / excessive or duplicate entities | `entities [--namespace ns] [--list] [-w 8]` | `*-entities-*.json` |
 | Compare runs / what changed | `diff <old-findings.json> <new-findings.json>` | `diff-*.json` |
 
-Results go to `$VAULT_OPS_OUTPUT_DIR` if set, else `~/.vault-ops/outputs` (outside any project, so results never land in the user's repo); `--output-dir <dir>` overrides both. Exit codes: 0 ok, 1 fatal (connection/auth/config, message on stderr), 2 coverage gaps (only with `--fail-on-gaps`), 3 findings at/above `--fail-on` (only with that flag).
+Results go to `$VAULT_OPS_OUTPUT_DIR` if set, else `.tmp/vault-ops/` in the current working directory; `--output-dir <dir>` overrides both. When the script creates that directory it adds a `.gitignore` containing `*`, so results are never committed. Never move or copy them elsewhere in the project. Exit codes: 0 ok, 1 fatal (connection/auth/config, message on stderr), 2 coverage gaps (only with `--fail-on-gaps`), 3 findings at/above `--fail-on` (only with that flag).
 
 ## Setup problems
 
@@ -63,8 +63,8 @@ claude
 
 1. **Files first.** If the user supplied or points at existing vault-ops JSON files, use them and skip to step 3. Look in the output directory for recent `*-findings-*.json` when the user refers to "the last audit".
 2. **Run.** Run the matching subcommand. On exit 1, report the stderr message (see Setup problems) and stop — do not try other ways to reach Vault.
-   - For a DR pair, run `health` against both nodes (set `VAULT_ADDR` to each node in turn) and `audit`/`inventory`/`usage` against the primary only: a DR secondary rejects authenticated reads by design.
-3. **Read** the produced JSON in full with the Read tool. For an audit report, read the findings **and** inventory files `audit` wrote, and run `health` too (both nodes for a DR pair).
+   - For a DR pair, run `health` against both nodes (set `VAULT_ADDR` to each node in turn) and `audit`/`inventory`/`usage`/`entities` against the primary only: a DR secondary rejects authenticated reads by design.
+3. **Read** the produced JSON with the Read tool (in full, except a large inventory: its `summary` is enough). For an audit report, read the findings **and** inventory files `audit` wrote, and run `health` too (both nodes for a DR pair).
 4. **Coverage first.** If `coverage.complete` is false, open with the denied/errored namespaces and scopes, and say the results are partial. A denied scope usually means the token's policy lacks a rule — point to `policies/vault-ops-readonly.hcl` in this skill.
 5. **Explain.** Rank and group findings using `references/rules.md`. For each item: what it is, why it matters here, the affected namespaces/objects (count + up to three examples), and a drafted remediation command for an operator to run. Do not run it.
 6. **Compare.** If an earlier `*-findings-*.json` for the same cluster exists in the output dir, run `diff` against it and report new / resolved / unchanged counts, then detail new findings.

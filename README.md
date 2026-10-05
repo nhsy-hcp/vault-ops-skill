@@ -26,7 +26,7 @@ claude
 | `VAULT_ADDR`, `VAULT_TOKEN` | yes | Vault address and a token from [`vault-ops-readonly.hcl`](skills/vault-ops/policies/vault-ops-readonly.hcl) |
 | `VAULT_CACERT` / `VAULT_SKIP_VERIFY` | recommended / dev only | TLS verification |
 | `VAULT_NAMESPACE` | no | Start namespace for `audit`, `inventory`, `entities` |
-| `VAULT_OPS_OUTPUT_DIR` | no | Results location (default `~/.vault-ops/outputs`) |
+| `VAULT_OPS_OUTPUT_DIR` | no | Results location (default `.tmp/vault-ops/` in the working directory, git-ignored) |
 
 The other variables in `.env.template` (`VAULT_LICENSE`, `VAULT_IMAGE`, `VAULT_HOST_*`, `VAULT_DR_*`, `CONTAINER_CLI`) are only for this repo's local dev cluster. Setup details and safety notes: [skills/vault-ops/README.md](skills/vault-ops/README.md).
 
@@ -46,7 +46,7 @@ The skill reports coverage gaps first, ranks and groups findings, and drafts rem
 ### Script subcommands
 
 ```bash
-uv run --script skills/vault-ops/scripts/vault_ops.py <command> [--output-dir DIR]   # default ~/.vault-ops/outputs
+uv run --script skills/vault-ops/scripts/vault_ops.py <command> [--output-dir DIR]   # default .tmp/vault-ops
 ```
 
 | Command | Output | Notes |

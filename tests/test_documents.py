@@ -127,13 +127,18 @@ def test_usage_document_findings_validate(activity, schema):
         jsonschema.validate(f, finding_schema)
 
 
-def test_default_output_dir_is_per_user(monkeypatch, tmp_path):
-    monkeypatch.setenv("HOME", str(tmp_path))
+def test_default_output_dir_is_project_local_and_gitignored(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("VAULT_OPS_OUTPUT_DIR", raising=False)
     args = vo.build_parser().parse_args(["diff", "a", "b"])
     assert args.output_dir == vo.DEFAULT_OUTPUT_DIR
     path = vo.write_json(vo.output_path(args.output_dir, "c1", "health", vo.utc_now()), {})
-    assert path.parent == tmp_path / ".vault-ops" / "outputs"
+    assert path.parent == tmp_path / ".tmp" / "vault-ops"
     assert stat.S_IMODE(path.parent.stat().st_mode) == 0o700
+    assert (path.parent / ".gitignore").read_text().splitlines()[-1] == "*"
+    existing = tmp_path / "existing"
+    existing.mkdir()
+    vo.write_json(vo.output_path(str(existing), "c1", "health", vo.utc_now()), {})
+    assert not (existing / ".gitignore").exists()  # never drop files into a directory the script didn't create
     monkeypatch.setenv("VAULT_OPS_OUTPUT_DIR", str(tmp_path / "custom"))
     assert vo.build_parser().parse_args(["diff", "a", "b"]).output_dir == str(tmp_path / "custom")

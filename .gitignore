@@ -3,10 +3,9 @@
 *.pem
 *.key
 
-# Temp, plans and outputs
+# Temp (including vault-ops results in .tmp/vault-ops) and plans
 .tmp/
 .plans/
-outputs/
 
 # Python
 __pycache__/
