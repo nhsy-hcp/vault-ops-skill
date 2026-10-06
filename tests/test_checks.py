@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 
+import pytest
 import vault_ops as vo
 
 NOW = datetime(2026, 10, 5, tzinfo=UTC)
@@ -108,13 +109,19 @@ def test_health_findings_all_fire(health):
         "VT-AUD-002",
         "VT-AUD-003",
         "VT-HLTH-001",
-        "VT-HLTH-002",
+        "VT-HLTH-002",  # DR: dr-stale has no heartbeat (also VT-REPL-002), so it still counts as disconnected
+        "VT-HLTH-002",  # performance: state `connecting`
         "VT-HLTH-003",
         "VT-HLTH-004",
         "VT-HLTH-005",
         "VT-HLTH-006",
         "VT-LEASE-001",
         "VT-LIC-001",
+        "VT-REPL-001",
+        "VT-REPL-002",
+        "VT-REPL-003",
+        "VT-REPL-004",
+        "VT-REPL-005",
         "VT-SNAP-002",
         "VT-SNAP-003",
     ]
@@ -131,7 +138,8 @@ def test_health_findings_all_fire(health):
     lic = next(f for f in found if f.rule_id == "VT-LIC-001")
     assert lic.evidence["days_remaining"] == 15
     repl = [f for f in found if f.rule_id == "VT-HLTH-002"]
-    assert [f.object_type for f in repl] == ["performance"]  # dr "idle" is healthy
+    # dr "idle" is a healthy state; its HLTH-002 is the heartbeat-less dr-stale peer
+    assert [(f.object_type, f.evidence["disconnected_peers"]) for f in repl] == [("dr", ["dr-stale"]), ("performance", [])]
 
 
 def test_health_findings_clear_when_healthy(health):
@@ -208,3 +216,116 @@ def test_helpers():
 def test_sanitise_error_drops_message():
     exc = vo.hvac_exc.Forbidden("permission denied https://vault.internal/v1/secret?token=abc")
     assert vo.sanitise_error(exc) == "Forbidden"
+
+
+def peer(node_id="vault-pr", status="connected", heartbeat="2026-10-05T00:00:00Z", skew=0, canary=500):
+    return {"node_id": node_id, "connection_status": status, "last_heartbeat": heartbeat, "clock_skew_ms": skew, "replication_primary_canary_age_ms": canary}
+
+
+def repl_health(kind="performance", **status):
+    return {"replication": {kind: {"mode": "primary", "state": "running", **status}}}
+
+
+def repl_ids(health):
+    return ids(f for f in vo.health_findings(health, now=NOW) if f.rule_id.startswith(("VT-REPL-", "VT-HLTH-002")))
+
+
+def test_repl_healthy_peer_is_quiet():
+    assert repl_ids(repl_health(secondaries=[peer()], corrupted_merkle_tree=False, paths_filters=[])) == []
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "fires"),
+    [
+        ({"canary": vo.REPL_CANARY_AGE_MS}, False),  # at the threshold: not judged
+        ({"canary": vo.REPL_CANARY_AGE_MS + 1}, True),
+        ({"heartbeat": "2026-10-04T23:59:00Z"}, False),  # 60s old
+        ({"heartbeat": "2026-10-04T23:58:59Z"}, True),
+        ({"canary": None, "heartbeat": None}, False),
+        ({"status": "disconnected", "canary": 10**9}, False),  # a broken link is VT-HLTH-002, not lag
+    ],
+)
+def test_repl_001_lag(kwargs, fires):
+    health = repl_health(secondaries=[peer(**kwargs)])
+    found = [f for f in vo.health_findings(health, now=NOW) if f.rule_id == "VT-REPL-001"]
+    assert bool(found) is fires
+    if fires:
+        assert found[0].object_path == "performance:vault-pr" and found[0].object_type == "performance"
+
+
+def test_repl_001_evidence_and_secondary_side():
+    health = {"replication": {"dr": {"mode": "secondary", "state": "stream-wals", "primaries": [{"connection_status": "connected", "replication_primary_canary_age_ms": 90_000}]}}}
+    (f,) = vo.health_findings(health, now=NOW)
+    assert (f.rule_id, f.object_path, f.object_type) == ("VT-REPL-001", "dr:primary", "dr")
+    assert dict(f.evidence) == {"peer": "primary", "canary_age_ms": 90_000, "heartbeat_age_seconds": None}
+    assert "90s" in f.detail and f.detail.startswith("DR peer")
+
+
+def test_repl_002_no_heartbeat_keeps_hlth_002():
+    # After a primary restart a down secondary has no heartbeat either, so the outage (VT-HLTH-002) is never suppressed.
+    stale = {"node_id": "vault-pr-stale", "connection_status": "disconnected"}
+    assert repl_ids(repl_health(secondaries=[peer(), stale])) == ["VT-HLTH-002", "VT-REPL-002"]
+    found = vo.health_findings(repl_health(secondaries=[stale]), now=NOW)
+    (f,) = [f for f in found if f.rule_id == "VT-REPL-002"]
+    assert f.object_path == "performance:vault-pr-stale" and f.evidence["connection_status"] == "disconnected"
+    assert "down since the primary restarted" in f.detail
+    (h,) = [f for f in found if f.rule_id == "VT-HLTH-002"]
+    assert h.evidence["disconnected_peers"] == ["vault-pr-stale"]
+    # A secondary that did connect and dropped is a broken link (VT-HLTH-002), not VT-REPL-002.
+    assert repl_ids(repl_health(secondaries=[peer(status="disconnected")])) == ["VT-HLTH-002"]
+    # A primary seen from a secondary has no node_id: never VT-REPL-002.
+    health = {"replication": {"performance": {"mode": "secondary", "state": "stream-wals", "primaries": [{"connection_status": "disconnected"}]}}}
+    assert repl_ids(health) == ["VT-HLTH-002"]
+
+
+@pytest.mark.parametrize(("skew", "fires"), [(vo.REPL_CLOCK_SKEW_MS, False), (vo.REPL_CLOCK_SKEW_MS + 1, True), (-vo.REPL_CLOCK_SKEW_MS - 1, True), (None, False)])
+def test_repl_003_clock_skew(skew, fires):
+    found = [f for f in vo.health_findings(repl_health(secondaries=[peer(skew=skew)]), now=NOW) if f.rule_id == "VT-REPL-003"]
+    assert bool(found) is fires
+    if fires:
+        assert found[0].evidence == {"peer": "vault-pr", "clock_skew_ms": skew, "threshold_ms": vo.REPL_CLOCK_SKEW_MS}
+
+
+def test_repl_004_corrupted_merkle_tree():
+    (f,) = vo.health_findings(repl_health(kind="dr", corrupted_merkle_tree=True), now=NOW)
+    assert (f.rule_id, f.rule.severity, f.object_type) == ("VT-REPL-004", "high", "dr")
+    assert repl_ids(repl_health(corrupted_merkle_tree=False)) == []
+
+
+def test_repl_005_paths_filter():
+    flt = {"secondary_id": "vault-pr", "mode": "allow", "paths": ["tn001/", "tn002/"], "dynamic_filtered_mounts": 0}
+    (f,) = vo.health_findings(repl_health(paths_filters=[flt]), now=NOW)
+    assert (f.rule_id, f.object_path) == ("VT-REPL-005", "performance:vault-pr")
+    assert "tn001/, tn002/" in f.detail and f.evidence["mode"] == "allow"
+    assert repl_ids(repl_health(paths_filters=None)) == []  # unreadable: not judged
+
+
+def test_replication_disabled_kinds_skip_repl_rules():
+    health = {"replication": {"dr": {"mode": "disabled", "corrupted_merkle_tree": True}, "performance": {"mode": "unknown"}}}
+    assert vo.health_findings(health, now=NOW) == []
+
+
+def test_mount_003_detail_on_performance_secondary(cluster_data):
+    default = [f for f in vo.mount_findings(cluster_data, None) if f.rule_id == "VT-MOUNT-003"]
+    secondary = [f for f in vo.mount_findings(cluster_data, None, performance_secondary=True) if f.rule_id == "VT-MOUNT-003"]
+    assert default and len(default) == len(secondary)
+    assert "performance secondary" in secondary[0].detail and "expected per-cluster data" in secondary[0].detail
+    assert "expected" not in default[0].detail
+
+
+def test_high_severity_sorts_first(health):
+    found = vo.sort_findings(vo.health_findings(health, now=NOW))
+    assert found[0].rule_id == "VT-REPL-004"
+
+
+def test_int_or_none():
+    assert vo._int_or_none("463") == 463 and vo._int_or_none("-1") == -1 and vo._int_or_none(5) == 5
+    assert vo._int_or_none(None) is None and vo._int_or_none("x") is None
+
+
+def test_activity_log_disabled_fires_cli_005():
+    (found,) = vo.usage_findings({}, None, enterprise=False, activity_log={"enabled": "default-disabled", "recording": False})
+    assert (found.rule_id, found.rule.severity, found.evidence["enabled"]) == ("VT-CLI-005", "low", "default-disabled")
+    assert "default-disabled" in found.detail
+    for log in ({"enabled": "default-enabled", "recording": True}, {"enabled": "odd", "recording": None}, None):
+        assert "VT-CLI-005" not in ids(vo.usage_findings({}, None, activity_log=log))

@@ -1,0 +1,57 @@
+// vault-ops architecture: the read-only skill and the local compose dev cluster.
+// Render: task docs:diagram (dot -Tsvg docs/architecture.dot -o docs/architecture.svg)
+digraph vault_ops {
+  graph [rankdir=TB, bgcolor="white", fontname="Helvetica", fontsize=12, pad=0.3, nodesep=0.6, ranksep=0.7, newrank=true]
+  node  [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=11, color="#4a4a4a", fillcolor="#f5f5f5", margin="0.18,0.08"]
+  edge  [fontname="Helvetica", fontsize=9, color="#4a4a4a", fontcolor="#333333"]
+
+  user [label="Operator", shape=ellipse, fillcolor="#ffffff"]
+
+  subgraph cluster_session {
+    label="Claude Code session (user's working directory)"
+    style="rounded,dashed"; color="#7a7a7a"; fontcolor="#333333"
+
+    claude  [label="Claude + vault-ops skill\nSKILL.md workflow and guardrails", fillcolor="#e8eefc"]
+    script  [label="vault_ops.py\nuv run --script (PEP 723)\naudit | health | inventory | usage\nentities | policies | diff", fillcolor="#e8eefc"]
+    results [label=".tmp/vault-ops/*.json\nfindings, inventory, health ...\n0600, git-ignored", shape=note, fillcolor="#fff8e1"]
+  }
+
+  subgraph cluster_compose {
+    label="compose.yaml  (project and network: vault-ops)"
+    style="rounded"; color="#7a7a7a"; fontcolor="#333333"
+
+    primary [label="vault-primary  :8210\nDR + performance primary", fillcolor="#e6f4ea"]
+    dr      [label="vault-dr  :8220  (profile dr)\nDR secondary\nunauthenticated status only", fillcolor="#fde8e8"]
+    pr      [label="vault-pr  :8240  (profile pr)\nperformance secondary\nown tokens, paths filter", fillcolor="#e6f4ea"]
+    vols    [label="named volumes\n<node>-data (Raft)", shape=cylinder, fillcolor="#ffffff"]
+    tls     [label=".tmp/vault/tls\nlocal CA + shared cert\n(read-only bind mount)", shape=note, fillcolor="#ffffff"]
+  }
+
+  subgraph cluster_ce {
+    label="compose.ce.yaml  (vault-ops-ce)"
+    style="rounded"; color="#7a7a7a"; fontcolor="#333333"
+    ce [label="vault-ce  :8230\nCommunity -dev, in memory\ntask test:ce", fillcolor="#f0f0f0"]
+  }
+
+  user    -> claude  [label="asks: audit, health,\nusage, diff ..."]
+  claude  -> script  [label="runs only\nthe bundled script"]
+  script  -> primary [label="GET / LIST\nvault-ops-readonly token", penwidth=1.6]
+  script  -> pr      [label="GET / LIST\ntoken minted on vault-pr", penwidth=1.6]
+  script  -> dr      [label="health only", style=dashed]
+  script  -> ce      [label="CE smoke tests", style=dotted, color="#9a9a9a", fontcolor="#7a7a7a"]
+  script  -> results [label="writes JSON\nstdout = file paths"]
+  results -> claude  [label="reads, ranks findings,\ndrafts remediation", style=dashed, constraint=false]
+  { rank=same; script; results }
+  { rank=same; primary; ce }
+  { rank=same; dr; vols; tls; pr }
+  dr -> vols -> tls -> pr [style=invis]
+
+  primary -> dr  [label="DR replication\ncluster port 8201", color="#b03a2e", fontcolor="#b03a2e"]
+  primary -> pr  [label="performance replication\ncluster port 8201", color="#1e7b34", fontcolor="#1e7b34"]
+  primary -> vols    [arrowhead=none, style=dotted, color="#9a9a9a"]
+  primary -> tls     [arrowhead=none, style=dotted, color="#9a9a9a"]
+
+  note [label="Read-only: no Vault writes.\nFixes are drafted as text\nfor a human to run.", shape=note, fillcolor="#fff3f3", color="#b03a2e", fontcolor="#7a1f17"]
+  user -> note [style=invis]
+  { rank=same; user; note }
+}

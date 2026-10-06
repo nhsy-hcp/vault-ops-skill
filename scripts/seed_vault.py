@@ -473,7 +473,7 @@ def create_namespace(root_client: hvac.Client, path: str) -> bool:
             _record("skipped")
             return True
         if "404" in msg or "unsupported" in msg.lower() or "path not found" in msg.lower():
-            print("  [skip] namespaces not supported (OSS/dev mode)")
+            print("  [skip] namespaces not supported (CE/dev mode)")
             _record("skipped")
             return False
         _record("errors")
@@ -921,10 +921,10 @@ def main() -> None:
     print(f"Seeding Vault at {VAULT_ADDR}")
     root_client = get_client(namespace=None)
     enterprise = is_enterprise()
-    print(f"Edition: {'Enterprise' if enterprise else 'OSS/dev'}")
+    print(f"Edition: {'Enterprise' if enterprise else 'CE/dev'}")
 
     if not enterprise:
-        # OSS/dev: seed root namespace directly
+        # CE/dev: seed root namespace directly
         print("\n[root]")
         seed_contents(get_client())
 

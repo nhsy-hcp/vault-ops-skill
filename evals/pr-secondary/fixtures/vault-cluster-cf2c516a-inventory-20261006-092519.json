@@ -1,0 +1,7890 @@
+{
+  "schema_version": "1.10.0",
+  "tool": {
+    "name": "vault-ops",
+    "version": "0.4.0"
+  },
+  "run": {
+    "cluster_name": "vault-cluster-cf2c516a",
+    "vault_addr": "<redacted>",
+    "start_namespace": "/",
+    "started_at": "2026-10-06T09:25:19Z",
+    "finished_at": "2026-10-06T09:25:20Z",
+    "duration_seconds": 1.0,
+    "worker_threads": 4
+  },
+  "coverage": {
+    "namespaces_processed": 119,
+    "complete": true,
+    "denied": [],
+    "errors": []
+  },
+  "summary": {
+    "namespaces": 119,
+    "max_depth": 3,
+    "auth_mounts_total": 443,
+    "secrets_mounts_total": 432,
+    "auth_mounts_by_type": {
+      "approle": 108,
+      "jwt": 108,
+      "ns_token": 118,
+      "token": 1,
+      "userpass": 108
+    },
+    "secrets_mounts_by_type": {
+      "database": 108,
+      "kv": 108,
+      "pki": 108,
+      "transit": 108
+    },
+    "auth_types": {
+      "ns_token": {
+        "mounts": 118,
+        "namespaces": 118
+      },
+      "approle": {
+        "mounts": 108,
+        "namespaces": 108
+      },
+      "jwt": {
+        "mounts": 108,
+        "namespaces": 108
+      },
+      "userpass": {
+        "mounts": 108,
+        "namespaces": 108
+      },
+      "token": {
+        "mounts": 1,
+        "namespaces": 1
+      }
+    },
+    "secrets_types": {
+      "database": {
+        "mounts": 108,
+        "namespaces": 108
+      },
+      "kv": {
+        "mounts": 108,
+        "namespaces": 108
+      },
+      "pki": {
+        "mounts": 108,
+        "namespaces": 108
+      },
+      "transit": {
+        "mounts": 108,
+        "namespaces": 108
+      }
+    },
+    "acl_policies": 1110,
+    "acl_policies_top": [
+      {
+        "namespace": "tn001/ci-cd/dev/",
+        "count": 11
+      },
+      {
+        "namespace": "tn001/ci-cd/prod/",
+        "count": 11
+      },
+      {
+        "namespace": "tn001/ci-cd/staging/",
+        "count": 11
+      },
+      {
+        "namespace": "tn001/kubernetes/dev/",
+        "count": 11
+      },
+      {
+        "namespace": "tn001/kubernetes/prod/",
+        "count": 11
+      },
+      {
+        "namespace": "tn001/kubernetes/staging/",
+        "count": 11
+      },
+      {
+        "namespace": "tn001/observability/dev/",
+        "count": 11
+      },
+      {
+        "namespace": "tn001/observability/prod/",
+        "count": 11
+      },
+      {
+        "namespace": "tn001/observability/staging/",
+        "count": 11
+      },
+      {
+        "namespace": "tn002/auth-service/dev/",
+        "count": 11
+      }
+    ],
+    "egp_policies": 0,
+    "rgp_policies": 0,
+    "sentinel_by_enforcement": {},
+    "sentinel": "supported",
+    "shapes": [
+      {
+        "depth": 0,
+        "auth_types": [
+          "token"
+        ],
+        "secrets_types": [],
+        "count": 1,
+        "examples": [
+          "/"
+        ]
+      },
+      {
+        "depth": 1,
+        "auth_types": [
+          "ns_token"
+        ],
+        "secrets_types": [],
+        "count": 9,
+        "examples": [
+          "tn001/",
+          "tn002/",
+          "tn003/"
+        ]
+      },
+      {
+        "depth": 2,
+        "auth_types": [
+          "approle",
+          "jwt",
+          "ns_token",
+          "userpass"
+        ],
+        "secrets_types": [
+          "database",
+          "kv",
+          "pki",
+          "transit"
+        ],
+        "count": 27,
+        "examples": [
+          "tn001/ci-cd/",
+          "tn001/kubernetes/",
+          "tn001/observability/"
+        ]
+      },
+      {
+        "depth": 3,
+        "auth_types": [
+          "approle",
+          "jwt",
+          "ns_token",
+          "userpass"
+        ],
+        "secrets_types": [
+          "database",
+          "kv",
+          "pki",
+          "transit"
+        ],
+        "count": 81,
+        "examples": [
+          "tn001/ci-cd/dev/",
+          "tn001/ci-cd/prod/",
+          "tn001/ci-cd/staging/"
+        ]
+      },
+      {
+        "depth": 3,
+        "auth_types": [
+          "ns_token"
+        ],
+        "secrets_types": [],
+        "count": 1,
+        "examples": [
+          "tn010/prototypes/empty-leaf/"
+        ]
+      }
+    ]
+  },
+  "namespaces": [
+    {
+      "namespace": "/",
+      "depth": 0,
+      "auth_count": 1,
+      "secrets_count": 0,
+      "acl_policy_count": 3,
+      "auth_mounts": [
+        {
+          "path": "token/",
+          "type": "token",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [],
+      "acl_policies": [
+        "vault-ops-policy-reader",
+        "vault-ops-readonly",
+        "vault-ops-sentinel-reader"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn001/",
+      "depth": 1,
+      "auth_count": 1,
+      "secrets_count": 0,
+      "acl_policy_count": 0,
+      "auth_mounts": [
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [],
+      "acl_policies": [],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn001/ci-cd/",
+      "depth": 2,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 8,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn001/ci-cd/dev/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "artifact-writer",
+        "auditor",
+        "ci-deploy-secrets",
+        "db-creds-reader",
+        "kv-writer",
+        "pipeline-token-creator",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn001/ci-cd/prod/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "artifact-writer",
+        "auditor",
+        "ci-deploy-secrets",
+        "db-creds-reader",
+        "kv-writer",
+        "pipeline-token-creator",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn001/ci-cd/staging/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "artifact-writer",
+        "auditor",
+        "ci-deploy-secrets",
+        "db-creds-reader",
+        "kv-writer",
+        "pipeline-token-creator",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn001/kubernetes/",
+      "depth": 2,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 8,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn001/kubernetes/dev/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "k8s-namespace-admin",
+        "k8s-pod-identity",
+        "k8s-secret-reader",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn001/kubernetes/prod/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "k8s-namespace-admin",
+        "k8s-pod-identity",
+        "k8s-secret-reader",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn001/kubernetes/staging/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "k8s-namespace-admin",
+        "k8s-pod-identity",
+        "k8s-secret-reader",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn001/observability/",
+      "depth": 2,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 8,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn001/observability/dev/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "log-writer",
+        "metrics-reader",
+        "pki-issuer",
+        "read-only",
+        "trace-admin",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn001/observability/prod/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "log-writer",
+        "metrics-reader",
+        "pki-issuer",
+        "read-only",
+        "trace-admin",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn001/observability/staging/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "log-writer",
+        "metrics-reader",
+        "pki-issuer",
+        "read-only",
+        "trace-admin",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn002/",
+      "depth": 1,
+      "auth_count": 1,
+      "secrets_count": 0,
+      "acl_policy_count": 0,
+      "auth_mounts": [
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [],
+      "acl_policies": [],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn002/auth-service/",
+      "depth": 2,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 8,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn002/auth-service/dev/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "mfa-secret-reader",
+        "oauth2-token-manager",
+        "pki-issuer",
+        "read-only",
+        "session-invalidator",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn002/auth-service/prod/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "mfa-secret-reader",
+        "oauth2-token-manager",
+        "pki-issuer",
+        "read-only",
+        "session-invalidator",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn002/auth-service/staging/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "mfa-secret-reader",
+        "oauth2-token-manager",
+        "pki-issuer",
+        "read-only",
+        "session-invalidator",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn002/notification-service/",
+      "depth": 2,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 8,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn002/notification-service/dev/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "email-sender-creds",
+        "kv-writer",
+        "pki-issuer",
+        "push-cert-reader",
+        "read-only",
+        "sms-gateway-reader",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn002/notification-service/prod/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "email-sender-creds",
+        "kv-writer",
+        "pki-issuer",
+        "push-cert-reader",
+        "read-only",
+        "sms-gateway-reader",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn002/notification-service/staging/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "email-sender-creds",
+        "kv-writer",
+        "pki-issuer",
+        "push-cert-reader",
+        "read-only",
+        "sms-gateway-reader",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn002/payments-service/",
+      "depth": 2,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 8,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn002/payments-service/dev/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "fraud-analyst",
+        "kv-writer",
+        "payments-pci-reader",
+        "pki-issuer",
+        "read-only",
+        "stripe-key-accessor",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn002/payments-service/prod/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "fraud-analyst",
+        "kv-writer",
+        "payments-pci-reader",
+        "pki-issuer",
+        "read-only",
+        "stripe-key-accessor",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn002/payments-service/staging/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "fraud-analyst",
+        "kv-writer",
+        "payments-pci-reader",
+        "pki-issuer",
+        "read-only",
+        "stripe-key-accessor",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn003/",
+      "depth": 1,
+      "auth_count": 1,
+      "secrets_count": 0,
+      "acl_policy_count": 0,
+      "auth_mounts": [
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [],
+      "acl_policies": [],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn003/iam/",
+      "depth": 2,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 8,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn003/iam/dev/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "pki-issuer",
+        "rbac-policy-manager",
+        "read-only",
+        "service-account-creator",
+        "sso-integrator",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn003/iam/prod/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "pki-issuer",
+        "rbac-policy-manager",
+        "read-only",
+        "service-account-creator",
+        "sso-integrator",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn003/iam/staging/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "pki-issuer",
+        "rbac-policy-manager",
+        "read-only",
+        "service-account-creator",
+        "sso-integrator",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn003/secrets-mgmt/",
+      "depth": 2,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 8,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn003/secrets-mgmt/dev/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "audit-log-reader",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "lease-revoker",
+        "pki-issuer",
+        "read-only",
+        "rotation-operator",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn003/secrets-mgmt/prod/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "audit-log-reader",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "lease-revoker",
+        "pki-issuer",
+        "read-only",
+        "rotation-operator",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn003/secrets-mgmt/staging/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "audit-log-reader",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "lease-revoker",
+        "pki-issuer",
+        "read-only",
+        "rotation-operator",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn003/threat-intel/",
+      "depth": 2,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 8,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn003/threat-intel/dev/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "alert-manager",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "pki-issuer",
+        "playbook-executor",
+        "read-only",
+        "siem-log-writer",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn003/threat-intel/prod/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "alert-manager",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "pki-issuer",
+        "playbook-executor",
+        "read-only",
+        "siem-log-writer",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn003/threat-intel/staging/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "alert-manager",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "pki-issuer",
+        "playbook-executor",
+        "read-only",
+        "siem-log-writer",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn004/",
+      "depth": 1,
+      "auth_count": 1,
+      "secrets_count": 0,
+      "acl_policy_count": 0,
+      "auth_mounts": [
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [],
+      "acl_policies": [],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn004/data-warehouse/",
+      "depth": 2,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 8,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn004/data-warehouse/dev/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "analyst-token",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "dw-read-only",
+        "etl-writer",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn004/data-warehouse/prod/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "analyst-token",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "dw-read-only",
+        "etl-writer",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn004/data-warehouse/staging/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "analyst-token",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "dw-read-only",
+        "etl-writer",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn004/ml-platform/",
+      "depth": 2,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 8,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn004/ml-platform/dev/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "feature-store-writer",
+        "kv-writer",
+        "model-artifact-reader",
+        "pki-issuer",
+        "read-only",
+        "training-job-secrets",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn004/ml-platform/prod/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "feature-store-writer",
+        "kv-writer",
+        "model-artifact-reader",
+        "pki-issuer",
+        "read-only",
+        "training-job-secrets",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn004/ml-platform/staging/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "feature-store-writer",
+        "kv-writer",
+        "model-artifact-reader",
+        "pki-issuer",
+        "read-only",
+        "training-job-secrets",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn004/streaming/",
+      "depth": 2,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 8,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn004/streaming/dev/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "connector-config-reader",
+        "db-creds-reader",
+        "flink-job-secrets",
+        "kafka-producer-creds",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn004/streaming/prod/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "connector-config-reader",
+        "db-creds-reader",
+        "flink-job-secrets",
+        "kafka-producer-creds",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn004/streaming/staging/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "connector-config-reader",
+        "db-creds-reader",
+        "flink-job-secrets",
+        "kafka-producer-creds",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn005/",
+      "depth": 1,
+      "auth_count": 1,
+      "secrets_count": 0,
+      "acl_policy_count": 0,
+      "auth_mounts": [
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [],
+      "acl_policies": [],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn005/accounting/",
+      "depth": 2,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 8,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn005/accounting/dev/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "ap-ar-reader",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "gl-writer",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "reconciliation-auditor",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn005/accounting/prod/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "ap-ar-reader",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "gl-writer",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "reconciliation-auditor",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn005/accounting/staging/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "ap-ar-reader",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "gl-writer",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "reconciliation-auditor",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn005/regulatory-reporting/",
+      "depth": 2,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 8,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn005/regulatory-reporting/dev/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "audit-trail-writer",
+        "auditor",
+        "basel3-submitter",
+        "db-creds-reader",
+        "kv-writer",
+        "mifid2-reporter",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn005/regulatory-reporting/prod/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "audit-trail-writer",
+        "auditor",
+        "basel3-submitter",
+        "db-creds-reader",
+        "kv-writer",
+        "mifid2-reporter",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn005/regulatory-reporting/staging/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "audit-trail-writer",
+        "auditor",
+        "basel3-submitter",
+        "db-creds-reader",
+        "kv-writer",
+        "mifid2-reporter",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn005/treasury/",
+      "depth": 2,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 8,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn005/treasury/dev/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "fx-rates-reader",
+        "investment-reporter",
+        "kv-writer",
+        "liquidity-manager",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn005/treasury/prod/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "fx-rates-reader",
+        "investment-reporter",
+        "kv-writer",
+        "liquidity-manager",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn005/treasury/staging/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "fx-rates-reader",
+        "investment-reporter",
+        "kv-writer",
+        "liquidity-manager",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn006/",
+      "depth": 1,
+      "auth_count": 1,
+      "secrets_count": 0,
+      "acl_policy_count": 0,
+      "auth_mounts": [
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [],
+      "acl_policies": [],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn006/cloud-compute/",
+      "depth": 2,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 8,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn006/cloud-compute/dev/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "aws-iam-reader",
+        "azure-sp-reader",
+        "db-creds-reader",
+        "gcp-sa-accessor",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn006/cloud-compute/prod/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "aws-iam-reader",
+        "azure-sp-reader",
+        "db-creds-reader",
+        "gcp-sa-accessor",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn006/cloud-compute/staging/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "aws-iam-reader",
+        "azure-sp-reader",
+        "db-creds-reader",
+        "gcp-sa-accessor",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn006/network/",
+      "depth": 2,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 8,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn006/network/dev/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "dns-config-reader",
+        "kv-writer",
+        "lb-cert-manager",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt",
+        "vpn-cert-reader"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn006/network/prod/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "dns-config-reader",
+        "kv-writer",
+        "lb-cert-manager",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt",
+        "vpn-cert-reader"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn006/network/staging/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "dns-config-reader",
+        "kv-writer",
+        "lb-cert-manager",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt",
+        "vpn-cert-reader"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn006/storage/",
+      "depth": 2,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 8,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn006/storage/dev/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "backup-reader",
+        "block-storage-admin",
+        "db-creds-reader",
+        "kv-writer",
+        "object-store-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn006/storage/prod/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "backup-reader",
+        "block-storage-admin",
+        "db-creds-reader",
+        "kv-writer",
+        "object-store-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn006/storage/staging/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "backup-reader",
+        "block-storage-admin",
+        "db-creds-reader",
+        "kv-writer",
+        "object-store-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn007/",
+      "depth": 1,
+      "auth_count": 1,
+      "secrets_count": 0,
+      "acl_policy_count": 0,
+      "auth_mounts": [
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [],
+      "acl_policies": [],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn007/api-gateway/",
+      "depth": 2,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 8,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn007/api-gateway/dev/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "auth-proxy-token",
+        "db-creds-reader",
+        "kv-writer",
+        "pki-issuer",
+        "rate-limit-config-reader",
+        "read-only",
+        "routing-config-writer",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn007/api-gateway/prod/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "auth-proxy-token",
+        "db-creds-reader",
+        "kv-writer",
+        "pki-issuer",
+        "rate-limit-config-reader",
+        "read-only",
+        "routing-config-writer",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn007/api-gateway/staging/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "auth-proxy-token",
+        "db-creds-reader",
+        "kv-writer",
+        "pki-issuer",
+        "rate-limit-config-reader",
+        "read-only",
+        "routing-config-writer",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn007/mobile-app/",
+      "depth": 2,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 8,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn007/mobile-app/dev/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "android-keystore-reader",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "ios-cert-reader",
+        "kv-writer",
+        "pki-issuer",
+        "push-notification-creds",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn007/mobile-app/prod/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "android-keystore-reader",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "ios-cert-reader",
+        "kv-writer",
+        "pki-issuer",
+        "push-notification-creds",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn007/mobile-app/staging/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "android-keystore-reader",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "ios-cert-reader",
+        "kv-writer",
+        "pki-issuer",
+        "push-notification-creds",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn007/web-app/",
+      "depth": 2,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 8,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn007/web-app/dev/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "cdn-config-reader",
+        "db-creds-reader",
+        "design-token-writer",
+        "frontend-deploy-token",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn007/web-app/prod/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "cdn-config-reader",
+        "db-creds-reader",
+        "design-token-writer",
+        "frontend-deploy-token",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn007/web-app/staging/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "cdn-config-reader",
+        "db-creds-reader",
+        "design-token-writer",
+        "frontend-deploy-token",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn008/",
+      "depth": 1,
+      "auth_count": 1,
+      "secrets_count": 0,
+      "acl_policy_count": 0,
+      "auth_mounts": [
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [],
+      "acl_policies": [],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn008/deployment/",
+      "depth": 2,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 8,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn008/deployment/dev/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "blue-green-switcher",
+        "canary-deployer",
+        "db-creds-reader",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "rollback-executor",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn008/deployment/prod/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "blue-green-switcher",
+        "canary-deployer",
+        "db-creds-reader",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "rollback-executor",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn008/deployment/staging/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "blue-green-switcher",
+        "canary-deployer",
+        "db-creds-reader",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "rollback-executor",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn008/incident-mgmt/",
+      "depth": 2,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 8,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn008/incident-mgmt/dev/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "oncall-reader",
+        "pki-issuer",
+        "postmortem-writer",
+        "read-only",
+        "runbook-editor",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn008/incident-mgmt/prod/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "oncall-reader",
+        "pki-issuer",
+        "postmortem-writer",
+        "read-only",
+        "runbook-editor",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn008/incident-mgmt/staging/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "oncall-reader",
+        "pki-issuer",
+        "postmortem-writer",
+        "read-only",
+        "runbook-editor",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn008/monitoring/",
+      "depth": 2,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 8,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn008/monitoring/dev/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "alerting-config-writer",
+        "approle-login",
+        "auditor",
+        "capacity-planner",
+        "dashboard-reader",
+        "db-creds-reader",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn008/monitoring/prod/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "alerting-config-writer",
+        "approle-login",
+        "auditor",
+        "capacity-planner",
+        "dashboard-reader",
+        "db-creds-reader",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn008/monitoring/staging/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "alerting-config-writer",
+        "approle-login",
+        "auditor",
+        "capacity-planner",
+        "dashboard-reader",
+        "db-creds-reader",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn010/",
+      "depth": 1,
+      "auth_count": 1,
+      "secrets_count": 0,
+      "acl_policy_count": 0,
+      "auth_mounts": [
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [],
+      "acl_policies": [],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn010/experiments/",
+      "depth": 2,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 8,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn010/experiments/dev/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "ab-test-config-writer",
+        "admin",
+        "analytics-reader",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "feature-flag-manager",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn010/experiments/prod/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "ab-test-config-writer",
+        "admin",
+        "analytics-reader",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "feature-flag-manager",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn010/experiments/staging/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "ab-test-config-writer",
+        "admin",
+        "analytics-reader",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "feature-flag-manager",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn010/prototypes/",
+      "depth": 2,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 8,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn010/prototypes/dev/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "demo-secret-writer",
+        "kv-writer",
+        "mvp-deploy-token",
+        "pki-issuer",
+        "poc-reader",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn010/prototypes/empty-leaf/",
+      "depth": 3,
+      "auth_count": 1,
+      "secrets_count": 0,
+      "acl_policy_count": 0,
+      "auth_mounts": [
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [],
+      "acl_policies": [],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn010/prototypes/prod/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "demo-secret-writer",
+        "kv-writer",
+        "mvp-deploy-token",
+        "pki-issuer",
+        "poc-reader",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn010/prototypes/staging/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "demo-secret-writer",
+        "kv-writer",
+        "mvp-deploy-token",
+        "pki-issuer",
+        "poc-reader",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn010/training/",
+      "depth": 2,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 8,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "db-creds-reader",
+        "kv-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn010/training/dev/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "cert-tracker",
+        "db-creds-reader",
+        "kv-writer",
+        "lab-secret-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt",
+        "workshop-env-reader"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn010/training/prod/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "cert-tracker",
+        "db-creds-reader",
+        "kv-writer",
+        "lab-secret-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt",
+        "workshop-env-reader"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "tn010/training/staging/",
+      "depth": 3,
+      "auth_count": 4,
+      "secrets_count": 4,
+      "acl_policy_count": 11,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "jwt/",
+          "type": "jwt",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "database/",
+          "type": "database",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "pki/",
+          "type": "pki",
+          "version": null,
+          "local": false
+        },
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        },
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "admin",
+        "approle-login",
+        "auditor",
+        "cert-tracker",
+        "db-creds-reader",
+        "kv-writer",
+        "lab-secret-writer",
+        "pki-issuer",
+        "read-only",
+        "transit-encrypt",
+        "workshop-env-reader"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    }
+  ]
+}

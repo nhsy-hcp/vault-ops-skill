@@ -133,4 +133,17 @@ step "VT-SNT-007 egp vault-ops-http (advisory, narrow path)"
 vault write -namespace="$SENTINEL_NS" sys/policies/egp/vault-ops-http \
   enforcement_level=advisory paths="secret/data/vault-ops-http/*" policy=@"${SENTINEL_DIR}/http-import.sentinel" >/dev/null
 # VT-SNT-006 (hard-mandatory, always false) is not seeded: it would lock out the dev cluster. Unit-tested only.
+
+if [[ "$(vault read -field=mode sys/replication/performance/status 2>/dev/null || true)" == "primary" ]]; then
+  echo "Seeding performance replication findings (primary is a performance primary)"
+  step "VT-REPL-005 paths filter on vault-pr (deny ${PR_FILTER_PATH:-tn009/})"
+  vault write sys/replication/performance/primary/paths-filter/vault-pr mode=deny paths="${PR_FILTER_PATH:-tn009/}" >/dev/null
+  step "VT-REPL-002 unused activation token for secondary id vault-pr-stale"
+  if ! vault read -format=json sys/replication/performance/status | jq -e '.data.known_secondaries | index("vault-pr-stale")' >/dev/null; then
+    vault write sys/replication/performance/primary/secondary-token id=vault-pr-stale ttl=24h >/dev/null
+  fi
+  # VT-REPL-001/003/004 (lag, clock skew, merkle corruption) can't be produced on demand. Unit-tested only.
+else
+  echo "Skipping performance replication findings (run task pr:enable first)"
+fi
 echo "Done."

@@ -1,19 +1,18 @@
 #!/bin/bash
-# Start one Vault Enterprise node (raft storage, TLS) in a container; init, unseal and
+# Start one Vault Enterprise node (compose.yaml service: raft storage, TLS); init, unseal and
 # create a token with id "root" on first start. Idempotent.
-#   usage: scripts/vault_up.sh [node-name] [host-port]
+#   usage: scripts/vault_up.sh [vault-primary|vault-dr|vault-pr] [host-port]
 set -euo pipefail
 
-NAME="${1:-${VAULT_CONTAINER_NAME:-vault-primary}}"
+NAME="${1:-vault-primary}"
 HOST_PORT="${2:-${VAULT_HOST_PORT:-8210}}"
-PRIMARY_NAME="${VAULT_CONTAINER_NAME:-vault-primary}"
+PRIMARY_NAME="vault-primary"
 CONTAINER_CLI="${CONTAINER_CLI:-docker}"
-VAULT_IMAGE="${VAULT_IMAGE:?VAULT_IMAGE must be set in .env}"
 VAULT_HOST_IP="${VAULT_HOST_IP:-127.0.0.1}"
-NETWORK="${VAULT_NETWORK:-vault-ops}"
 ROOT_DIR="$(pwd)/.tmp/vault"
 NODE_DIR="${ROOT_DIR}/${NAME}"
 TLS_DIR="${ROOT_DIR}/tls"
+: "${VAULT_IMAGE:?VAULT_IMAGE must be set in .env}"
 : "${VAULT_LICENSE:?VAULT_LICENSE must be set in .env}"
 
 export VAULT_ADDR="https://${VAULT_HOST_IP}:${HOST_PORT}"
@@ -21,44 +20,12 @@ export VAULT_CACERT="${TLS_DIR}/vault-ca.pem"
 unset VAULT_SKIP_VERIFY VAULT_NAMESPACE
 
 scripts/gen_tls.sh "$TLS_DIR"
-mkdir -p "${NODE_DIR}/config" "${NODE_DIR}/data" "${NODE_DIR}/logs"
+mkdir -p "$NODE_DIR"  # init.json (unseal key, initial root token); Raft data is in a named volume
 
-cat >"${NODE_DIR}/config/vault.hcl" <<HCL
-ui            = true
-disable_mlock = true
-api_addr      = "https://${NAME}:8200"
-cluster_addr  = "https://${NAME}:8201"
-log_file      = "/vault/logs/vault.log"
-
-storage "raft" {
-  path    = "/vault/file"
-  node_id = "${NAME}"
-}
-
-listener "tcp" {
-  address         = "0.0.0.0:8200"
-  cluster_address = "0.0.0.0:8201"
-  tls_cert_file   = "/vault/tls/vault-cert.pem"
-  tls_key_file    = "/vault/tls/vault-key.pem"
-}
-HCL
-
-if [[ "$("$CONTAINER_CLI" inspect -f '{{.State.Running}}' "$NAME" 2>/dev/null || true)" == "true" ]]; then
-  echo "${NAME}: container already running"
-else
-  "$CONTAINER_CLI" rm -f "$NAME" >/dev/null 2>&1 || true
-  "$CONTAINER_CLI" network exists "$NETWORK" 2>/dev/null || "$CONTAINER_CLI" network create "$NETWORK" >/dev/null
-  "$CONTAINER_CLI" run -d --name "$NAME" --hostname "$NAME" --network "$NETWORK" \
-    -p "${VAULT_HOST_IP}:${HOST_PORT}:8200" \
-    --cap-add IPC_LOCK \
-    -e VAULT_LICENSE \
-    -v "${NODE_DIR}/config:/vault/config" \
-    -v "${NODE_DIR}/data:/vault/file" \
-    -v "${NODE_DIR}/logs:/vault/logs" \
-    -v "${TLS_DIR}:/vault/tls:ro" \
-    "$VAULT_IMAGE" server >/dev/null
-  echo "${NAME}: started (${VAULT_IMAGE}) on ${VAULT_ADDR}"
-fi
+# The service's profile is enabled because it is named explicitly; --wait blocks until the
+# API answers (compose.yaml healthcheck), whatever the seal/init state.
+"$CONTAINER_CLI" compose up -d --wait "$NAME"
+echo "${NAME}: running (${VAULT_IMAGE}) on ${VAULT_ADDR}"
 
 health() {
   curl -s --cacert "$VAULT_CACERT" \
@@ -79,7 +46,7 @@ if [[ "$(health | jq -r .initialized)" == "false" ]]; then
 fi
 
 if [[ "$(health | jq -r .sealed)" == "true" ]]; then
-  # A DR secondary takes over the primary's unseal keys once activated, so try both.
+  # A DR or performance secondary takes over the primary's unseal keys once activated, so try both.
   for keyfile in "${NODE_DIR}/init.json" "${ROOT_DIR}/${PRIMARY_NAME}/init.json"; do
     [[ -s "$keyfile" ]] || continue
     vault operator unseal "$(jq -r '.unseal_keys_b64[0]' "$keyfile")" >/dev/null 2>&1 || true
@@ -99,7 +66,11 @@ done
 echo
 
 dr_mode="$(health | jq -r .replication_dr_mode)"
-if [[ "$dr_mode" != "secondary" ]]; then
+pr_mode="$(health | jq -r .replication_performance_mode)"
+if [[ "$pr_mode" == "secondary" ]] && ! VAULT_TOKEN=root vault token lookup >/dev/null 2>&1; then
+  # Tokens don't replicate and activation wiped this node's own: pr_enable.sh restores `root`.
+  echo "${NAME}: performance secondary without a 'root' token (run: task pr:enable)"
+elif [[ "$dr_mode" != "secondary" ]]; then
   # Keep VAULT_TOKEN=root working like dev mode: create a root-policy token with id "root".
   if ! VAULT_TOKEN=root vault token lookup >/dev/null 2>&1; then
     VAULT_TOKEN="$(jq -r .root_token "${NODE_DIR}/init.json")" \
@@ -108,4 +79,4 @@ if [[ "$dr_mode" != "secondary" ]]; then
   fi
 fi
 
-health | jq -c '{node: "'"${NAME}"'", version, sealed, standby, replication_dr_mode, cluster_name}'
+health | jq -c '{node: "'"${NAME}"'", version, sealed, standby, replication_dr_mode, replication_performance_mode, cluster_name}'

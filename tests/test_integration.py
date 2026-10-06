@@ -96,6 +96,8 @@ def test_inventory_and_usage(capsys, tmp_path):
     assert not inv["coverage"]["errors"] and all(SENTINEL_READER in d["scope"] for d in inv["coverage"]["denied"]), inv["coverage"]
     _, usage = run(capsys, "usage", "--output-dir", str(tmp_path))
     assert usage["coverage"]["complete"] is True, usage["coverage"]
+    assert usage["activity_log"]["recording"] is True  # Enterprise records client activity by default
+    assert not [f for f in usage["findings"] if f["rule_id"] == "VT-CLI-005"]
 
 
 def test_subtree_and_diff(capsys, tmp_path):

@@ -1,17 +1,16 @@
 #!/bin/bash
-# Stop and remove Vault node containers (idempotent). Raft data in .tmp/vault/<node>/ is kept.
-#   usage: scripts/vault_down.sh [node-name ...]   (default: primary and DR)
+# Stop and remove Vault node containers (idempotent). Named volumes (Raft data) are kept;
+# VOLUMES=1 removes them too (task clean).
+#   usage: scripts/vault_down.sh [node ...]   (default: every node and the network)
 set -euo pipefail
 
 CONTAINER_CLI="${CONTAINER_CLI:-docker}"
 if [[ $# -eq 0 ]]; then
-  set -- "${VAULT_DR_CONTAINER_NAME:-vault-dr}" "${VAULT_CONTAINER_NAME:-vault-primary}"
-fi
-
-for name in "$@"; do
-  if "$CONTAINER_CLI" rm -f "$name" >/dev/null 2>&1; then
-    echo "Removed ${name}"
+  if [[ "${VOLUMES:-0}" == "1" ]]; then
+    "$CONTAINER_CLI" compose --profile '*' down --volumes
   else
-    echo "${name} not running"
+    "$CONTAINER_CLI" compose --profile '*' down
   fi
-done
+else
+  "$CONTAINER_CLI" compose rm -sf "$@"
+fi

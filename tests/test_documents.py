@@ -115,6 +115,10 @@ def test_usage_document():
     doc = vo.build_usage_document(activity, 1, {"cluster_name": "c1"}, vo.Coverage(), current)
     assert doc["current_month"] == {"total": {"clients": 9, "entity_clients": 9}, "namespaces_reported": 2}
     assert vo.build_usage_document({}, 1, {}, vo.Coverage())["current_month"] is None
+    assert doc["activity_log"] is None  # not read
+    log = {"enabled": "default-disabled", "recording": False, "retention_months": 48, "reporting_enabled": False}
+    disabled = vo.build_usage_document({}, 1, {}, vo.Coverage(), activity_log=log)
+    assert disabled["activity_log"] == log and [f["rule_id"] for f in disabled["findings"]] == ["VT-CLI-005"]
     assert doc["total"] == {"clients": 7, "entity_clients": 5, "non_entity_clients": 2}
     assert doc["namespaces_reported"] == 2
     assert doc["top_namespaces"] == [{"namespace": "tn001/kubernetes/prod/", "counts": {"clients": 5}, "mounts": 2}]

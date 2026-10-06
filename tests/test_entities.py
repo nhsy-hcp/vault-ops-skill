@@ -127,6 +127,7 @@ def test_every_rule_is_produced_somewhere(cluster_data, health, activity):
         + vo.health_findings({**health, "audit_devices": [], "snapshots": {"configs": []}})  # VT-AUD-001, VT-SNAP-001
         + vo.entity_findings(entities, {})
         + vo.usage_findings(activity, None, enterprise=True)
+        + vo.usage_findings({}, None, activity_log={"enabled": "disable", "recording": False})  # VT-CLI-005
         + vo.acl_policy_findings(policies)
         + vo.sentinel_policy_findings(collect_sentinel()[2][1])
     }

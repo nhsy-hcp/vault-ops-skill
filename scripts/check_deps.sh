@@ -6,6 +6,7 @@ CONTAINER_CLI="${CONTAINER_CLI:-docker}"
 VAULT_HOST_IP="${VAULT_HOST_IP:-127.0.0.1}"
 VAULT_HOST_PORT="${VAULT_HOST_PORT:-8210}"
 VAULT_DR_HOST_PORT="${VAULT_DR_HOST_PORT:-8220}"
+VAULT_PR_HOST_PORT="${VAULT_PR_HOST_PORT:-8240}"
 fail=0
 
 ok() { printf '  ok    %s\n' "$1"; }
@@ -22,6 +23,11 @@ if "$CONTAINER_CLI" info >/dev/null 2>&1; then
 else
   bad "$CONTAINER_CLI engine not reachable (podman: run 'podman machine start')"
 fi
+if "$CONTAINER_CLI" compose version >/dev/null 2>&1; then
+  ok "$CONTAINER_CLI compose"
+else
+  bad "$CONTAINER_CLI compose not available (podman: install docker-compose)"
+fi
 
 echo "Network:"
 if [[ "$(uname -s)" == "Darwin" && "$VAULT_HOST_IP" != "127.0.0.1" ]] && ! ifconfig lo0 | grep -q "inet ${VAULT_HOST_IP} "; then
@@ -29,7 +35,7 @@ if [[ "$(uname -s)" == "Darwin" && "$VAULT_HOST_IP" != "127.0.0.1" ]] && ! ifcon
 else
   ok "${VAULT_HOST_IP} available"
 fi
-for port in "$VAULT_HOST_PORT" "$VAULT_DR_HOST_PORT"; do
+for port in "$VAULT_HOST_PORT" "$VAULT_DR_HOST_PORT" "$VAULT_PR_HOST_PORT"; do
   if lsof -nP -iTCP:"${port}" -sTCP:LISTEN 2>/dev/null | grep -qv -e COMMAND -e gvproxy; then
     bad "port ${port} already in use by another process"
   else

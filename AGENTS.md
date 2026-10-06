@@ -4,7 +4,7 @@ Project rules for AI agents. Global rules in `~/.bob/AGENTS.md` still apply; thi
 
 ## What this repo is
 
-A **read-only** HashiCorp Vault ops Claude skill (`skills/vault-ops/`) plus a local Vault Enterprise dev environment to build and test it against.
+A **read-only** HashiCorp Vault ops Claude skill (`skills/vault-ops/`) plus a local Vault Enterprise dev environment (compose: primary, DR secondary, performance secondary) to build and test it against.
 
 | Path | Purpose |
 | --- | --- |
@@ -12,26 +12,31 @@ A **read-only** HashiCorp Vault ops Claude skill (`skills/vault-ops/`) plus a lo
 | `.claude/skills/vault-ops` | Symlink to `skills/vault-ops`, so sessions in this repo load the skill |
 | `skills/vault-ops/SKILL.md` | Skill workflow and guardrails (what Claude does when the skill triggers) |
 | `skills/vault-ops/scripts/vault_ops.py` | PEP 723 single-file collector: `audit` (findings + inventory), `health`, `inventory`, `usage`, `entities`, `policies`, `diff` |
-| `skills/vault-ops/schemas/findings.schema.json` | JSON Schema (draft 2020-12) for findings files, `schema_version` 1.9.0 |
+| `skills/vault-ops/schemas/findings.schema.json` | JSON Schema (draft 2020-12) for findings files, `schema_version` 1.10.0 |
 | `skills/vault-ops/references/rules.md` | Rule catalogue (VT-*) with drafted remediation |
 | `skills/vault-ops/policies/vault-ops-readonly.hcl` | Least-privilege Vault policy for the skill's token (ACL and Sentinel policy names only) |
 | `skills/vault-ops/policies/vault-ops-policy-reader.hcl` | Opt-in add-on for `policies`: `read` on `sys/policies/acl/*` per nesting level, nothing else |
 | `skills/vault-ops/policies/vault-ops-sentinel-reader.hcl` | Opt-in add-on for Sentinel checks (`audit`, `inventory` levels, `policies`): `read` on `sys/policies/{egp,rgp}/*` per nesting level, nothing else |
+| `compose.yaml`, `compose/vault.hcl` | Dev nodes `vault-primary`, `vault-dr` (profile `dr`), `vault-pr` (profile `pr`): Raft, TLS, a named volume `<node>-data` per node, logs on stdout (TLS is a read-only bind mount of `.tmp/vault/tls`), network `${COMPOSE_PROJECT_NAME}` (`vault-ops`). One shared HCL; per-node values via `VAULT_API_ADDR`/`VAULT_CLUSTER_ADDR`/`VAULT_RAFT_NODE_ID` |
+| `compose.ce.yaml` | Throwaway Community `-dev` server for `task test:ce` (project/network `vault-ops-ce`, port 8230) |
 | `scripts/` | Dev-env automation (bash, called from `Taskfile.yml`) and `seed_vault.py` |
-| `docs/dr.md` | DR pair design, node lifecycle, failure drills |
+| `docs/replication.md` | Compose node design, DR + performance replication, node lifecycle, failure drills |
+| `docs/architecture.dot` / `.svg` | Architecture diagram embedded in the README; edit the `.dot`, then `task docs:diagram` and commit both |
+| `docs/testing.md` | Manual end-to-end walkthrough (`task test:e2e` automates it) |
 | `evals/` | `claude plugin eval` suite: one dir per case (`prompt.md`, `graders/*.md`, optional `case.yaml` + `scaffold.sh`). `fixtures/stage.sh` copies fixture JSON into the run's `.tmp/vault-ops/`: cases on the shared `fixtures/vault-ops/` set symlink it as `scaffold.sh`; cases with their own `fixtures/` use a small `scaffold.sh` that passes that dir (the harness resolves symlinks, so a symlink can't find its case dir). Fixtures come from `task skill:run -- <cmd> --output-dir ...` on the dev nodes; never commit tokens or real personal data. Offline only: Bash-granting cases are refused while `~/.docker/config.json` is a symlink |
-| `tests/` | Unit tests (no Vault); `test_integration.py` and `test_dr.py` (`-m integration`, need the dev nodes; `test_dr.py` skips unless DR is active); `test_oss.py` (`-m oss`, run by `task test:oss`) |
+| `tests/` | Unit tests (no Vault); `test_integration.py`, `test_dr.py` and `test_pr.py` (`-m integration`, need the dev nodes; `test_dr.py`/`test_pr.py` skip unless DR/PR is active; `test_pr.py` uses `VAULT_PR_TOKEN` from `task token:pr`); `test_ce.py` (`-m ce`, run by `task test:ce`) |
 | `.tmp/spec.md` | Options analysis and spec (gitignored working doc) |
 
 ## Hard rules
 
 - **Read-only, always.** `vault_ops.py` may only issue GET/LIST requests. Never add a code path that writes to Vault, and never add write capabilities to `vault-ops-readonly.hcl`. ACL policy **bodies** are read only by the `policies` subcommand, with the separate add-on `vault-ops-policy-reader.hcl` (`read` only: never `list`, `sudo` or write, and never merged into `vault-ops-readonly.hcl`, which stays names-only). Bodies never leave the script: they are parsed in memory and outputs hold only the policy name, a body hash and the flagged rules (path + capabilities). Sentinel EGP/RGP bodies follow the same pattern with `vault-ops-sentinel-reader.hcl` (`read` only, never merged into `vault-ops-readonly.hcl`): outputs hold names, enforcement levels, EGP paths, import names, a body hash and flagged rules, never source. `sudo` is allowed only on the exact sudo-protected read paths `sys/audit` and `sys/storage/raft/snapshot-auto/config` (no globs). Never read `snapshot-auto/config/<name>`: it returns storage credentials in plaintext, so snapshot checks use `snapshot-auto/status/<name>` only.
-- **Never use the root token for the skill or the integration tests.** Use `task token:audit` (a 1h token from `vault-ops-readonly.hcl`); `test_integration.py` fails when `VAULT_TOKEN=root`. Root is only for `seed`, `seed:findings`, `token:audit` and `token:policies`.
+- **Never use the root token for the skill or the integration tests.** Use `task token:audit` (a 1h token from `vault-ops-readonly.hcl`); `test_integration.py` and `test_pr.py` fail when the token is `root`. Root is only for `seed`, `seed:findings`, `token:audit`, `token:policies`, `token:pr` and the `*:enable` scripts.
 - **`~/Projects/vault-tools` is reference-only.** Port logic from it; never modify it.
 - **No secrets in outputs.** Findings and other outputs must never contain tokens, accessors, Sentinel policy source, ACL policy bodies, `allowed_parameters`/`denied_parameters` values, namespace `custom_metadata` or raw error text. Entity `metadata` and alias names (emails, usernames, AppRole role_ids) are written **only** in `entities --list` rows, never in the default output or in findings; tests enforce both. Errors go through `sanitise_error()` (class + HTTP status). Output files are written 0600.
 - **Rule IDs are permanent.** Never renumber or reuse a `VT-*` ID. A new rule means adding it to `RULES`, the schema `category` enum if needed, `references/rules.md`, and a fixture that fires it. Adding optional fields is a minor `SCHEMA_VERSION` bump; renaming or removing is a major bump.
 - **Script stays single-file with PEP 723 deps** (`hvac==2.4.0`, `requests>=2.32,<3`, uv `exclude-newer`), so the published skill runs anywhere with `uv run --script` and no Taskfile. Keep the inline deps and `pyproject.toml` in sync; bump `exclude-newer` deliberately with a dependency update.
 - **The published skill must not depend on this repo.** Nothing under `skills/vault-ops/` may reference `task`, `.env` or this repo's paths. SKILL.md calls the script via `${CLAUDE_SKILL_DIR}`. Output defaults to `.tmp/vault-ops/` in the user's working directory, so Claude reads results without leaving the project. A directory the script creates gets a catch-all `.gitignore`.
+- **Performance secondaries are normal targets.** They serve authenticated reads, so every subcommand runs there, but with a token minted on that cluster (tokens never replicate). Never treat them like DR secondaries.
 - **DR secondaries and sealed/uninitialized nodes: `health` only.** They reject authenticated requests (a sealed node answers 503 `Vault is sealed`). `connect()` probes unauthenticated `sys/health` first and skips token validation there: `health` reads only unauthenticated endpoints (DR secondary: leader and replication status; sealed/uninitialized: `sys/seal-status` only), and every other subcommand exits 1 with a message naming the state. Never add authenticated reads to these paths.
 - **Running the skill: follow SKILL.md exactly, even in this repo.** When the `vault-ops` skill is invoked, the agent runs only `uv run --script <skill dir>/scripts/vault_ops.py ...` with the `VAULT_ADDR`/`VAULT_TOKEN` already in the session's environment. If either is unset, stop and give the SKILL.md "Setup problems" answer; never work around it with `task skill:run`, `.env`, `.tmp/audit-token` or a token from any other file. Here the user sets them before starting Claude, e.g. `export VAULT_ADDR=https://127.0.0.1:8210 VAULT_SKIP_VERIFY=true VAULT_TOKEN="$(cat .tmp/audit-token)"`. `task skill:run` is for humans and development, not for an agent acting as the skill.
 - **Ask before bumping the version.** After a change, ask the user whether to bump the minor or maintenance version; never bump without confirmation. A bump touches `.claude-plugin/plugin.json`, `pyproject.toml`, `TOOL_VERSION` in `vault_ops.py` and `uv.lock` (`uv lock`), committed separately as `chore: bump version to X.Y.Z`. `SCHEMA_VERSION` is separate and follows the output-format rule above.
@@ -43,36 +48,43 @@ A **read-only** HashiCorp Vault ops Claude skill (`skills/vault-ops/`) plus a lo
 | --- | --- |
 | `task init` | `uv sync`, install pre-commit hooks, create `.env` from `.env.template` |
 | `task deps` | Check tools, container engine (podman: `podman machine start`), host IP/port, `.env` |
-| `task up` / `task up:dr` / `task up:all` | Start, init and unseal `vault-primary` (`https://127.0.0.1:8210`) and/or `vault-dr` (`https://127.0.0.1:8220`): Enterprise, Raft, TLS |
-| `task down` / `task down:dr` | Remove both containers / only the DR one (Raft data kept) |
-| `task dr:enable` / `task dr:status` | Enable DR replication primary → secondary (idempotent, waits for `stream-wals`); show status on both |
-| `task status` / `task logs` | `vault status` (primary); tail `.tmp/vault/<node>/logs/vault.log` (`NODE=vault-dr task logs`) |
+| `task up` / `up:dr` / `up:pr` / `up:all` | `docker compose up --wait` then init and unseal `vault-primary` (`https://127.0.0.1:8210`), `vault-dr` (`:8220`), `vault-pr` (`:8240`): Enterprise, Raft, TLS |
+| `task down` / `down:dr` / `down:pr` | `compose --profile '*' down` (all containers + network; volumes kept) / remove one secondary |
+| `task dr:enable` / `task dr:status` | Enable DR replication primary → `vault-dr` (idempotent, waits for `stream-wals`); show status on both |
+| `task pr:enable` / `task pr:status` | Enable performance replication primary → `vault-pr` (idempotent, waits for `stream-wals`, restores token `root` there with `generate-root`); show status on both |
+| `task status` / `task logs` | `vault status` (primary); `compose logs -f` for a node (`NODE=vault-dr task logs`) |
 | `task seed` | `scripts/seed_vault.py`: 132 namespaces, mounts, KV data, client activity (root) |
-| `task seed:findings` | Configuration that trips every live-testable rule (not VT-HLTH-005/006, VT-POL-005 or VT-SNT-006: irrevocable leases, 100k+ leases, unparseable policies and a hard-mandatory always-false policy, which would lock out the dev cluster, are unit-tested only; VT-POL-001..003 come from the base seed's policies, VT-POL-004 from a drifted `read-only` copy), plus Sentinel EGP/RGPs in `tn009` (VT-SNT-005 from a drifted `vault-ops-hard` RGP in `tn009/gdpr`, VT-SNT-007 from the advisory `vault-ops-http` EGP that imports `http`), two audit devices (`vault-ops-file` to `/vault/logs/vault-ops-audit.log`, `vault-ops-stdout`) and a local 24h automated snapshot (`.tmp/vault/<node>/data/snapshots/`) (root) |
+| `task seed:findings` | Configuration that trips every live-testable rule (not VT-HLTH-005/006, VT-POL-005 or VT-SNT-006: irrevocable leases, 100k+ leases, unparseable policies and a hard-mandatory always-false policy, which would lock out the dev cluster, are unit-tested only; VT-POL-001..003 come from the base seed's policies, VT-POL-004 from a drifted `read-only` copy), plus Sentinel EGP/RGPs in `tn009` (VT-SNT-005 from a drifted `vault-ops-hard` RGP in `tn009/gdpr`, VT-SNT-007 from the advisory `vault-ops-http` EGP that imports `http`), two audit devices (`vault-ops-file` to `/vault/logs/vault-ops-audit.log`, `vault-ops-stdout`), a local 24h automated snapshot (in the node's data volume) and, once `pr:enable` has run, a `tn009/` deny paths filter for `vault-pr` (VT-REPL-005) plus an unused activation token `vault-pr-stale` (VT-REPL-002); VT-REPL-001/003/004 (lag, clock skew, Merkle corruption) are unit-tested only (root) |
 | `task token:audit` | Write `vault-ops-readonly` policy, mint 1h token to `.tmp/audit-token` (0600) |
 | `task token:policies` | Same, plus the `vault-ops-policy-reader` and `vault-ops-sentinel-reader` add-ons, for `policies` and Sentinel checks; their integration tests skip (and the audit test drops VT-SNT rules) without them |
+| `task token:pr` | Same policies as `token:policies`, minted on `vault-pr` into `.tmp/audit-token-pr` |
 | `task skill:run -- <cmd>` | Run `vault_ops.py` with the audit token, e.g. `task skill:run -- audit` (humans/dev only; an agent running the skill must not use it) |
+| `task skill:run:pr -- <cmd>` | Same, against `vault-pr` with `.tmp/audit-token-pr` |
 | `task lint` | pre-commit on tracked + untracked files: ruff, ruff-format, shellcheck, gitleaks, yaml/json |
 | `task test` | Unit tests with coverage ≥ 80% |
 | `task test:integration` | Integration tests (audit token, live Vault) |
-| `task test:oss` | OSS smoke tests: `scripts/test_oss.sh` starts a throwaway Community `vault server -dev` on `127.0.0.1:8230` (in memory, stopped on exit), writes the three policies with its own root token and runs `tests/test_oss.py` with a 15m `vault-ops-readonly` + add-ons token, then seals the server and runs the sealed-node tests (`health` reports it, the rest refuse). Needs a Community `vault` binary; local only, not in CI or `test:all` |
+| `task test:ce` | CE smoke tests: `scripts/test_ce.sh` starts a throwaway Community `vault server -dev` from `compose.ce.yaml` on `127.0.0.1:8230` (in memory, removed on exit), writes the three policies with its own root token and runs `tests/test_ce.py` with a 15m `vault-ops-readonly` + add-ons token, then seals the server and runs the sealed-node tests (`health` reports it, the rest refuse). Needs no licence; local only, not in CI or `test:all` |
 | `task test:all` | Unit + integration with coverage ≥ 80% |
+| `task test:e2e` | `scripts/e2e.sh`: full rebuild from scratch (destructive) through `test:all`, `test:ce` and `lint` |
 | `task test:ci` | `lint` + `plugin:validate` + `test` (no Vault needed); `.github/workflows/ci.yml` runs the same as a `lint` job then a `test-ci` job on push to `main` and on PRs |
 | `task eval` | Skill evals: `claude plugin eval . --tag offline --scaffold` with a no-plugin baseline arm (about $8 of API credits; not in CI), e.g. `task eval -- --runs 1 --case refuse-write`. Extra `--tag` values are ORed with `offline`, so filter with `--case` |
+| `task docs:diagram` | Render `docs/architecture.svg` from `docs/architecture.dot` (Graphviz `dot`) |
 | `task plugin:validate` | `claude plugin validate --strict` on the marketplace and plugin manifests |
-| `task clean` | Remove caches, `.tmp/vault-ops` (results), `.tmp/vault` (all node data, unseal keys, TLS), `.tmp/audit-token`, `.tmp/*.log` |
+| `task clean` | `compose down --volumes` (all node data), then remove caches, `.tmp/vault-ops` (results), `.tmp/vault` (unseal keys, TLS), `.tmp/audit-token*`, `.tmp/*.log` |
 
-Full end-to-end check: `task down && task clean && task up:all && task dr:enable && task seed && task seed:findings && task token:policies && task test:all && task lint`. Keep `dr:enable` before `seed`: enabling DR briefly restarts the primary and drops unsaved client activity (see `docs/dr.md`).
+Full end-to-end check: `task test:e2e` (= `down`, `clean`, `up:all`, `dr:enable`, `pr:enable`, `seed`, `seed:findings`, `token:policies`, `token:pr`, `test:all`, `test:ce`, `lint`). Keep `dr:enable` and `pr:enable` before `seed`: enabling replication briefly restarts the primary and drops unsaved client activity (see `docs/replication.md`).
 
 ## Environment notes
 
-- The container engine is **podman** behind the `docker` CLI (`CONTAINER_CLI` in `.env`). Use fully qualified image names (`docker.io/...`).
-- Ports: primary `127.0.0.1:8210`, DR `127.0.0.1:8220`. Replication uses 8201 on the `vault-ops` podman network (never published). Avoid 8300–8302 (Consul) and 127.0.0.x aliases other than 127.0.0.1 (macOS needs sudo for them).
-- Nodes run in server mode on Raft, not `-dev`: dev-mode in-memory storage can't replicate. Node state lives in `.tmp/vault/<node>/` (`config/vault.hcl`, `data/`, `logs/`, `init.json` with the unseal key and initial root token, 0600).
-- Each node gets a root-policy token with ID `root`, so `VAULT_TOKEN=root` works as in dev mode. After `dr:enable` the secondary uses the primary's storage and unseal key; `vault_up.sh` tries both keys.
-- TLS: one local CA and one shared server cert from `scripts/gen_tls.sh` in `.tmp/vault/tls/` (SANs: localhost, 127.0.0.1, vault-primary, vault-dr). `VAULT_SKIP_VERIFY=true` by default; for verified TLS set `VAULT_CACERT=.tmp/vault/tls/vault-ca.pem`. Details: [docs/dr.md](docs/dr.md).
+- The container engine is **podman** behind the `docker` CLI (`CONTAINER_CLI` in `.env`); `docker compose` delegates to the `docker-compose` v2 provider. Use fully qualified image names (`docker.io/...`). Vault 2.x containers need `cap_add: [IPC_LOCK, SETFCAP]`.
+- Ports: primary `127.0.0.1:8210`, DR `127.0.0.1:8220`, PR `127.0.0.1:8240`, CE test server `127.0.0.1:8230`. Replication uses 8201 on the `vault-ops` network (never published). Containers are `vault-ops_<service>`; replication addresses use the service hostname. Avoid 8300–8302 (Consul) and 127.0.0.x aliases other than 127.0.0.1 (macOS needs sudo for them).
+- Nodes run in server mode on Raft, not `-dev`: dev-mode in-memory storage can't replicate. Raft data lives in a named volume (`vault-ops_<node>-data`), logs go to stdout; `.tmp/vault/<node>/init.json` (unseal key and initial root token, 0600) stays on the host, and config is the committed `compose/vault.hcl`. `task clean` removes volumes and `init.json` together: data without its unseal key can't be unsealed.
+- Each node gets a root-policy token with ID `root`, so `VAULT_TOKEN=root` works as in dev mode. After `dr:enable`/`pr:enable` the secondary uses the primary's storage and unseal key; `vault_up.sh` tries both keys. A performance secondary loses its tokens on activation; `pr_enable.sh` restores `root` via `generate-root`, which Vault 2.0 authenticates by default, so `compose/vault.hcl` sets `enable_unauthenticated_access = ["generate-root"]` (dev only).
+- TLS: one local CA and one shared server cert from `scripts/gen_tls.sh` in `.tmp/vault/tls/` (SANs: localhost, 127.0.0.1, vault-primary, vault-dr, vault-pr; a leaf missing a node SAN is reissued from the same CA). `VAULT_SKIP_VERIFY=true` by default; for verified TLS set `VAULT_CACERT=.tmp/vault/tls/vault-ca.pem`. Details: [docs/replication.md](docs/replication.md).
 - hvac quirk: a `requests.Session` passed to `hvac.Client` overrides its `verify=`. `VaultReader` sets `session.verify`, and a regression test covers it.
 - The default activity-log billing period excludes the current month. `usage` adds `current_month` from `sys/internal/counters/activity/monthly`.
+- Client counts appear about 10 minutes after a node first starts: Vault computes activity on a delay. Right after `task up`/`task seed`, `usage` shows zero clients even though `activity_log.recording` is true, and VT-CLI-001..004 and VT-ID-004 have nothing to judge yet. Wait before checking client numbers by hand. Tests don't assert counts for this reason.
+- `usage` reads `sys/internal/counters/config` into `activity_log` (`enabled`, `recording`, `retention_months`, `reporting_enabled`). VT-CLI-005 fires when the log is disabled (Community dev servers report `default-disabled`, which `test_ce.py` relies on), so zero counts are never mistaken for no clients.
 
 ## Coding conventions
 

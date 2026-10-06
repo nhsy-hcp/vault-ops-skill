@@ -32,8 +32,8 @@ testpaths = ["tests"]
 pythonpath = ["skills/vault-ops/scripts"]
 markers = [
   "integration: needs a running, seeded dev Vault (task up && task seed)",
-  "oss: needs a Community vault server -dev (task test:oss)",
+  "ce: needs a Community vault server -dev (task test:ce)",
 ]
-addopts = "-m 'not integration and not oss'"
+addopts = "-m 'not integration and not ce'"
 # Dev Vault uses a self-signed cert with VAULT_SKIP_VERIFY=true
 filterwarnings = ["ignore::urllib3.exceptions.InsecureRequestWarning"]

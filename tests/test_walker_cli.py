@@ -369,7 +369,7 @@ def test_metrics_timestamp_unparseable_is_none():
 
 
 def test_disconnected_secondary_fires_hlth_002():
-    health = {"replication": {"dr": {"mode": "primary", "state": "running", "secondaries": [{"node_id": "vault-dr", "connection_status": "disconnected"}]}}}
+    health = {"replication": {"dr": {"mode": "primary", "state": "running", "secondaries": [{"node_id": "vault-dr", "connection_status": "disconnected", "last_heartbeat": "2026-10-05T00:00:00Z"}]}}}
     (f,) = vo.health_findings(health)
     assert f.rule_id == "VT-HLTH-002" and f.object_type == "dr"
     assert f.evidence["disconnected_peers"] == ["vault-dr"]
@@ -542,3 +542,209 @@ def test_sealed_refused_for_authenticated_subcommands(env, monkeypatch, capsys, 
     err = capsys.readouterr().err
     assert message in err and "VaultDown" not in err
     assert fake.calls == [("", "sys/health")]  # never tries the token
+
+
+# Real payloads from a vault-primary -> vault-pr performance pair (2.1.1+ent).
+PR_PRIMARY_STATUS = {
+    "cluster_id": "4baae57d-3ff6-397b-c18e-101bc004e2f4",
+    "corrupted_merkle_tree": False,
+    "known_secondaries": ["vault-pr", "vault-pr-stale"],
+    "last_performance_wal": 197,
+    "last_reindex_epoch": "0",
+    "last_wal": 197,
+    "merkle_root": "b6a3800cfc0bf7b6b52f7245bc372c0e5b10fd8e",
+    "mode": "primary",
+    "primary_cluster_addr": "https://vault-primary:8201",
+    "secondaries": [
+        {
+            "api_address": "https://vault-pr:8200",
+            "clock_skew_ms": "0",
+            "cluster_address": "https://vault-pr:8201",
+            "connection_status": "connected",
+            "last_heartbeat": "2026-10-06T08:37:51Z",
+            "last_heartbeat_duration_ms": "0",
+            "node_id": "vault-pr",
+            "replication_primary_canary_age_ms": "463",
+        },
+        {"connection_status": "disconnected", "node_id": "vault-pr-stale"},
+    ],
+    "state": "running",
+}
+PR_SECONDARY_STATUS = {
+    "cluster_id": "4baae57d-3ff6-397b-c18e-101bc004e2f4",
+    "connection_state": "ready",
+    "corrupted_merkle_tree": False,
+    "known_primary_cluster_addrs": ["https://vault-primary:8201"],
+    "last_remote_wal": 197,
+    "merkle_root": "b6a3800cfc0bf7b6b52f7245bc372c0e5b10fd8e",
+    "mode": "secondary",
+    "primaries": [
+        {
+            "api_address": "https://vault-primary:8200",
+            "clock_skew_ms": "-1",
+            "cluster_address": "https://vault-primary:8201",
+            "connection_status": "connected",
+            "last_heartbeat": "2026-10-06T08:37:51Z",
+            "last_heartbeat_duration_ms": "1",
+            "replication_primary_canary_age_ms": "465",
+        }
+    ],
+    "primary_cluster_addr": "https://vault-primary:8201",
+    "secondary_id": "vault-pr",
+    "state": "stream-wals",
+}
+PR_NOW = vo.datetime(2026, 10, 6, 8, 38, tzinfo=vo.UTC)
+FILTER_BASE = "sys/replication/performance/primary"
+
+
+def pr_primary_routes(extra=None):
+    return {
+        ("", "sys/health"): {"cluster_name": "c1", "version": "2.1.1+ent", "sealed": False, "replication_performance_mode": "primary"},
+        ("", "sys/replication/status"): {"data": {"dr": {"mode": "disabled"}, "performance": PR_PRIMARY_STATUS}},
+        ("", f"{FILTER_BASE}/paths-filter/vault-pr"): {"data": {"mode": "deny", "paths": ["tn009/"]}},
+        ("", f"{FILTER_BASE}/dynamic-filter/vault-pr"): {"data": {"dynamic_filtered_mounts": ["tn009/a/auth/jwt/", "tn009/b/kv/"]}},
+        **(extra or {}),
+    }
+
+
+def test_pr_primary_summary_shape():
+    h = vo.collect_health(FakeReader(pr_primary_routes()), vo.Coverage(), paths_filters=True)
+    assert h["performance_secondary"] is False
+    assert h["replication"]["performance"] == {
+        "mode": "primary",
+        "state": "running",
+        "corrupted_merkle_tree": False,
+        "last_wal": 197,
+        "known_secondaries": ["vault-pr", "vault-pr-stale"],
+        "secondaries": [
+            {"node_id": "vault-pr", "connection_status": "connected", "last_heartbeat": "2026-10-06T08:37:51Z", "clock_skew_ms": 0, "replication_primary_canary_age_ms": 463},
+            {"node_id": "vault-pr-stale", "connection_status": "disconnected"},
+        ],
+        "paths_filters": [{"secondary_id": "vault-pr", "mode": "deny", "paths": ["tn009/"], "dynamic_filtered_mounts": 2}],
+    }
+    raw = json.dumps(h)
+    for leaked in ("https://vault-", ":8201", "cluster_id", "merkle_root", "4baae57d", "b6a3800c", "tn009/a/auth"):
+        assert leaked not in raw
+
+
+def test_pr_primary_findings_stale_and_filter_only():
+    h = vo.collect_health(FakeReader(pr_primary_routes()), vo.Coverage(), paths_filters=True)
+    found = vo.health_findings(h, now=PR_NOW)
+    repl = sorted((f.rule_id, f.object_path) for f in found if f.object_type == "performance")
+    assert repl == [("VT-HLTH-002", "performance"), ("VT-REPL-002", "performance:vault-pr-stale"), ("VT-REPL-005", "performance:vault-pr")]
+    (flt,) = [f for f in found if f.rule_id == "VT-REPL-005"]
+    assert dict(flt.evidence) == {"secondary_id": "vault-pr", "mode": "deny", "paths": ["tn009/"], "dynamic_filtered_mounts": 2}
+
+
+def test_pr_paths_filters_denied_is_null_and_recorded():
+    routes = pr_primary_routes({("", f"{FILTER_BASE}/paths-filter/vault-pr"): vo.hvac_exc.Forbidden("denied")})
+    cov = vo.Coverage()
+    h = vo.collect_health(FakeReader(routes), cov, paths_filters=True)
+    assert h["replication"]["performance"]["paths_filters"] is None
+    assert {"namespace": "/", "scope": f"{FILTER_BASE}/paths-filter"} in cov.denied
+
+
+def test_pr_paths_filters_dynamic_denied_and_errors():
+    routes = pr_primary_routes(
+        {
+            ("", f"{FILTER_BASE}/dynamic-filter/vault-pr"): vo.hvac_exc.Forbidden("denied"),
+            ("", f"{FILTER_BASE}/paths-filter/vault-pr-stale"): vo.hvac_exc.InternalServerError("boom"),
+        }
+    )
+    cov = vo.Coverage()
+    filters = vo.collect_health(FakeReader(routes), cov, paths_filters=True)["replication"]["performance"]["paths_filters"]
+    assert filters == [{"secondary_id": "vault-pr", "mode": "deny", "paths": ["tn009/"], "dynamic_filtered_mounts": None}]
+    assert {"namespace": "/", "scope": f"{FILTER_BASE}/dynamic-filter"} in cov.denied and cov.errors
+
+
+def test_pr_no_filters_is_empty_list():
+    routes = pr_primary_routes({("", f"{FILTER_BASE}/paths-filter/vault-pr"): vo.hvac_exc.InvalidPath("none")})
+    assert vo.collect_health(FakeReader(routes), vo.Coverage(), paths_filters=True)["replication"]["performance"]["paths_filters"] == []
+
+
+def test_pr_secondary_summary_and_healthy():
+    routes = {
+        ("", "sys/health"): {"cluster_name": "c2", "version": "2.1.1+ent", "sealed": False, "replication_performance_mode": "secondary"},
+        ("", "sys/replication/status"): {"data": {"dr": {"mode": "disabled"}, "performance": PR_SECONDARY_STATUS}},
+    }
+    reader = FakeReader(routes)
+    h = vo.collect_health(reader, vo.Coverage())
+    assert h["performance_secondary"] is True and h["dr_secondary"] is False
+    assert h["replication"]["performance"] == {
+        "mode": "secondary",
+        "state": "stream-wals",
+        "connection_state": "ready",
+        "corrupted_merkle_tree": False,
+        "last_remote_wal": 197,
+        "primaries": [{"connection_status": "connected", "last_heartbeat": "2026-10-06T08:37:51Z", "clock_skew_ms": -1, "replication_primary_canary_age_ms": 465}],
+    }
+    assert not [c for c in reader.calls if "paths-filter" in c[1]]  # filters are read on the primary only
+    assert "https://vault-" not in json.dumps(h)
+    assert vo.health_findings(h, now=PR_NOW) == []
+
+
+CONFIG_PATH = "sys/internal/counters/config"
+
+
+@pytest.mark.parametrize(
+    ("enabled", "recording"),
+    [("default-disabled", False), ("disable", False), ("default-enabled", True), ("enable", True), ("something-new", None)],
+)
+def test_activity_config_recording(enabled, recording):
+    routes = {("", CONFIG_PATH): {"data": {"enabled": enabled, "retention_months": 48, "reporting_enabled": False, "billing_start_timestamp": "x", "queries_available": False}}}
+    cfg = vo.read_activity_config(FakeReader(routes), vo.Coverage())
+    assert cfg == {"enabled": enabled, "recording": recording, "retention_months": 48, "reporting_enabled": False}  # allowlisted fields only
+
+
+def test_activity_config_denied_and_errors():
+    cov = vo.Coverage()
+    assert vo.read_activity_config(FakeReader({("", CONFIG_PATH): vo.hvac_exc.Forbidden("denied")}), cov) is None
+    assert {"namespace": "/", "scope": CONFIG_PATH} in cov.denied
+    cov = vo.Coverage()
+    assert vo.read_activity_config(FakeReader({("", CONFIG_PATH): vo.hvac_exc.InternalServerError("boom")}), cov) is None
+    assert cov.errors
+    weird = vo.read_activity_config(FakeReader({("", CONFIG_PATH): {"data": {"enabled": None, "retention_months": "n/a", "reporting_enabled": "yes"}}}), vo.Coverage())
+    assert weird == {"enabled": None, "recording": None, "retention_months": None, "reporting_enabled": None}
+
+
+def test_heartbeat_age_uses_server_time_not_host_clock(monkeypatch):
+    monkeypatch.setattr(vo, "utc_now", lambda: PR_NOW.replace(hour=11))  # host clock / judging time: 3h later
+    # Collected at 08:38 on the server; judged hours later (a long audit walk, or a skewed host clock).
+    server_time = int(PR_NOW.timestamp())
+    routes = pr_primary_routes({("", "sys/health"): {**pr_primary_routes()[("", "sys/health")], "server_time_utc": server_time}})
+    h = vo.collect_health(FakeReader(routes), vo.Coverage())
+    assert h["server_time_utc"] == server_time
+    assert "VT-REPL-001" not in {f.rule_id for f in vo.health_findings(h)}  # heartbeat 9s before the server's own clock
+    no_server_time = {**h, "server_time_utc": None}
+    assert "VT-REPL-001" in {f.rule_id for f in vo.health_findings(no_server_time)}  # host-clock fallback: 3h stale
+
+
+def test_paths_filters_read_only_for_health_and_audit():
+    reader = FakeReader(pr_primary_routes({("", f"{FILTER_BASE}/paths-filter/vault-pr"): vo.hvac_exc.Forbidden("denied")}))
+    cov = vo.Coverage()
+    h = vo.collect_health(reader, cov)  # usage, entities, policies, inventory
+    assert "paths_filters" not in h["replication"]["performance"]
+    assert not any("filter" in path for _, path in reader.calls) and cov.to_dict()["complete"] is True
+
+
+def test_dynamic_filter_denial_recorded_once():
+    routes = pr_primary_routes(
+        {
+            ("", f"{FILTER_BASE}/paths-filter/vault-pr-stale"): {"data": {"mode": "allow", "paths": ["tn001/"]}},
+            ("", f"{FILTER_BASE}/dynamic-filter/vault-pr"): vo.hvac_exc.Forbidden("denied"),
+            ("", f"{FILTER_BASE}/dynamic-filter/vault-pr-stale"): vo.hvac_exc.Forbidden("denied"),
+        }
+    )
+    reader, cov = FakeReader(routes), vo.Coverage()
+    filters = vo.collect_health(reader, cov, paths_filters=True)["replication"]["performance"]["paths_filters"]
+    assert [f["dynamic_filtered_mounts"] for f in filters] == [None, None]
+    assert cov.denied == [{"namespace": "/", "scope": f"{FILTER_BASE}/dynamic-filter"}]
+    assert sum("dynamic-filter" in path for _, path in reader.calls) == 1
+
+
+def test_replication_fingerprints_differ_by_kind():
+    status = {"mode": "primary", "state": "connecting", "corrupted_merkle_tree": True, "secondaries": [{"node_id": "s1", "connection_status": "disconnected"}]}
+    found = vo.health_findings({"replication": {"dr": dict(status), "performance": dict(status)}}, now=PR_NOW)
+    for rule_id in ("VT-HLTH-002", "VT-REPL-002", "VT-REPL-004"):
+        prints = {f.fingerprint for f in found if f.rule_id == rule_id}
+        assert len(prints) == 2, rule_id

@@ -1,0 +1,234 @@
+{
+  "schema_version": "1.10.0",
+  "tool": {
+    "name": "vault-ops",
+    "version": "0.4.0"
+  },
+  "run": {
+    "cluster_name": "vault-cluster-cf2c516a",
+    "vault_addr": "https://127.0.0.1:8240",
+    "start_namespace": "/",
+    "started_at": "2026-10-06T09:25:19Z",
+    "finished_at": "2026-10-06T09:25:19Z",
+    "duration_seconds": 0.0
+  },
+  "coverage": {
+    "namespaces_processed": 0,
+    "complete": true,
+    "denied": [],
+    "errors": []
+  },
+  "health": {
+    "cluster_name": "vault-cluster-cf2c516a",
+    "version": "2.1.1+ent",
+    "enterprise": true,
+    "initialized": true,
+    "sealed": false,
+    "standby": false,
+    "performance_standby": false,
+    "replication_dr_mode": "disabled",
+    "replication_performance_mode": "secondary",
+    "dr_secondary": false,
+    "performance_secondary": true,
+    "server_time_utc": 1791278719,
+    "seal": null,
+    "leader": {
+      "ha_enabled": true,
+      "is_self": true,
+      "leader_address_present": true,
+      "raft_committed_index": 18538
+    },
+    "license": {
+      "license_id": "f6fdb17e-11ee-e20e-045f-b8110f344f1e",
+      "edition": "",
+      "expiration_time": "2026-10-31T00:00:00Z",
+      "termination_time": "2026-10-31T00:00:00Z",
+      "features": [
+        "HSM",
+        "Performance Replication",
+        "DR Replication",
+        "MFA",
+        "Sentinel",
+        "Seal Wrapping",
+        "Control Groups",
+        "Performance Standby",
+        "Namespaces",
+        "KMIP",
+        "Entropy Augmentation",
+        "Transform Secrets Engine",
+        "Lease Count Quotas",
+        "Key Management Secrets Engine",
+        "Automated Snapshots",
+        "Key Management Transparent Data Encryption",
+        "Secrets Sync",
+        "Secrets Import",
+        "Oracle Database Secrets Engine",
+        "Azure Secrets Engine",
+        "SPIFFE Auth Engine",
+        "SPIFFE Secrets Engine",
+        "OpenLDAP Secrets Engine",
+        "PKI External CA Secrets Engine",
+        "Okta Auth Engine"
+      ],
+      "performance_standby_count": 9999
+    },
+    "replication": {
+      "dr": {
+        "mode": "disabled",
+        "state": null
+      },
+      "performance": {
+        "mode": "secondary",
+        "state": "stream-wals",
+        "connection_state": "ready",
+        "corrupted_merkle_tree": false,
+        "last_remote_wal": 14375,
+        "primaries": [
+          {
+            "connection_status": "connected",
+            "last_heartbeat": "2026-10-06T09:25:16Z",
+            "clock_skew_ms": -1,
+            "replication_primary_canary_age_ms": 261
+          }
+        ]
+      }
+    },
+    "raft": {
+      "peers": [
+        {
+          "node_id": "vault-pr",
+          "leader": true,
+          "voter": true
+        }
+      ],
+      "autopilot": {
+        "configuration": {
+          "cleanup_dead_servers": false,
+          "dead_server_last_contact_threshold": "24h0m0s",
+          "last_contact_threshold": "10s",
+          "max_trailing_logs": 1000,
+          "min_quorum": 0,
+          "server_stabilization_time": "10s",
+          "disable_upgrade_migration": false
+        },
+        "state": {
+          "healthy": true,
+          "failure_tolerance": 0,
+          "leader": "vault-pr",
+          "voters": [
+            "vault-pr"
+          ],
+          "upgrade_status": "idle",
+          "servers": [
+            {
+              "id": "vault-pr",
+              "status": "leader",
+              "node_type": "voter",
+              "node_status": "alive",
+              "healthy": true,
+              "last_contact": "0s",
+              "last_term": 5,
+              "last_index": 18538,
+              "stable_since": "2026-10-06T09:23:21.146596782Z",
+              "version": "2.1.1"
+            }
+          ]
+        }
+      }
+    },
+    "lease_ttls": {
+      "default_lease_ttl_seconds": null,
+      "max_lease_ttl_seconds": null
+    },
+    "audit_devices": [
+      {
+        "path": "vault-ops-file/",
+        "type": "file",
+        "local": false,
+        "options": {
+          "sink": "file"
+        }
+      },
+      {
+        "path": "vault-ops-stdout/",
+        "type": "file",
+        "local": false,
+        "options": {
+          "hmac_accessor": false,
+          "sink": "stdout"
+        }
+      }
+    ],
+    "snapshots": {
+      "configs": []
+    },
+    "metrics": {
+      "node_scope": true,
+      "timestamp": "2026-10-06T09:25:00Z",
+      "leases": 3,
+      "irrevocable_leases": 0,
+      "in_flight_requests": 0,
+      "raft_fsm_pending": 0,
+      "raft_oldest_log_age_ms": 1758974,
+      "goroutines": 819,
+      "alloc_bytes": 317824220,
+      "sys_bytes": 428337500,
+      "token_count": null
+    }
+  },
+  "findings": [
+    {
+      "fingerprint": "ff861aa9963689fd",
+      "rule_id": "VT-LIC-001",
+      "severity": "medium",
+      "category": "lifecycle",
+      "namespace": "/",
+      "object": {
+        "kind": "cluster",
+        "path": null,
+        "type": "license"
+      },
+      "title": "License expires soon",
+      "detail": "License expires on 2026-10-31 (24 days remaining) \u2014 renew before the grace period ends.",
+      "evidence": {
+        "days_remaining": 24,
+        "expiration_time": "2026-10-31T00:00:00Z"
+      }
+    },
+    {
+      "fingerprint": "cd036c0de008de11",
+      "rule_id": "VT-SNAP-001",
+      "severity": "medium",
+      "category": "backup",
+      "namespace": "/",
+      "object": {
+        "kind": "cluster",
+        "path": null,
+        "type": "raft"
+      },
+      "title": "No automated Raft snapshots configured",
+      "detail": "No automated Raft snapshot is configured \u2014 recovery depends on manual snapshots.",
+      "evidence": {
+        "configs": 0
+      }
+    },
+    {
+      "fingerprint": "833d35d433199a02",
+      "rule_id": "VT-AUD-003",
+      "severity": "medium",
+      "category": "audit",
+      "namespace": "/",
+      "object": {
+        "kind": "audit_device",
+        "path": "vault-ops-stdout/",
+        "type": "file"
+      },
+      "title": "Audit device logs raw values or unhashed accessors",
+      "detail": "Audit device `vault-ops-stdout/`: `hmac_accessor=false` writes token accessors unhashed.",
+      "evidence": {
+        "hmac_accessor": false,
+        "log_raw": false
+      }
+    }
+  ]
+}

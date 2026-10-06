@@ -39,8 +39,8 @@ def test_primary_reports_connected_dr_secondary(dr_addr, capsys, tmp_path):
     assert code == 0
     dr = doc["health"]["replication"]["dr"]
     assert dr["mode"] == "primary" and dr["state"] == "running"
-    assert {"node_id": "vault-dr", "connection_status": "connected"} in dr["secondaries"]
-    assert not [f for f in doc["findings"] if f["rule_id"] == "VT-HLTH-002"]
+    assert {"node_id": "vault-dr", "connection_status": "connected"} in [{k: s[k] for k in ("node_id", "connection_status")} for s in dr["secondaries"]]
+    assert not [f for f in doc["findings"] if f["rule_id"] == "VT-HLTH-002" and f["object"]["type"] == "dr"]
     assert doc["coverage"]["complete"] is True
 
 
@@ -52,7 +52,7 @@ def test_secondary_health_without_token_endpoints(dr_addr, capsys, tmp_path, mon
     assert h["dr_secondary"] is True and h["sealed"] is False
     assert h["replication"]["dr"]["mode"] == "secondary"
     assert h["replication"]["dr"]["state"] == "stream-wals"
-    assert h["replication"]["dr"]["primaries"] == [{"connection_status": "connected"}]
+    assert [p["connection_status"] for p in h["replication"]["dr"]["primaries"]] == ["connected"]
     assert h["license"] is None and h["lease_ttls"] is None
     assert doc["coverage"]["complete"] is True
     assert not [f for f in doc["findings"] if f["rule_id"] in ("VT-HLTH-001", "VT-HLTH-002")]

@@ -1,0 +1,338 @@
+{
+  "schema_version": "1.10.0",
+  "tool": {
+    "name": "vault-ops",
+    "version": "0.4.0"
+  },
+  "run": {
+    "cluster_name": "vault-cluster-e94cb66c",
+    "vault_addr": "https://127.0.0.1:8210",
+    "start_namespace": "/",
+    "started_at": "2026-10-06T09:23:42Z",
+    "finished_at": "2026-10-06T09:23:42Z",
+    "duration_seconds": 0.0
+  },
+  "coverage": {
+    "namespaces_processed": 0,
+    "complete": true,
+    "denied": [],
+    "errors": []
+  },
+  "health": {
+    "cluster_name": "vault-cluster-e94cb66c",
+    "version": "2.1.1+ent",
+    "enterprise": true,
+    "initialized": true,
+    "sealed": false,
+    "standby": false,
+    "performance_standby": false,
+    "replication_dr_mode": "primary",
+    "replication_performance_mode": "primary",
+    "dr_secondary": false,
+    "performance_secondary": false,
+    "server_time_utc": 1791278622,
+    "seal": null,
+    "leader": {
+      "ha_enabled": true,
+      "is_self": true,
+      "leader_address_present": true,
+      "raft_committed_index": 18215
+    },
+    "license": {
+      "license_id": "f6fdb17e-11ee-e20e-045f-b8110f344f1e",
+      "edition": "",
+      "expiration_time": "2026-10-31T00:00:00Z",
+      "termination_time": "2026-10-31T00:00:00Z",
+      "features": [
+        "HSM",
+        "Performance Replication",
+        "DR Replication",
+        "MFA",
+        "Sentinel",
+        "Seal Wrapping",
+        "Control Groups",
+        "Performance Standby",
+        "Namespaces",
+        "KMIP",
+        "Entropy Augmentation",
+        "Transform Secrets Engine",
+        "Lease Count Quotas",
+        "Key Management Secrets Engine",
+        "Automated Snapshots",
+        "Key Management Transparent Data Encryption",
+        "Secrets Sync",
+        "Secrets Import",
+        "Oracle Database Secrets Engine",
+        "Azure Secrets Engine",
+        "SPIFFE Auth Engine",
+        "SPIFFE Secrets Engine",
+        "OpenLDAP Secrets Engine",
+        "PKI External CA Secrets Engine",
+        "Okta Auth Engine"
+      ],
+      "performance_standby_count": 9999
+    },
+    "replication": {
+      "dr": {
+        "mode": "primary",
+        "state": "running",
+        "corrupted_merkle_tree": false,
+        "last_wal": 14279,
+        "known_secondaries": [
+          "vault-dr"
+        ],
+        "secondaries": [
+          {
+            "node_id": "vault-dr",
+            "connection_status": "connected",
+            "last_heartbeat": "2026-10-06T09:23:41Z",
+            "clock_skew_ms": -1,
+            "replication_primary_canary_age_ms": 888
+          }
+        ]
+      },
+      "performance": {
+        "mode": "primary",
+        "state": "running",
+        "corrupted_merkle_tree": false,
+        "last_wal": 14279,
+        "known_secondaries": [
+          "vault-pr",
+          "vault-pr-stale"
+        ],
+        "secondaries": [
+          {
+            "node_id": "vault-pr",
+            "connection_status": "connected",
+            "last_heartbeat": "2026-10-06T09:23:41Z",
+            "clock_skew_ms": 0,
+            "replication_primary_canary_age_ms": 776
+          },
+          {
+            "node_id": "vault-pr-stale",
+            "connection_status": "disconnected"
+          }
+        ],
+        "paths_filters": [
+          {
+            "secondary_id": "vault-pr",
+            "mode": "deny",
+            "paths": [
+              "tn009/"
+            ],
+            "dynamic_filtered_mounts": 110
+          }
+        ]
+      }
+    },
+    "raft": {
+      "peers": [
+        {
+          "node_id": "vault-primary",
+          "leader": true,
+          "voter": true
+        }
+      ],
+      "autopilot": {
+        "configuration": {
+          "cleanup_dead_servers": false,
+          "dead_server_last_contact_threshold": "24h0m0s",
+          "last_contact_threshold": "10s",
+          "max_trailing_logs": 1000,
+          "min_quorum": 0,
+          "server_stabilization_time": "10s",
+          "disable_upgrade_migration": false
+        },
+        "state": {
+          "healthy": true,
+          "failure_tolerance": 0,
+          "leader": "vault-primary",
+          "voters": [
+            "vault-primary"
+          ],
+          "upgrade_status": "idle",
+          "servers": [
+            {
+              "id": "vault-primary",
+              "status": "leader",
+              "node_type": "voter",
+              "node_status": "alive",
+              "healthy": true,
+              "last_contact": "0s",
+              "last_term": 5,
+              "last_index": 18208,
+              "stable_since": "2026-10-06T09:23:12.826577163Z",
+              "version": "2.1.1"
+            }
+          ]
+        }
+      }
+    },
+    "lease_ttls": {
+      "default_lease_ttl_seconds": null,
+      "max_lease_ttl_seconds": null
+    },
+    "audit_devices": [
+      {
+        "path": "vault-ops-file/",
+        "type": "file",
+        "local": false,
+        "options": {
+          "sink": "file"
+        }
+      },
+      {
+        "path": "vault-ops-stdout/",
+        "type": "file",
+        "local": false,
+        "options": {
+          "hmac_accessor": false,
+          "sink": "stdout"
+        }
+      }
+    ],
+    "snapshots": {
+      "configs": [
+        {
+          "name": "vault-ops-local",
+          "status_readable": true,
+          "consecutive_errors": 0,
+          "last_snapshot_start": "2026-10-06T08:56:17Z",
+          "last_snapshot_end": "2026-10-06T08:56:17Z",
+          "next_snapshot_start": "2026-10-06T08:56:47Z",
+          "in_progress": false,
+          "storage_scheme": "file"
+        }
+      ]
+    },
+    "metrics": {
+      "node_scope": true,
+      "timestamp": "2026-10-06T09:23:30Z",
+      "leases": 725,
+      "irrevocable_leases": 0,
+      "in_flight_requests": 0,
+      "raft_fsm_pending": 0,
+      "raft_oldest_log_age_ms": 1675040,
+      "goroutines": 966,
+      "alloc_bytes": 403262100,
+      "sys_bytes": 451113300,
+      "token_count": null
+    }
+  },
+  "findings": [
+    {
+      "fingerprint": "ff861aa9963689fd",
+      "rule_id": "VT-LIC-001",
+      "severity": "medium",
+      "category": "lifecycle",
+      "namespace": "/",
+      "object": {
+        "kind": "cluster",
+        "path": null,
+        "type": "license"
+      },
+      "title": "License expires soon",
+      "detail": "License expires on 2026-10-31 (24 days remaining) \u2014 renew before the grace period ends.",
+      "evidence": {
+        "days_remaining": 24,
+        "expiration_time": "2026-10-31T00:00:00Z"
+      }
+    },
+    {
+      "fingerprint": "93e868ab26d8ff8a",
+      "rule_id": "VT-HLTH-002",
+      "severity": "medium",
+      "category": "replication",
+      "namespace": "/",
+      "object": {
+        "kind": "cluster",
+        "path": "performance",
+        "type": "performance"
+      },
+      "title": "Replication enabled but not healthy",
+      "detail": "PERFORMANCE replication `primary` has disconnected peer(s): vault-pr-stale \u2014 check the cluster port (8201) path and the peer's status.",
+      "evidence": {
+        "disconnected_peers": [
+          "vault-pr-stale"
+        ],
+        "mode": "primary",
+        "state": "running"
+      }
+    },
+    {
+      "fingerprint": "833d35d433199a02",
+      "rule_id": "VT-AUD-003",
+      "severity": "medium",
+      "category": "audit",
+      "namespace": "/",
+      "object": {
+        "kind": "audit_device",
+        "path": "vault-ops-stdout/",
+        "type": "file"
+      },
+      "title": "Audit device logs raw values or unhashed accessors",
+      "detail": "Audit device `vault-ops-stdout/`: `hmac_accessor=false` writes token accessors unhashed.",
+      "evidence": {
+        "hmac_accessor": false,
+        "log_raw": false
+      }
+    },
+    {
+      "fingerprint": "15ea6aaef89cbb87",
+      "rule_id": "VT-REPL-002",
+      "severity": "low",
+      "category": "replication",
+      "namespace": "/",
+      "object": {
+        "kind": "cluster",
+        "path": "performance:vault-pr-stale",
+        "type": "performance"
+      },
+      "title": "Known secondary has no heartbeat (never connected, or down since the primary started)",
+      "detail": "Known performance secondary `vault-pr-stale` has no heartbeat since this primary started: either it never connected (an unused activation token, or a secondary removed without `revoke-secondary`) or it has been down since the primary restarted. Confirm which with the team before revoking anything.",
+      "evidence": {
+        "connection_status": "disconnected",
+        "secondary_id": "vault-pr-stale"
+      }
+    },
+    {
+      "fingerprint": "dfbc42c2dc21b027",
+      "rule_id": "VT-REPL-005",
+      "severity": "info",
+      "category": "replication",
+      "namespace": "/",
+      "object": {
+        "kind": "cluster",
+        "path": "performance:vault-pr",
+        "type": "performance"
+      },
+      "title": "Performance replication paths filter in use",
+      "detail": "Paths filter (`deny`) on secondary `vault-pr`: tn009/ \u2014 these namespaces/mounts differ between the clusters by design.",
+      "evidence": {
+        "dynamic_filtered_mounts": 110,
+        "mode": "deny",
+        "paths": [
+          "tn009/"
+        ],
+        "secondary_id": "vault-pr"
+      }
+    },
+    {
+      "fingerprint": "fa48f61eb7697c17",
+      "rule_id": "VT-SNAP-003",
+      "severity": "info",
+      "category": "backup",
+      "namespace": "/",
+      "object": {
+        "kind": "snapshot_config",
+        "path": "vault-ops-local",
+        "type": "file"
+      },
+      "title": "Automated snapshots stored on the node's local disk",
+      "detail": "Automated snapshot `vault-ops-local` writes to the node's local disk \u2014 a lost node takes its snapshots with it.",
+      "evidence": {
+        "storage_scheme": "file"
+      }
+    }
+  ]
+}

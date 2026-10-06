@@ -74,8 +74,21 @@ def health():
         "leader": {"ha_enabled": True, "leader_address_present": False},
         "license": {"expiration_time": "2026-10-20T00:00:00Z", "license_id": "L1"},
         "replication": {
-            "dr": {"mode": "primary", "state": "idle"},
-            "performance": {"mode": "secondary", "state": "connecting"},
+            "dr": {  # VT-REPL-001 (canary lag), VT-REPL-002 (never connected), VT-REPL-003 (skew), VT-REPL-004
+                "mode": "primary",
+                "state": "idle",
+                "corrupted_merkle_tree": True,
+                "known_secondaries": ["dr-lag", "dr-stale"],
+                "secondaries": [
+                    {"node_id": "dr-lag", "connection_status": "connected", "last_heartbeat": None, "clock_skew_ms": -5000, "replication_primary_canary_age_ms": 120_000},
+                    {"node_id": "dr-stale", "connection_status": "disconnected"},
+                ],
+            },
+            "performance": {  # VT-HLTH-002 (state), VT-REPL-005 (paths filter)
+                "mode": "primary",
+                "state": "connecting",
+                "paths_filters": [{"secondary_id": "pr-1", "mode": "deny", "paths": ["tn009/"], "dynamic_filtered_mounts": 3}],
+            },
         },
         "lease_ttls": {"default_lease_ttl_seconds": 1000 * 3600, "max_lease_ttl_seconds": 8760 * 3600},  # VT-LEASE-001
         "audit_devices": [{"path": "file/", "type": "file", "local": False, "options": {"log_raw": True, "sink": "file"}}],  # VT-AUD-002, VT-AUD-003

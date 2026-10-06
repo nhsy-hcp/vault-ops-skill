@@ -1,4 +1,4 @@
-"""OSS smoke tests: need a Community `vault server -dev` set up by `task test:oss` (scripts/test_oss.sh).
+"""CE smoke tests: need the Community dev server from compose.ce.yaml, set up by `task test:ce` (scripts/test_ce.sh).
 
 Community has no namespaces, Sentinel, license, Raft or automated snapshots: every subcommand must
 still exit 0 with complete coverage and report those features as absent, not as errors.
@@ -12,8 +12,8 @@ import jsonschema
 import pytest
 import vault_ops as vo
 
-MODE = os.getenv("VAULT_OPS_OSS")  # "1" = unsealed pass, "sealed" = after scripts/test_oss.sh seals the server
-pytestmark = [pytest.mark.oss, pytest.mark.skipif(MODE not in ("1", "sealed"), reason="run with task test:oss")]
+MODE = os.getenv("VAULT_OPS_CE")  # "1" = unsealed pass, "sealed" = after scripts/test_ce.sh seals the server
+pytestmark = [pytest.mark.ce, pytest.mark.skipif(MODE not in ("1", "sealed"), reason="run with task test:ce")]
 unsealed = pytest.mark.skipif(MODE != "1", reason="unsealed pass only")
 sealed = pytest.mark.skipif(MODE != "sealed", reason="sealed pass only")
 
@@ -53,6 +53,15 @@ def test_other_subcommands(capsys, tmp_path, args):
     code, (doc,) = run(capsys, *args, "--output-dir", str(tmp_path))
     assert code == vo.EXIT_OK
     assert doc["coverage"]["complete"] is True, doc["coverage"]
+
+
+@unsealed
+def test_usage_reports_disabled_activity_log(capsys, tmp_path):
+    # A Community dev server keeps the activity log off, so zero counts must come with VT-CLI-005.
+    code, (doc,) = run(capsys, "usage", "--output-dir", str(tmp_path))
+    assert code == vo.EXIT_OK
+    assert doc["activity_log"]["enabled"] == "default-disabled" and doc["activity_log"]["recording"] is False
+    assert [f["rule_id"] for f in doc["findings"]] == ["VT-CLI-005"]
 
 
 @unsealed

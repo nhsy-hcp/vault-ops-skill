@@ -42,6 +42,8 @@ export VAULT_TOKEN="$(vault token create -policy=vault-ops-readonly -no-default-
 claude
 ```
 
+Tokens are per cluster. To review a performance replication secondary, mint the token on that secondary (`VAULT_ADDR` pointing at it). The policy replicates from the primary, so it already exists there. A DR secondary needs no token: only `health` works there.
+
 | Variable | Required | Purpose |
 | --- | --- | --- |
 | `VAULT_ADDR` | yes | Vault address |

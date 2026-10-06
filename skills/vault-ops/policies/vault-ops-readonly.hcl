@@ -30,11 +30,25 @@ path "sys/replication/status" {
   capabilities = ["read"]
 }
 
+# Performance paths filters per secondary (mode + filtered paths; dynamic mount count only)
+path "sys/replication/performance/primary/paths-filter/*" {
+  capabilities = ["read"]
+}
+
+path "sys/replication/performance/primary/dynamic-filter/*" {
+  capabilities = ["read"]
+}
+
 path "sys/internal/counters/activity" {
   capabilities = ["read"]
 }
 
 path "sys/internal/counters/activity/monthly" {
+  capabilities = ["read"]
+}
+
+# Activity-log configuration: tells "log disabled" apart from "no clients" (VT-CLI-005)
+path "sys/internal/counters/config" {
   capabilities = ["read"]
 }
 

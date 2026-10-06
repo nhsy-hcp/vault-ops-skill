@@ -2,8 +2,8 @@
 # Enable DR replication: vault-primary -> vault-dr (idempotent). Both nodes must be up.
 set -euo pipefail
 
-PRIMARY_NAME="${VAULT_CONTAINER_NAME:-vault-primary}"
-DR_NAME="${VAULT_DR_CONTAINER_NAME:-vault-dr}"
+PRIMARY_NAME="vault-primary"
+DR_NAME="vault-dr"
 VAULT_HOST_IP="${VAULT_HOST_IP:-127.0.0.1}"
 PRIMARY_ADDR="https://${VAULT_HOST_IP}:${VAULT_HOST_PORT:-8210}"
 DR_ADDR="https://${VAULT_HOST_IP}:${VAULT_DR_HOST_PORT:-8220}"

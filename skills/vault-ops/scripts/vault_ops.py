@@ -48,7 +48,7 @@ from hvac import exceptions as hvac_exc
 
 TOOL_NAME = "vault-ops"
 TOOL_VERSION = "0.3.3"
-SCHEMA_VERSION = "1.9.0"
+SCHEMA_VERSION = "1.10.0"
 
 EXIT_OK, EXIT_FATAL, EXIT_GAPS, EXIT_FINDINGS, EXIT_INTERRUPTED = 0, 1, 2, 3, 130
 
@@ -138,6 +138,11 @@ ALWAYS_TRUE_MAIN = re.compile(r"^main\s*=\s*rule\s*\{\s*true\s*\}$")
 ALWAYS_FALSE_MAIN = re.compile(r"^main\s*=\s*(?:rule\s*\{\s*false\s*\}|false)$")
 SENTINEL_IMPORT = re.compile(r'^\s*import\s+"([^"]+)"', re.M)
 HEALTHY_REPLICATION_STATES = frozenset({"running", "stream-wals", "idle"})
+# VT-REPL-001/003: replication link thresholds. The primary's canary age is how stale the
+# newest replicated write is on the peer; heartbeats arrive every few seconds when healthy.
+REPL_CANARY_AGE_MS = 60_000
+REPL_HEARTBEAT_AGE_S = 60
+REPL_CLOCK_SKEW_MS = 2_000
 # sys/health query that returns 200 (and a body) for every node state.
 HEALTH_PARAMS = {
     "standbyok": "true",
@@ -149,7 +154,7 @@ HEALTH_PARAMS = {
     "standbycode": "200",
 }
 
-SEVERITIES = ("medium", "low", "info")
+SEVERITIES = ("high", "medium", "low", "info")
 
 
 @dataclass(frozen=True)
@@ -183,6 +188,11 @@ RULES: dict[str, Rule] = {
     "VT-HLTH-004": Rule("medium", "availability", "Raft autopilot reports the cluster or a server unhealthy"),
     "VT-HLTH-005": Rule("low", "lease", "Irrevocable leases present"),
     "VT-HLTH-006": Rule("medium", "lease", "Lease count is high"),
+    "VT-REPL-001": Rule("medium", "replication", "Replication peer is lagging"),
+    "VT-REPL-002": Rule("low", "replication", "Known secondary has no heartbeat (never connected, or down since the primary started)"),
+    "VT-REPL-003": Rule("medium", "replication", "Clock skew between replication peers"),
+    "VT-REPL-004": Rule("high", "replication", "Replication merkle tree reported corrupted"),
+    "VT-REPL-005": Rule("info", "replication", "Performance replication paths filter in use"),
     "VT-LEASE-001": Rule("low", "lease", "Cluster default lease TTL is long"),
     "VT-AUD-001": Rule("medium", "audit", "No audit device enabled"),
     "VT-AUD-002": Rule("low", "audit", "Only one audit device enabled"),
@@ -199,6 +209,7 @@ RULES: dict[str, Rule] = {
     "VT-CLI-002": Rule("low", "clients", "Client count growing sharply"),
     "VT-CLI-003": Rule("low", "clients", "Mount creates new clients every month"),
     "VT-CLI-004": Rule("info", "clients", "Most clients in the root namespace"),
+    "VT-CLI-005": Rule("low", "clients", "Activity log disabled: client counts are not recorded"),
     "VT-POL-001": Rule("medium", "access", "ACL policy grants write or sudo on every path"),
     "VT-POL-002": Rule("medium", "access", "ACL policy can change access control"),
     "VT-POL-003": Rule("low", "access", "ACL policy grants sudo"),
@@ -972,12 +983,13 @@ def collect_sentinel_policies(reader: VaultReader, coverage: Coverage, namespace
     return ("unsupported" if state["status"] == "unknown" else state["status"]), found
 
 
-def collect_health(reader: VaultReader, coverage: Coverage, probe: dict[str, Any] | None = None) -> dict[str, Any]:
+def collect_health(reader: VaultReader, coverage: Coverage, probe: dict[str, Any] | None = None, paths_filters: bool = False) -> dict[str, Any]:
     """Cluster-level status. Every read is optional; failures land in coverage.
 
     On a DR secondary only the unauthenticated endpoints answer (health, leader,
     replication status), so license and lease reads are skipped there. A sealed or
     uninitialized node answers only sys/health and sys/seal-status, so nothing else is read.
+    `paths_filters` (health/audit only) also reads performance paths filters on a performance primary.
     """
     health: dict[str, Any] = probe or {}
     if probe is None:
@@ -999,6 +1011,9 @@ def collect_health(reader: VaultReader, coverage: Coverage, probe: dict[str, Any
         "replication_dr_mode": health.get("replication_dr_mode"),
         "replication_performance_mode": health.get("replication_performance_mode"),
         "dr_secondary": dr_secondary,
+        "performance_secondary": health.get("replication_performance_mode") == "secondary",
+        # The node's clock when sys/health answered: the reference time for heartbeat ages.
+        "server_time_utc": health.get("server_time_utc") if isinstance(health.get("server_time_utc"), int) else None,
         "seal": None,
         "leader": None,
         "license": None,
@@ -1053,6 +1068,9 @@ def collect_health(reader: VaultReader, coverage: Coverage, probe: dict[str, Any
             result["replication"] = {"mode": repl["mode"]}
         else:
             result["replication"] = {kind: replication_summary(repl.get(kind) or {}) for kind in ("dr", "performance")}
+            perf = result["replication"]["performance"]
+            if paths_filters and perf.get("mode") == "primary" and not dr_secondary:
+                perf["paths_filters"] = collect_paths_filters(reader, coverage, perf.get("known_secondaries") or [])
     if not dr_secondary:
         result["raft"] = collect_raft(reader, coverage)
     if not dr_secondary and (cfg := optional("sys/config/state/sanitized", "sys/config/state/sanitized")) is not None:
@@ -1251,22 +1269,89 @@ def collect_snapshots(reader: VaultReader, coverage: Coverage) -> dict[str, Any]
     return {"configs": configs}
 
 
+def _int_or_none(value: Any) -> int | None:
+    """Vault returns replication counters as strings ("463"); None when absent or not numeric."""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _peer_summary(peer: dict[str, Any], with_id: bool) -> dict[str, Any]:
+    """Link status of one peer; addresses are never copied."""
+    summary: dict[str, Any] = {"node_id": peer.get("node_id")} if with_id else {}
+    summary["connection_status"] = peer.get("connection_status")
+    if "last_heartbeat" in peer:
+        summary["last_heartbeat"] = peer.get("last_heartbeat") or None
+    for key in ("clock_skew_ms", "replication_primary_canary_age_ms"):
+        if key in peer:
+            summary[key] = _int_or_none(peer.get(key))
+    return summary
+
+
 def replication_summary(status: dict[str, Any]) -> dict[str, Any]:
-    """Mode/state plus the link status to peers: secondaries (on a primary) or primaries (on a secondary)."""
+    """Mode/state plus the link status to peers: secondaries (on a primary) or primaries (on a secondary).
+
+    Addresses, cluster IDs and merkle roots are never copied.
+    """
     summary: dict[str, Any] = {"mode": status.get("mode"), "state": status.get("state")}
     if status.get("connection_state"):
         summary["connection_state"] = status["connection_state"]
+    if "corrupted_merkle_tree" in status:
+        summary["corrupted_merkle_tree"] = bool(status["corrupted_merkle_tree"])
     if status.get("mode") == "primary":
-        summary["secondaries"] = [{"node_id": s.get("node_id"), "connection_status": s.get("connection_status")} for s in status.get("secondaries") or []]
+        if "last_wal" in status:
+            summary["last_wal"] = _int_or_none(status["last_wal"])
+        if "known_secondaries" in status:
+            summary["known_secondaries"] = list(status.get("known_secondaries") or [])
+        summary["secondaries"] = [_peer_summary(s, True) for s in status.get("secondaries") or []]
     elif status.get("mode") == "secondary":
-        summary["primaries"] = [{"connection_status": p.get("connection_status")} for p in status.get("primaries") or []]
+        if "last_remote_wal" in status:
+            summary["last_remote_wal"] = _int_or_none(status["last_remote_wal"])
+        summary["primaries"] = [_peer_summary(p, False) for p in status.get("primaries") or []]
     return summary
+
+
+def collect_paths_filters(reader: VaultReader, coverage: Coverage, secondary_ids: list[str]) -> list[dict[str, Any]] | None:
+    """Performance paths filters per known secondary (mode, filtered paths, dynamic mount count).
+
+    A secondary without a filter answers 404 and is skipped; a denial makes the whole list None.
+    """
+    base = "sys/replication/performance/primary"
+    filters: list[dict[str, Any]] = []
+    dynamic_denied = False
+    for secondary_id in sorted(secondary_ids):
+        try:
+            data = reader.data(f"{base}/paths-filter/{secondary_id}")
+        except hvac_exc.Forbidden:
+            coverage.deny("", f"{base}/paths-filter")
+            return None
+        except hvac_exc.InvalidPath:
+            continue
+        except (hvac_exc.VaultError, requests.exceptions.RequestException) as exc:
+            coverage.error("", exc)
+            continue
+        if not data or not data.get("mode"):
+            continue
+        dynamic: int | None = None
+        try:
+            if not dynamic_denied:  # one denial covers every secondary: record it once, skip the other reads
+                dynamic = len((reader.data(f"{base}/dynamic-filter/{secondary_id}") or {}).get("dynamic_filtered_mounts") or [])
+        except hvac_exc.Forbidden:
+            dynamic_denied = True
+            coverage.deny("", f"{base}/dynamic-filter")
+        except hvac_exc.InvalidPath:
+            dynamic = 0
+        except (hvac_exc.VaultError, requests.exceptions.RequestException) as exc:
+            coverage.error("", exc)
+        filters.append({"secondary_id": secondary_id, "mode": data.get("mode"), "paths": sorted(data.get("paths") or []), "dynamic_filtered_mounts": dynamic})
+    return filters
 
 
 # --------------------------------------------------------------------------- checks
 
 
-def mount_findings(data: ClusterData, system_max_lease_ttl: int | None) -> list[Finding]:
+def mount_findings(data: ClusterData, system_max_lease_ttl: int | None, performance_secondary: bool = False) -> list[Finding]:
     findings: list[Finding] = []
     baseline = system_max_lease_ttl or LONG_MAX_LEASE_TTL_SECONDS
     for kind, collection in (("auth_mount", data.auth), ("secrets_mount", data.secrets)):
@@ -1348,7 +1433,11 @@ def mount_findings(data: ClusterData, system_max_lease_ttl: int | None) -> list[
                             kind,
                             path,
                             mtype,
-                            "Mount is `local` — it is not replicated to performance secondaries or DR.",
+                            (
+                                "Mount is `local` on this performance secondary — expected per-cluster data, not replicated to or from the primary."
+                                if performance_secondary
+                                else "Mount is `local` — it is not replicated to performance secondaries or DR."
+                            ),
                             local=True,
                         )
                     )
@@ -1458,8 +1547,119 @@ def sentinel_findings(data: ClusterData) -> list[Finding]:
     return findings
 
 
-def health_findings(health: dict[str, Any], now: datetime | None = None) -> list[Finding]:
+def never_connected(peer: dict[str, Any]) -> bool:
+    """A secondary listed by the primary with no heartbeat since the primary started.
+
+    Either it never connected (activation token unused, or removed without revoke-secondary) or it
+    has been down since the primary last restarted: the primary keeps heartbeats in memory only,
+    so the two look the same. VT-HLTH-002 still reports it as disconnected.
+    """
+    return "node_id" in peer and peer.get("connection_status") != "connected" and not peer.get("last_heartbeat")
+
+
+def replication_link_findings(kind: str, status: dict[str, Any], peers: list[dict[str, Any]], now: datetime) -> list[Finding]:
+    """VT-REPL-001..005 for one replication kind (dr/performance)."""
     findings: list[Finding] = []
+    mode = status.get("mode")
+    label = kind.upper() if kind == "dr" else kind
+    if status.get("corrupted_merkle_tree") is True:
+        findings.append(
+            finding(
+                "VT-REPL-004",
+                "",
+                "cluster",
+                kind,  # object path carries the kind: fingerprints ignore object_type, so DR and performance must differ here
+                kind,
+                f"{label} replication (`{mode}`) reports a corrupted merkle tree — replicated data may diverge until it is reindexed.",
+                mode=mode,
+            )
+        )
+    for peer in peers:
+        peer_id = peer.get("node_id") or "primary"
+        object_path = f"{kind}:{peer_id}"  # unique per kind and peer (fingerprints ignore object_type)
+        if never_connected(peer):
+            findings.append(
+                finding(
+                    "VT-REPL-002",
+                    "",
+                    "cluster",
+                    object_path,
+                    kind,
+                    f"Known {label} secondary `{peer_id}` has no heartbeat since this primary started: either it never connected "
+                    "(an unused activation token, or a secondary removed without `revoke-secondary`) or it has been down since the primary "
+                    "restarted. Confirm which with the team before revoking anything.",
+                    secondary_id=peer_id,
+                    connection_status=peer.get("connection_status"),
+                )
+            )
+            continue
+        skew = peer.get("clock_skew_ms")
+        if isinstance(skew, int) and abs(skew) > REPL_CLOCK_SKEW_MS:
+            findings.append(
+                finding(
+                    "VT-REPL-003",
+                    "",
+                    "cluster",
+                    object_path,
+                    kind,
+                    f"{label} peer `{peer_id}` clock skew is {skew} ms (threshold {REPL_CLOCK_SKEW_MS} ms) — check NTP on both clusters.",
+                    peer=peer_id,
+                    clock_skew_ms=skew,
+                    threshold_ms=REPL_CLOCK_SKEW_MS,
+                )
+            )
+        if peer.get("connection_status") != "connected":
+            continue
+        canary = peer.get("replication_primary_canary_age_ms")
+        heartbeat = parse_time(peer.get("last_heartbeat"))
+        heartbeat_age = int((now - heartbeat).total_seconds()) if heartbeat else None
+        lagging_canary = isinstance(canary, int) and canary > REPL_CANARY_AGE_MS
+        stale_heartbeat = heartbeat_age is not None and heartbeat_age > REPL_HEARTBEAT_AGE_S
+        if lagging_canary or stale_heartbeat:
+            reasons = []
+            if lagging_canary:
+                reasons.append(f"newest replicated write is {canary // 1000}s old (threshold {REPL_CANARY_AGE_MS // 1000}s)")
+            if stale_heartbeat:
+                reasons.append(f"last heartbeat {heartbeat_age}s ago (threshold {REPL_HEARTBEAT_AGE_S}s)")
+            findings.append(
+                finding(
+                    "VT-REPL-001",
+                    "",
+                    "cluster",
+                    object_path,
+                    kind,
+                    f"{label} peer `{peer_id}` is lagging: {'; '.join(reasons)}.",
+                    peer=peer_id,
+                    canary_age_ms=canary,
+                    heartbeat_age_seconds=heartbeat_age,
+                )
+            )
+    for flt in status.get("paths_filters") or []:
+        paths = ", ".join(flt.get("paths") or []) or "no paths"
+        findings.append(
+            finding(
+                "VT-REPL-005",
+                "",
+                "cluster",
+                f"{kind}:{flt.get('secondary_id')}",
+                kind,
+                f"Paths filter (`{flt.get('mode')}`) on secondary `{flt.get('secondary_id')}`: {paths} — these namespaces/mounts differ between the clusters by design.",
+                secondary_id=flt.get("secondary_id"),
+                mode=flt.get("mode"),
+                paths=flt.get("paths") or [],
+                dynamic_filtered_mounts=flt.get("dynamic_filtered_mounts"),
+            )
+        )
+    return findings
+
+
+def health_findings(health: dict[str, Any], now: datetime | None = None) -> list[Finding]:
+    """Health rules. Time-based checks use the node's clock at collection (`server_time_utc` from sys/health), so neither
+    the time spent walking namespaces in `audit` nor skew between this host and Vault shows up as replication lag."""
+    findings: list[Finding] = []
+    if now is None:
+        server_time = health.get("server_time_utc")
+        now = datetime.fromtimestamp(server_time, UTC) if isinstance(server_time, int) and server_time > 0 else utc_now()
     leader = health.get("leader") or {}
     no_leader = leader.get("ha_enabled") is True and not leader.get("leader_address_present")
     if health.get("sealed") is True or no_leader:
@@ -1483,6 +1683,8 @@ def health_findings(health: dict[str, Any], now: datetime | None = None) -> list
         if not mode or mode in ("disabled", "unknown"):
             continue
         peers = status.get("secondaries") or status.get("primaries") or []
+        findings += replication_link_findings(kind, status, peers, now)
+        # Peers without a heartbeat stay here too: after a primary restart a down secondary looks never-connected (VT-REPL-002).
         disconnected = sorted(p.get("node_id") or "primary" for p in peers if p.get("connection_status") != "connected")
         if state not in HEALTHY_REPLICATION_STATES:
             detail = f"{kind.upper()} replication is `{mode}` but its state is `{state}` — check the replication link."
@@ -1490,7 +1692,7 @@ def health_findings(health: dict[str, Any], now: datetime | None = None) -> list
             detail = f"{kind.upper()} replication `{mode}` has disconnected peer(s): {', '.join(disconnected)} — check the cluster port (8201) path and the peer's status."
         else:
             continue
-        findings.append(finding("VT-HLTH-002", "", "cluster", None, kind, detail, mode=mode, state=state, disconnected_peers=disconnected))
+        findings.append(finding("VT-HLTH-002", "", "cluster", kind, kind, detail, mode=mode, state=state, disconnected_peers=disconnected))
     autopilot = ((health.get("raft") or {}).get("autopilot") or {}).get("state") or {}
     unhealthy = sorted(s["id"] for s in autopilot.get("servers") or [] if s.get("healthy") is False)
     if autopilot.get("healthy") is False or unhealthy:
@@ -1784,9 +1986,27 @@ def _mount_clients(namespaces: list[dict[str, Any]] | None) -> dict[tuple[str, s
     return {(normalise_namespace(ns.get("namespace_path")), m.get("mount_path") or ""): (client_count(m.get("counts")), m.get("mount_type")) for ns in namespaces or [] for m in ns.get("mounts") or []}
 
 
-def usage_findings(activity: dict[str, Any], current: dict[str, Any] | None = None, enterprise: bool = False) -> list[Finding]:
+def usage_findings(
+    activity: dict[str, Any],
+    current: dict[str, Any] | None = None,
+    enterprise: bool = False,
+    activity_log: dict[str, Any] | None = None,
+) -> list[Finding]:
     """Client-count anti-patterns from the activity log (billing period) and the current month."""
     findings: list[Finding] = []
+    if activity_log and activity_log.get("recording") is False:
+        findings.append(
+            finding(
+                "VT-CLI-005",
+                "",
+                "cluster",
+                None,
+                "activity_log",
+                f"The activity log is `{activity_log.get('enabled')}`: Vault records no client activity, so client counts read as zero "
+                "and the client-count checks (VT-CLI-001..004, VT-ID-004) cannot be judged.",
+                enabled=activity_log.get("enabled"),
+            )
+        )
     # Judge the billing period; a new cluster has none yet, so fall back to the month in progress.
     if client_count(activity.get("total")):
         source, rows = "billing_period", activity.get("by_namespace") or []
@@ -2033,8 +2253,9 @@ def build_usage_document(
     coverage: Coverage,
     current: dict[str, Any] | None = None,
     enterprise: bool = False,
+    activity_log: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    findings = sort_findings(usage_findings(activity, current, enterprise))
+    findings = sort_findings(usage_findings(activity, current, enterprise, activity_log))
 
     def counts(block: dict[str, Any] | None) -> dict[str, int]:
         block = block or {}
@@ -2055,6 +2276,8 @@ def build_usage_document(
         "tool": {"name": TOOL_NAME, "version": TOOL_VERSION},
         "run": run,
         "coverage": coverage.to_dict(),
+        # null when sys/internal/counters/config is unreadable (see coverage); recording: false means zeros are not real counts.
+        "activity_log": activity_log,
         "period": {"start_time": activity.get("start_time"), "end_time": activity.get("end_time")},
         "total": counts(activity.get("total")),
         "namespaces_reported": len(by_ns),
@@ -2310,6 +2533,35 @@ def _addr(config: Config, redact: bool) -> str:
     return "<redacted>" if redact else config.addr
 
 
+# sys/internal/counters/config `enabled` values: "default-*" means the edition's default was kept
+# (Enterprise records by default; Community dev servers report "default-disabled").
+ACTIVITY_LOG_RECORDING = {"enable": True, "default-enabled": True, "disable": False, "default-disabled": False}
+
+
+def read_activity_config(reader: VaultReader, coverage: Coverage) -> dict[str, Any] | None:
+    """Activity-log configuration (allowlisted fields), so zero client counts can be told apart from a disabled log.
+
+    `recording` is True/False from `enabled`, None for an unknown value. None when unreadable (recorded in coverage).
+    """
+    path = "sys/internal/counters/config"
+    try:
+        data = reader.data(path) or {}
+    except hvac_exc.Forbidden:
+        coverage.deny("", path)
+        return None
+    except (hvac_exc.VaultError, requests.exceptions.RequestException) as exc:
+        coverage.error("", exc)
+        return None
+    enabled = data.get("enabled")
+    retention = data.get("retention_months")
+    return {
+        "enabled": enabled,
+        "recording": ACTIVITY_LOG_RECORDING.get(enabled) if isinstance(enabled, str) else None,
+        "retention_months": int(retention) if isinstance(retention, int | str) and str(retention).isdigit() else None,
+        "reporting_enabled": data.get("reporting_enabled") if isinstance(data.get("reporting_enabled"), bool) else None,
+    }
+
+
 def read_activity(reader: VaultReader, coverage: Coverage, path: str, params: dict[str, Any] | None = None) -> dict[str, Any] | None:
     """Activity-log read at root. {} when nothing is recorded yet; None when denied or failed (recorded in coverage)."""
     try:
@@ -2327,10 +2579,10 @@ def cmd_audit(args: argparse.Namespace) -> int:
     config, reader, probe = connect(args.namespace)
     started = utc_now()
     coverage = Coverage()
-    health = collect_health(reader, coverage, probe)
+    health = collect_health(reader, coverage, probe, paths_filters=True)
     data = Walker(reader, coverage, workers=args.workers, sentinel=not args.no_sentinel).walk(config.namespace)
     max_ttl = (health.get("lease_ttls") or {}).get("max_lease_ttl_seconds")
-    findings = mount_findings(data, max_ttl) + namespace_findings(data) + sentinel_findings(data) + health_findings(health)
+    findings = mount_findings(data, max_ttl, performance_secondary=bool(health.get("performance_secondary"))) + namespace_findings(data) + sentinel_findings(data) + health_findings(health)
     run = run_block(health["cluster_name"], _addr(config, args.redact_addr), config.namespace, started, args.workers)
     document = build_findings_document(findings, coverage, health, data.sentinel, run)
     print(write_json(output_path(args.output_dir, health["cluster_name"], "findings", started), document))
@@ -2343,7 +2595,7 @@ def cmd_health(args: argparse.Namespace) -> int:
     config, reader, probe = connect(args.namespace, health_only=True)
     started = utc_now()
     coverage = Coverage()
-    health = collect_health(reader, coverage, probe)
+    health = collect_health(reader, coverage, probe, paths_filters=True)
     findings = sort_findings(health_findings(health))
     document = {
         "schema_version": SCHEMA_VERSION,
@@ -2377,8 +2629,9 @@ def cmd_usage(args: argparse.Namespace) -> int:
     params = {k: v for k, v in (("start_time", args.start), ("end_time", args.end)) if v}
     activity = read_activity(reader, coverage, "sys/internal/counters/activity", params or None) or {}
     current = read_activity(reader, coverage, "sys/internal/counters/activity/monthly") if not args.end else None
+    activity_log = read_activity_config(reader, coverage)
     run = run_block(health["cluster_name"], _addr(config, args.redact_addr), "", started, None)
-    document = build_usage_document(activity, args.top, run, coverage, current, enterprise=bool(health.get("enterprise")))
+    document = build_usage_document(activity, args.top, run, coverage, current, enterprise=bool(health.get("enterprise")), activity_log=activity_log)
     print(write_json(output_path(args.output_dir, health["cluster_name"], "usage", started), document))
     return EXIT_OK
 
