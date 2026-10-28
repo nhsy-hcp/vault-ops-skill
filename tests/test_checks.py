@@ -214,7 +214,7 @@ def test_helpers():
 
 
 def test_sanitise_error_drops_message():
-    exc = vo.hvac_exc.Forbidden("permission denied https://vault.internal/v1/secret?token=abc")
+    exc = vo.Forbidden("permission denied https://vault.internal/v1/secret?token=abc")
     assert vo.sanitise_error(exc) == "Forbidden"
 
 

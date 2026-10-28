@@ -21,14 +21,14 @@ LISTING = {
 ROUTES = {
     ("", "sys/namespaces"): {"data": {"key_info": {"tn001/": {}}}},
     ("tn001", "sys/namespaces"): {"data": {"key_info": {"app/": {}}}},
-    ("tn001/app", "sys/namespaces"): vo.hvac_exc.InvalidPath("none"),
-    ("", "identity/entity/id"): vo.hvac_exc.InvalidPath("no entities"),
-    ("tn001", "identity/entity/id"): vo.hvac_exc.Forbidden("denied"),
+    ("tn001/app", "sys/namespaces"): vo.InvalidPath("none"),
+    ("", "identity/entity/id"): vo.InvalidPath("no entities"),
+    ("tn001", "identity/entity/id"): vo.Forbidden("denied"),
     ("tn001/app", "identity/entity/id"): LISTING,
     ("tn001/app", "identity/entity/id/e1"): {"data": {"name": "alice", "metadata": {"email": "alice@example.com"}, "group_ids": ["g1"], "aliases": LISTING["data"]["key_info"]["e1"]["aliases"]}},
     ("tn001/app", "identity/entity/id/e2"): {"data": {"name": "orphan", "aliases": [], "group_ids": []}},
     ("tn001/app", "identity/entity/id/e3"): {"data": {"name": "svc", "policies": ["kv-read", "admin"], "aliases": LISTING["data"]["key_info"]["e3"]["aliases"]}},
-    ("tn001/app", "identity/entity/id/e4"): vo.hvac_exc.Forbidden("denied"),
+    ("tn001/app", "identity/entity/id/e4"): vo.Forbidden("denied"),
 }
 
 

@@ -28,8 +28,8 @@ def acl(text):
 
 ROUTES = {
     ("", "sys/namespaces"): {"data": {"key_info": {"tn001/": {}, "tn002/": {}}}},
-    ("tn001", "sys/namespaces"): vo.hvac_exc.InvalidPath("none"),
-    ("tn002", "sys/namespaces"): vo.hvac_exc.InvalidPath("none"),
+    ("tn001", "sys/namespaces"): vo.InvalidPath("none"),
+    ("tn002", "sys/namespaces"): vo.InvalidPath("none"),
     ("", "sys/policies/acl"): {"data": {"keys": ["default", "root", "admin", "read-only"]}},
     ("", "sys/policies/acl/default"): acl(CLEAN),
     ("", "sys/policies/acl/admin"): acl(ADMIN),
@@ -39,7 +39,7 @@ ROUTES = {
     ("tn001", "sys/policies/acl/ops"): acl(ESCALATE + SUDO),
     ("tn001", "sys/policies/acl/broken"): acl('path "x" { capabilities = ['),
     ("tn002", "sys/policies/acl"): {"data": {"keys": ["read-only"]}},
-    ("tn002", "sys/policies/acl/read-only"): vo.hvac_exc.Forbidden("denied"),
+    ("tn002", "sys/policies/acl/read-only"): vo.Forbidden("denied"),
 }
 
 
@@ -115,12 +115,12 @@ def test_collect_reads_bodies_and_records_denials():
 def test_collect_listing_errors_degrade():
     routes = {
         ("", "sys/namespaces"): {"data": {"key_info": {"a/": {}, "b/": {}, "c/": {}}}},
-        **{(ns, "sys/namespaces"): vo.hvac_exc.InvalidPath("none") for ns in ("a", "b", "c")},
+        **{(ns, "sys/namespaces"): vo.InvalidPath("none") for ns in ("a", "b", "c")},
         ("", "sys/policies/acl"): {"data": {"keys": ["odd", "boom"]}},
         ("", "sys/policies/acl/odd"): {"data": {"policy": 42}},
-        ("", "sys/policies/acl/boom"): vo.hvac_exc.InternalServerError("x"),
-        ("a", "sys/policies/acl"): vo.hvac_exc.Forbidden("denied"),
-        ("b", "sys/policies/acl"): vo.hvac_exc.InternalServerError("x"),
+        ("", "sys/policies/acl/boom"): vo.InternalServerError("x"),
+        ("a", "sys/policies/acl"): vo.Forbidden("denied"),
+        ("b", "sys/policies/acl"): vo.InternalServerError("x"),
     }
     cov, _, policies = collect(routes)
     assert policies == []
@@ -210,8 +210,8 @@ SENTINEL_ROUTES = {
     ("tn001", "sys/policies/rgp"): {"data": {"keys": ["hard"]}},
     ("tn001", "sys/policies/rgp/hard"): snt("hard-mandatory", NOOP_V2),  # drifted copy: VT-SNT-005
     ("tn002", "sys/policies/egp"): {"data": {"keys": ["locked"]}},
-    ("tn002", "sys/policies/egp/locked"): vo.hvac_exc.Forbidden("denied"),
-    ("tn002", "sys/policies/rgp"): vo.hvac_exc.Forbidden("denied"),
+    ("tn002", "sys/policies/egp/locked"): vo.Forbidden("denied"),
+    ("tn002", "sys/policies/rgp"): vo.Forbidden("denied"),
 }
 
 
@@ -253,7 +253,7 @@ def test_collect_sentinel_hashes_and_records_denials():
 
 @pytest.mark.parametrize("message", ["1 error occurred: unsupported path", "enterprise-only feature"])
 def test_collect_sentinel_unsupported_stops_probing(message):
-    routes = {**ROUTES, ("", "sys/policies/egp"): vo.hvac_exc.InvalidPath(message)}
+    routes = {**ROUTES, ("", "sys/policies/egp"): vo.InvalidPath(message)}
     cov, reader, (status, policies) = collect_sentinel(routes)
     assert (status, policies, cov.errors, cov.denied) == ("unsupported", [], [], [])
     assert [c for c in reader.calls if c[1].startswith(("sys/policies/egp", "sys/policies/rgp"))] == [("", "sys/policies/egp")]

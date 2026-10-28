@@ -4,7 +4,6 @@ version = "0.4.0"
 description = "Read-only HashiCorp Vault ops Claude skill and its local dev environment"
 requires-python = ">=3.12"
 dependencies = [
-    "hvac==2.4.0",
     "requests>=2.32,<3",
 ]
 

@@ -7,7 +7,7 @@ A read-only HashiCorp Vault operations review for Claude Code. Ask Claude to aud
 ## Prerequisites
 
 - [Claude Code](https://code.claude.com)
-- [uv](https://docs.astral.sh/uv/getting-started/installation/): the script runs with `uv run --script` and installs its pinned dependencies (`hvac`, `requests`) on first use
+- [uv](https://docs.astral.sh/uv/getting-started/installation/): the script runs with `uv run --script` and installs its pinned dependency (`requests`) on first use
 - Network access from your machine to Vault (Enterprise for namespaces, Sentinel and DR; Community works with fewer checks)
 - A short-lived token from the bundled read-only policy, never a root token
 

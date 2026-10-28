@@ -47,7 +47,7 @@ The script itself is the preflight. Map its failures to setup help and stop — 
 
 | Symptom | Tell the user |
 | --- | --- |
-| `uv: command not found` | Install uv (https://docs.astral.sh/uv/getting-started/installation/), e.g. `brew install uv` or `curl -LsSf https://astral.sh/uv/install.sh \| sh`, then retry. The script installs its own pinned dependencies (hvac, requests). |
+| `uv: command not found` | Install uv (https://docs.astral.sh/uv/getting-started/installation/), e.g. `brew install uv` or `curl -LsSf https://astral.sh/uv/install.sh \| sh`, then retry. The script installs its own pinned dependency (requests). |
 | `VAULT_ADDR and VAULT_TOKEN must be set` | Exit Claude, export them in the shell, restart (example below). Never ask them to paste a token into the chat. |
 | `token rejected (403 on auth/token/lookup-self)` / `token validation failed` | The token is expired or lacks the policy; mint a new one with the command below. |
 | `<addr> is sealed` / `is not initialized, so it rejects authenticated reads` | The node can't serve authenticated reads, so only `health` works there: run it and report the seal state (VT-HLTH-001, `health.seal`). Unsealing or initializing is an operator task: never run it or offer to. For a cluster, run `health` against the other nodes too. |
