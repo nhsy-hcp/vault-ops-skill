@@ -32,7 +32,7 @@ def test_findings_sorted_by_severity(cluster_data, health):
 def test_coverage_gaps_recorded(cluster_data, health, schema):
     cov = vo.Coverage()
     cov.deny("team-a", "child namespaces (subtree not audited)")
-    cov.error("", vo.hvac_exc.InternalServerError("boom http://x/v1/y"))
+    cov.error("", vo.InternalServerError("boom http://x/v1/y"))
     doc = build(cluster_data, health, cov)
     jsonschema.validate(doc, schema)
     assert doc["coverage"]["complete"] is False

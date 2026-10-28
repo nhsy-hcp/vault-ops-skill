@@ -19,7 +19,7 @@ Check logic is ported from nhsy-hcp/vault-tools (src/namespace_audit/report.py).
 
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["hvac==2.4.0", "requests>=2.32,<3"]
+# dependencies = ["requests>=2.32,<3"]
 #
 # [tool.uv]
 # exclude-newer = "2026-10-05T00:00:00Z"
@@ -42,9 +42,7 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Any
 
-import hvac
 import requests
-from hvac import exceptions as hvac_exc
 
 TOOL_NAME = "vault-ops"
 TOOL_VERSION = "0.4.0"
@@ -56,6 +54,7 @@ EXIT_OK, EXIT_FATAL, EXIT_GAPS, EXIT_FINDINGS, EXIT_INTERRUPTED = 0, 1, 2, 3, 13
 # leaving the project. Output can hold hostnames, emails and role_ids: a directory the script
 # creates gets a catch-all .gitignore so results are never committed.
 DEFAULT_OUTPUT_DIR = ".tmp/vault-ops"
+DEFAULT_TIMEOUT = 30  # seconds per Vault request
 
 # Fallback lease ceiling when sys/config/state/sanitized is unreadable: Vault's stock 768h.
 LONG_MAX_LEASE_TTL_SECONDS = 768 * 3600
@@ -356,8 +355,64 @@ def parse_version(version: str) -> tuple[int, int] | None:
     return (int(match[1]), int(match[2])) if match else None
 
 
+class VaultError(Exception):
+    """Non-2xx Vault response. The status lives on `status_code`, not `response`, so sanitise_error() writes the class name only."""
+
+    status_code: int | None = None
+
+
+class InvalidRequest(VaultError):
+    status_code = 400
+
+
+class Unauthorized(VaultError):
+    status_code = 401
+
+
+class Forbidden(VaultError):
+    status_code = 403
+
+
+class InvalidPath(VaultError):
+    status_code = 404
+
+
+class RateLimitExceeded(VaultError):
+    status_code = 429
+
+
+class InternalServerError(VaultError):
+    status_code = 500
+
+
+class VaultNotInitialized(VaultError):
+    status_code = 501
+
+
+class BadGateway(VaultError):
+    status_code = 502
+
+
+class VaultDown(VaultError):
+    status_code = 503
+
+
+class UnexpectedError(VaultError):
+    pass
+
+
+_STATUS_ERRORS: dict[int, type[VaultError]] = {cls.status_code: cls for cls in VaultError.__subclasses__() if cls.status_code}
+
+
+def error_for_status(status_code: int, message: str = "") -> VaultError:
+    """Exception for a non-2xx status. The message is Vault's error text (checks match on it, e.g. "unsupported path"), never the URL."""
+    error = _STATUS_ERRORS.get(status_code, UnexpectedError)(message or f"HTTP {status_code}")
+    error.status_code = status_code
+    return error
+
+
 def sanitise_error(exc: BaseException) -> str:
-    """Exception class plus HTTP status only: hvac messages can echo request URLs."""
+    """Exception class plus HTTP status only: error messages can echo request URLs."""
     status = getattr(getattr(exc, "response", None), "status_code", None)
     message = type(exc).__name__ + (f" (HTTP {status})" if status else "")
     return message[:200]
@@ -402,33 +457,31 @@ class Config:
 
 
 class VaultReader:
-    """GET-only access to Vault, one hvac client per namespace over a shared session."""
+    """GET-only access to Vault over one shared requests session; the namespace header is set per request."""
 
     def __init__(self, config: Config):
         self.config = config
         self.session = requests.Session()
-        # hvac lets a passed-in session's verify override its own verify= argument, and
-        # Session.verify defaults to True, so skip-verify/CA settings must live on the session.
         self.session.verify = config.verify
-        self._clients: dict[str, hvac.Client] = {}
-        self._lock = threading.Lock()
-
-    def client(self, namespace: str = "") -> hvac.Client:
-        with self._lock:
-            if namespace not in self._clients:
-                self._clients[namespace] = hvac.Client(
-                    url=self.config.addr,
-                    token=self.config.token,
-                    namespace=namespace or None,
-                    verify=self.config.verify,
-                    session=self.session,
-                )
-            return self._clients[namespace]
+        if cert := os.getenv("VAULT_CLIENT_CERT"):
+            self.session.cert = (cert, os.getenv("VAULT_CLIENT_KEY"))
+        self.session.headers.update({"X-Vault-Token": config.token, "X-Vault-Request": "true"})
 
     def get(self, path: str, namespace: str = "", params: dict[str, Any] | None = None) -> dict[str, Any]:
-        """GET /v1/<path>; raises hvac exceptions (InvalidPath on 404, Forbidden on 403)."""
-        response = self.client(namespace).adapter.get(f"/v1/{path}", params=params)
-        return response if isinstance(response, dict) else {}
+        """GET /v1/<path>; raises VaultError subclasses (InvalidPath on 404, Forbidden on 403)."""
+        # Collapse "//" and strip edge slashes, as the Vault CLI does.
+        url = f"{self.config.addr}/v1/{re.sub('/+', '/', path).strip('/')}"
+        headers = {"X-Vault-Namespace": namespace} if namespace else None
+        response = self.session.get(url, params=params, headers=headers, timeout=DEFAULT_TIMEOUT, allow_redirects=True)
+        if not response.ok:
+            raise error_for_status(response.status_code, error_text(response))
+        if response.status_code != 200:
+            return {}
+        try:
+            payload = response.json()
+        except ValueError:
+            return {}
+        return payload if isinstance(payload, dict) else {}
 
     def list(self, path: str, namespace: str = "") -> list[str]:
         return list(self.get(path, namespace, params={"list": "true"}).get("data", {}).get("keys") or [])
@@ -440,17 +493,26 @@ class VaultReader:
     def validate(self) -> None:
         try:
             self.get("auth/token/lookup-self")
-        except hvac_exc.Forbidden as exc:
+        except Forbidden as exc:
             raise SystemExit("error: token rejected (403 on auth/token/lookup-self)") from exc
-        except (hvac_exc.VaultError, requests.exceptions.RequestException) as exc:
+        except (VaultError, requests.exceptions.RequestException) as exc:
             raise SystemExit(f"error: token validation failed at {self.config.addr}: {sanitise_error(exc)}") from exc
 
     def probe(self) -> dict[str, Any]:
         """Unauthenticated sys/health; works on every node type, DR secondaries included."""
         try:
             return self.get("sys/health", params=HEALTH_PARAMS)
-        except (hvac_exc.VaultError, requests.exceptions.RequestException) as exc:
+        except (VaultError, requests.exceptions.RequestException) as exc:
             raise SystemExit(f"error: cannot reach Vault at {self.config.addr}: {sanitise_error(exc)}") from exc
+
+
+def error_text(response: requests.Response) -> str:
+    """Vault's `errors` list joined, else the raw body: for in-memory checks only, never written to outputs."""
+    try:
+        errors = response.json().get("errors")
+    except (ValueError, AttributeError):
+        errors = None
+    return ", ".join(map(str, errors)) if isinstance(errors, list) else response.text
 
 
 def unauthenticated_only(probe: dict[str, Any]) -> str | None:
@@ -553,10 +615,10 @@ class Walker:
         try:
             auth = self.reader.data("sys/auth", ns)
             secrets = self.reader.data("sys/mounts", ns)
-        except hvac_exc.Forbidden:
+        except Forbidden:
             self.coverage.deny(ns, "whole namespace (no data collected)")
             return []
-        except (hvac_exc.VaultError, requests.exceptions.RequestException) as exc:
+        except (VaultError, requests.exceptions.RequestException) as exc:
             self.coverage.error(ns, exc)
             return []
         acl = self._acl_policies(ns)
@@ -574,12 +636,12 @@ class Walker:
     def _acl_policies(self, ns: str) -> list[str]:
         try:
             names = self.reader.list("sys/policies/acl", ns)
-        except hvac_exc.Forbidden:
+        except Forbidden:
             self.coverage.deny(ns, "ACL policy names")
             return []
-        except hvac_exc.InvalidPath:
+        except InvalidPath:
             return []
-        except (hvac_exc.VaultError, requests.exceptions.RequestException) as exc:
+        except (VaultError, requests.exceptions.RequestException) as exc:
             self.coverage.error(ns, exc)
             return []
         return sorted(n for n in names if n not in ("default", "root", "default-ceiling"))
@@ -603,12 +665,12 @@ class Walker:
     def _children(self, ns: str) -> list[str]:
         try:
             payload = self.reader.get("sys/namespaces", ns, params={"list": "true"})
-        except hvac_exc.InvalidPath:
+        except InvalidPath:
             return []  # Community edition, or no children
-        except hvac_exc.Forbidden:
+        except Forbidden:
             self.coverage.deny(ns, "child namespaces (subtree not audited)")
             return []
-        except (hvac_exc.VaultError, requests.exceptions.RequestException) as exc:
+        except (VaultError, requests.exceptions.RequestException) as exc:
             self.coverage.error(ns, exc)
             return []
         key_info = (payload.get("data") or {}).get("key_info") or {}
@@ -626,13 +688,13 @@ def read_sentinel_policies(reader: VaultReader, coverage: Coverage, ns: str, kin
     """EGP or RGP policies in one namespace, by name. Status: supported / unsupported (no Sentinel in this build) / none (listing failed)."""
     try:
         names = reader.list(f"sys/policies/{kind}", ns)
-    except hvac_exc.InvalidPath as exc:
+    except InvalidPath as exc:
         # Vault 404s both "no Sentinel in this build" and "no policies here"; only the body differs.
         return ("unsupported" if any(m in str(exc).lower() for m in ENTERPRISE_ONLY_MARKERS) else "supported"), {}
-    except hvac_exc.Forbidden:
+    except Forbidden:
         coverage.deny(ns, f"sentinel {kind.upper()} policies")
         return "none", {}
-    except (hvac_exc.VaultError, requests.exceptions.RequestException) as exc:
+    except (VaultError, requests.exceptions.RequestException) as exc:
         coverage.error(ns, exc)
         return "none", {}
     policies: dict[str, Any] = {}
@@ -640,7 +702,7 @@ def read_sentinel_policies(reader: VaultReader, coverage: Coverage, ns: str, kin
     for name in names:
         try:
             policies[name] = reader.data(f"sys/policies/{kind}/{name}", ns)
-        except (hvac_exc.VaultError, requests.exceptions.RequestException):
+        except (VaultError, requests.exceptions.RequestException):
             policies[name] = {"name": name, "read_error": True}
             denied = True
     if denied:
@@ -659,12 +721,12 @@ def discover_namespaces(reader: VaultReader, coverage: Coverage, start: str = ""
     def children(ns: str) -> list[str]:
         try:
             payload = reader.get("sys/namespaces", ns, params={"list": "true"})
-        except hvac_exc.InvalidPath:
+        except InvalidPath:
             return []
-        except hvac_exc.Forbidden:
+        except Forbidden:
             coverage.deny(ns, "child namespaces (subtree not audited)")
             return []
-        except (hvac_exc.VaultError, requests.exceptions.RequestException) as exc:
+        except (VaultError, requests.exceptions.RequestException) as exc:
             coverage.error(ns, exc)
             return []
         keys = (payload.get("data") or {}).get("key_info") or {}
@@ -727,12 +789,12 @@ def collect_entities(reader: VaultReader, coverage: Coverage, namespaces: list[s
     def one_namespace(ns: str) -> tuple[str, list[Entity]]:
         try:
             listing = reader.get("identity/entity/id", ns, params={"list": "true"})
-        except hvac_exc.InvalidPath:
+        except InvalidPath:
             return ns, []  # no entities
-        except hvac_exc.Forbidden:
+        except Forbidden:
             coverage.deny(ns, "identity entities")
             return ns, []
-        except (hvac_exc.VaultError, requests.exceptions.RequestException) as exc:
+        except (VaultError, requests.exceptions.RequestException) as exc:
             coverage.error(ns, exc)
             return ns, []
         key_info = (listing.get("data") or {}).get("key_info") or {}
@@ -741,7 +803,7 @@ def collect_entities(reader: VaultReader, coverage: Coverage, namespaces: list[s
             info = key_info[entity_id] or {}
             try:
                 body = reader.data(f"identity/entity/id/{entity_id}", ns)
-            except (hvac_exc.VaultError, requests.exceptions.RequestException):
+            except (VaultError, requests.exceptions.RequestException):
                 body, denied = None, True
             source = body or info
             entities.append(
@@ -880,24 +942,24 @@ def collect_acl_policies(reader: VaultReader, coverage: Coverage, namespaces: li
     def one_namespace(ns: str) -> list[AclPolicy]:
         try:
             names = reader.list("sys/policies/acl", ns)
-        except hvac_exc.InvalidPath:
+        except InvalidPath:
             return []
-        except hvac_exc.Forbidden:
+        except Forbidden:
             coverage.deny(ns, "ACL policy names")
             return []
-        except (hvac_exc.VaultError, requests.exceptions.RequestException) as exc:
+        except (VaultError, requests.exceptions.RequestException) as exc:
             coverage.error(ns, exc)
             return []
         policies, denied = [], False
         for name in sorted(n for n in names if n != "root"):
             try:
                 body = reader.data(f"sys/policies/acl/{name}", ns).get("policy")
-            except hvac_exc.Forbidden:
+            except Forbidden:
                 denied = True
                 continue
-            except hvac_exc.InvalidPath:
+            except InvalidPath:
                 continue  # deleted between list and read
-            except (hvac_exc.VaultError, requests.exceptions.RequestException) as exc:
+            except (VaultError, requests.exceptions.RequestException) as exc:
                 coverage.error(ns, exc)
                 continue
             if not isinstance(body, str):
@@ -995,7 +1057,7 @@ def collect_health(reader: VaultReader, coverage: Coverage, probe: dict[str, Any
     if probe is None:
         try:
             health = reader.get("sys/health", params=HEALTH_PARAMS)
-        except (hvac_exc.VaultError, requests.exceptions.RequestException) as exc:
+        except (VaultError, requests.exceptions.RequestException) as exc:
             coverage.error("", exc)
     dr_secondary = health.get("replication_dr_mode") == "secondary"
     unavailable = health.get("sealed") is True or health.get("initialized") is False
@@ -1028,11 +1090,11 @@ def collect_health(reader: VaultReader, coverage: Coverage, probe: dict[str, Any
     def optional(path: str, scope: str) -> dict[str, Any] | None:
         try:
             return reader.data(path)
-        except hvac_exc.Forbidden:
+        except Forbidden:
             coverage.deny("", scope)
-        except hvac_exc.InvalidPath:
+        except InvalidPath:
             pass
-        except (hvac_exc.VaultError, requests.exceptions.RequestException) as exc:
+        except (VaultError, requests.exceptions.RequestException) as exc:
             coverage.error("", exc)
         return None
 
@@ -1100,12 +1162,12 @@ def collect_metrics(reader: VaultReader, coverage: Coverage) -> dict[str, Any] |
     """
     try:
         payload = reader.get("sys/metrics")
-    except hvac_exc.Forbidden:
+    except Forbidden:
         coverage.deny("", "sys/metrics")
         return None
-    except hvac_exc.InvalidPath:
+    except InvalidPath:
         return None  # endpoint not there: nothing to judge
-    except (hvac_exc.VaultError, requests.exceptions.RequestException) as exc:
+    except (VaultError, requests.exceptions.RequestException) as exc:
         coverage.error("", exc)
         return None
     gauges = payload.get("Gauges") if isinstance(payload, dict) else None
@@ -1153,14 +1215,14 @@ def collect_raft(reader: VaultReader, coverage: Coverage) -> dict[str, Any] | No
     def read(path: str) -> dict[str, Any] | None:
         try:
             return reader.data(path)
-        except hvac_exc.Forbidden:
+        except Forbidden:
             coverage.deny("", path)
-        except hvac_exc.InvalidPath:
+        except InvalidPath:
             pass
-        except hvac_exc.InvalidRequest as exc:
+        except InvalidRequest as exc:
             if "raft storage is not in use" not in str(exc):
                 coverage.error("", exc)
-        except (hvac_exc.VaultError, requests.exceptions.RequestException) as exc:
+        except (VaultError, requests.exceptions.RequestException) as exc:
             coverage.error("", exc)
         return None
 
@@ -1203,12 +1265,12 @@ def collect_audit_devices(reader: VaultReader, coverage: Coverage) -> list[dict[
     """
     try:
         devices = reader.data("sys/audit")
-    except hvac_exc.Forbidden:
+    except Forbidden:
         coverage.deny("", "sys/audit")
         return None
-    except hvac_exc.InvalidPath:
+    except InvalidPath:
         return None  # no devices is a 200 with an empty table; a 404 means the endpoint is not there
-    except (hvac_exc.VaultError, requests.exceptions.RequestException) as exc:
+    except (VaultError, requests.exceptions.RequestException) as exc:
         coverage.error("", exc)
         return None
     rows = []
@@ -1246,12 +1308,12 @@ def collect_snapshots(reader: VaultReader, coverage: Coverage) -> dict[str, Any]
     base = "sys/storage/raft/snapshot-auto"
     try:
         names = reader.list(f"{base}/config")
-    except hvac_exc.Forbidden:
+    except Forbidden:
         coverage.deny("", f"{base}/config")
         return None
-    except hvac_exc.InvalidPath:
+    except InvalidPath:
         names = []
-    except (hvac_exc.VaultError, requests.exceptions.RequestException) as exc:
+    except (VaultError, requests.exceptions.RequestException) as exc:
         coverage.error("", exc)
         return None
     configs = []
@@ -1259,11 +1321,11 @@ def collect_snapshots(reader: VaultReader, coverage: Coverage) -> dict[str, Any]
         status: dict[str, Any] | None = None
         try:
             status = reader.data(f"{base}/status/{name}")
-        except hvac_exc.Forbidden:
+        except Forbidden:
             coverage.deny("", f"{base}/status")
-        except hvac_exc.InvalidPath:
+        except InvalidPath:
             status = {}
-        except (hvac_exc.VaultError, requests.exceptions.RequestException) as exc:
+        except (VaultError, requests.exceptions.RequestException) as exc:
             coverage.error("", exc)
         configs.append({"name": name, "status_readable": status is not None, **snapshot_status(status or {})})
     return {"configs": configs}
@@ -1323,12 +1385,12 @@ def collect_paths_filters(reader: VaultReader, coverage: Coverage, secondary_ids
     for secondary_id in sorted(secondary_ids):
         try:
             data = reader.data(f"{base}/paths-filter/{secondary_id}")
-        except hvac_exc.Forbidden:
+        except Forbidden:
             coverage.deny("", f"{base}/paths-filter")
             return None
-        except hvac_exc.InvalidPath:
+        except InvalidPath:
             continue
-        except (hvac_exc.VaultError, requests.exceptions.RequestException) as exc:
+        except (VaultError, requests.exceptions.RequestException) as exc:
             coverage.error("", exc)
             continue
         if not data or not data.get("mode"):
@@ -1337,12 +1399,12 @@ def collect_paths_filters(reader: VaultReader, coverage: Coverage, secondary_ids
         try:
             if not dynamic_denied:  # one denial covers every secondary: record it once, skip the other reads
                 dynamic = len((reader.data(f"{base}/dynamic-filter/{secondary_id}") or {}).get("dynamic_filtered_mounts") or [])
-        except hvac_exc.Forbidden:
+        except Forbidden:
             dynamic_denied = True
             coverage.deny("", f"{base}/dynamic-filter")
-        except hvac_exc.InvalidPath:
+        except InvalidPath:
             dynamic = 0
-        except (hvac_exc.VaultError, requests.exceptions.RequestException) as exc:
+        except (VaultError, requests.exceptions.RequestException) as exc:
             coverage.error("", exc)
         filters.append({"secondary_id": secondary_id, "mode": data.get("mode"), "paths": sorted(data.get("paths") or []), "dynamic_filtered_mounts": dynamic})
     return filters
@@ -2546,10 +2608,10 @@ def read_activity_config(reader: VaultReader, coverage: Coverage) -> dict[str, A
     path = "sys/internal/counters/config"
     try:
         data = reader.data(path) or {}
-    except hvac_exc.Forbidden:
+    except Forbidden:
         coverage.deny("", path)
         return None
-    except (hvac_exc.VaultError, requests.exceptions.RequestException) as exc:
+    except (VaultError, requests.exceptions.RequestException) as exc:
         coverage.error("", exc)
         return None
     enabled = data.get("enabled")
@@ -2566,11 +2628,11 @@ def read_activity(reader: VaultReader, coverage: Coverage, path: str, params: di
     """Activity-log read at root. {} when nothing is recorded yet; None when denied or failed (recorded in coverage)."""
     try:
         return reader.data(path, params=params)
-    except hvac_exc.Forbidden:
+    except Forbidden:
         coverage.deny("", path)
-    except hvac_exc.InvalidPath:
+    except InvalidPath:
         return {}
-    except (hvac_exc.VaultError, requests.exceptions.RequestException) as exc:
+    except (VaultError, requests.exceptions.RequestException) as exc:
         coverage.error("", exc)
     return None
 
@@ -2685,7 +2747,7 @@ def build_parser() -> argparse.ArgumentParser:
         prog="vault_ops.py",
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=f"Env: VAULT_ADDR, VAULT_TOKEN (required); VAULT_CACERT, VAULT_SKIP_VERIFY, VAULT_NAMESPACE, VAULT_OPS_OUTPUT_DIR (default {DEFAULT_OUTPUT_DIR})",
+        epilog=f"Env: VAULT_ADDR, VAULT_TOKEN (required); VAULT_CACERT, VAULT_SKIP_VERIFY, VAULT_CLIENT_CERT, VAULT_CLIENT_KEY, VAULT_NAMESPACE, VAULT_OPS_OUTPUT_DIR (default {DEFAULT_OUTPUT_DIR})",
     )
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument("--output-dir", default=os.getenv("VAULT_OPS_OUTPUT_DIR") or DEFAULT_OUTPUT_DIR)

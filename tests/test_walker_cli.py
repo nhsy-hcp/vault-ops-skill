@@ -17,7 +17,7 @@ class FakeReader:
         self.calls.append((namespace, path))
         value = self.routes.get((namespace, path))
         if value is None:
-            raise vo.hvac_exc.InvalidPath("not found")
+            raise vo.InvalidPath("not found")
         if isinstance(value, Exception):
             raise value
         return value
@@ -40,20 +40,20 @@ ROUTES = {
     ("", "sys/policies/acl"): {"data": {"keys": ["default", "root", "ops"]}},
     ("", "sys/policies/egp"): {"data": {"keys": ["adv"]}},
     ("", "sys/policies/egp/adv"): {"data": {"enforcement_level": "advisory", "paths": ["*"], "policy": "x"}},
-    ("", "sys/policies/rgp"): vo.hvac_exc.InvalidPath("no policies"),
+    ("", "sys/policies/rgp"): vo.InvalidPath("no policies"),
     ("", "sys/namespaces"): {"data": {"key_info": {"a/": {"id": "1", "custom_metadata": {"owner": "x@y"}}, "b/": {"id": "2"}}}},
     ("a", "sys/auth"): mounts(token="ns_token", approle="approle"),
     ("a", "sys/mounts"): mounts(sys="ns_system"),
-    ("a", "sys/policies/acl"): vo.hvac_exc.Forbidden("denied"),
+    ("a", "sys/policies/acl"): vo.Forbidden("denied"),
     ("a", "sys/policies/egp"): {"data": {"keys": ["locked"]}},
-    ("a", "sys/policies/egp/locked"): vo.hvac_exc.Forbidden("denied"),
-    ("a", "sys/policies/rgp"): vo.hvac_exc.InvalidPath("none"),
+    ("a", "sys/policies/egp/locked"): vo.Forbidden("denied"),
+    ("a", "sys/policies/rgp"): vo.InvalidPath("none"),
     ("a", "sys/namespaces"): {"data": {"key_info": {"c/": {"id": "3"}}}},
     ("a/c", "sys/auth"): mounts(token="ns_token"),
     ("a/c", "sys/mounts"): mounts(sys="ns_system"),
     ("a/c", "sys/policies/acl"): {"data": {"keys": []}},
-    ("a/c", "sys/namespaces"): vo.hvac_exc.Forbidden("denied"),
-    ("b", "sys/auth"): vo.hvac_exc.Forbidden("denied"),
+    ("a/c", "sys/namespaces"): vo.Forbidden("denied"),
+    ("b", "sys/auth"): vo.Forbidden("denied"),
 }
 
 
@@ -81,7 +81,7 @@ def test_walker_sentinel_unsupported_and_skipped(message):
     routes = {
         ("", "sys/auth"): mounts(token="token"),
         ("", "sys/mounts"): mounts(sys="system"),
-        ("", "sys/policies/egp"): vo.hvac_exc.InvalidPath(message),
+        ("", "sys/policies/egp"): vo.InvalidPath(message),
     }
     reader = FakeReader(routes)
     assert vo.Walker(reader, vo.Coverage()).walk("").sentinel == "unsupported"
@@ -95,7 +95,7 @@ def test_collect_health_maps_fields():
         ("", "sys/leader"): {"ha_enabled": False, "is_self": False, "leader_address": ""},
         ("", "sys/license/status"): {"data": {"autoloaded": {"license_id": "L", "expiration_time": "2027-01-01T00:00:00Z"}}},
         ("", "sys/replication/status"): {"data": {"dr": {"mode": "disabled"}, "performance": {"mode": "disabled"}}},
-        ("", "sys/config/state/sanitized"): vo.hvac_exc.Forbidden("denied"),
+        ("", "sys/config/state/sanitized"): vo.Forbidden("denied"),
     }
     cov = vo.Coverage()
     h = vo.collect_health(FakeReader(routes), cov)
@@ -192,16 +192,6 @@ class _ValidatingFake(FakeReader):
         return self.get("sys/health")
 
 
-@pytest.mark.parametrize("verify", [False, "/ca.pem", True])
-def test_reader_session_carries_tls_setting(verify):
-    """Regression: hvac ignores verify= when a session with verify=True is passed in."""
-    reader = vo.VaultReader(vo.Config(addr="https://v:8200", token="t", verify=verify))
-    client = reader.client("ns1")
-    assert reader.session.verify == verify
-    assert client.adapter._kwargs["verify"] == verify
-    assert client.adapter.namespace == "ns1"
-
-
 def test_collect_health_dev_mode_shapes():
     """Dev/inmem: replication is a bare {"mode": "unsupported"}; lease TTLs of 0 mean unset."""
     routes = {
@@ -266,11 +256,11 @@ def test_collect_raft_maps_peers_and_autopilot_without_addresses():
 
 
 def test_collect_raft_not_in_use_and_denied():
-    not_raft = vo.hvac_exc.InvalidRequest("raft storage is not in use")
+    not_raft = vo.InvalidRequest("raft storage is not in use")
     routes = {(ns, p): not_raft for ns, p in RAFT_ROUTES}
     cov = vo.Coverage()
     assert vo.collect_raft(FakeReader(routes), cov) is None and cov.complete
-    routes = {**RAFT_ROUTES, ("", "sys/storage/raft/autopilot/state"): vo.hvac_exc.Forbidden("denied")}
+    routes = {**RAFT_ROUTES, ("", "sys/storage/raft/autopilot/state"): vo.Forbidden("denied")}
     cov = vo.Coverage()
     raft = vo.collect_raft(FakeReader(routes), cov)
     assert raft["peers"] and raft["autopilot"]["state"] is None
@@ -347,10 +337,10 @@ def test_collect_metrics_allowlists_and_aggregates():
 @pytest.mark.parametrize(
     "route, denied, error",
     [
-        (vo.hvac_exc.Forbidden("permission denied"), [{"namespace": "/", "scope": "sys/metrics"}], None),
+        (vo.Forbidden("permission denied"), [{"namespace": "/", "scope": "sys/metrics"}], None),
         (None, [], None),  # 404: endpoint not there
-        (vo.hvac_exc.InvalidRequest("prometheus is not enabled"), [], "InvalidRequest"),
-        (vo.hvac_exc.InternalServerError("boom"), [], "InternalServerError"),
+        (vo.InvalidRequest("prometheus is not enabled"), [], "InvalidRequest"),
+        (vo.InternalServerError("boom"), [], "InternalServerError"),
         (vo.requests.exceptions.ConnectionError("refused"), [], "ConnectionError"),
         ({"unexpected": "shape"}, [], "ValueError"),
     ],
@@ -384,9 +374,9 @@ def test_dr_secondary_health_skips_authenticated_reads(env, monkeypatch, capsys)
             "data": {"dr": {"mode": "secondary", "state": "stream-wals", "connection_state": "ready", "primaries": [{"connection_status": "connected"}]}, "performance": {"mode": "disabled"}}
         },
         # Disabled on a DR secondary: reading these would be a bug.
-        ("", "auth/token/lookup-self"): vo.hvac_exc.InvalidRequest("path disabled in replication DR secondary mode"),
-        ("", "sys/license/status"): vo.hvac_exc.InvalidRequest("path disabled"),
-        ("", "sys/config/state/sanitized"): vo.hvac_exc.InvalidRequest("path disabled"),
+        ("", "auth/token/lookup-self"): vo.InvalidRequest("path disabled in replication DR secondary mode"),
+        ("", "sys/license/status"): vo.InvalidRequest("path disabled"),
+        ("", "sys/config/state/sanitized"): vo.InvalidRequest("path disabled"),
     }
     fake = _ValidatingFake(routes)
     monkeypatch.setattr(vo, "VaultReader", lambda cfg: fake)
@@ -410,7 +400,7 @@ def test_dr_secondary_refused_for_authenticated_subcommands(env, monkeypatch, ca
 
 
 def test_validate_reports_vault_errors_without_traceback(env, monkeypatch, capsys):
-    routes = {("", "sys/health"): {"replication_dr_mode": "disabled"}, ("", "auth/token/lookup-self"): vo.hvac_exc.InvalidRequest("boom")}
+    routes = {("", "sys/health"): {"replication_dr_mode": "disabled"}, ("", "auth/token/lookup-self"): vo.InvalidRequest("boom")}
 
     class Reader(_ValidatingFake):
         validate = vo.VaultReader.validate
@@ -491,8 +481,8 @@ def test_audit_and_snapshot_secrets_never_reach_output():
 
 def test_audit_and_snapshot_reads_denied_or_absent():
     routes = secure_health_routes()
-    routes[("", "sys/audit")] = vo.hvac_exc.Forbidden("denied")
-    routes[("", "sys/storage/raft/snapshot-auto/config")] = vo.hvac_exc.Forbidden("denied")
+    routes[("", "sys/audit")] = vo.Forbidden("denied")
+    routes[("", "sys/storage/raft/snapshot-auto/config")] = vo.Forbidden("denied")
     cov = vo.Coverage()
     h = vo.collect_health(FakeReader(routes), cov)
     assert h["audit_devices"] is None and h["snapshots"] is None
@@ -512,7 +502,7 @@ def test_audit_and_snapshot_reads_denied_or_absent():
 @pytest.mark.parametrize("probe", [{"initialized": True, "sealed": True, "standby": True, "version": "2.1.1+ent"}, {"initialized": False, "sealed": True, "version": "2.1.1"}])
 def test_sealed_or_uninitialized_health_reads_only_unauthenticated_status(env, monkeypatch, capsys, probe):
     """Regression: a sealed node answers 503 to every authenticated read, so `health` used to exit 1 with VaultDown."""
-    sealed = vo.hvac_exc.VaultDown("Vault is sealed")
+    sealed = vo.VaultDown("Vault is sealed")
     routes = {
         ("", "sys/health"): probe,
         ("", "sys/seal-status"): {"type": "shamir", "t": 3, "n": 5, "progress": 1, "nonce": "secret-ish", "migration": False, "recovery_seal": False},
@@ -637,7 +627,7 @@ def test_pr_primary_findings_stale_and_filter_only():
 
 
 def test_pr_paths_filters_denied_is_null_and_recorded():
-    routes = pr_primary_routes({("", f"{FILTER_BASE}/paths-filter/vault-pr"): vo.hvac_exc.Forbidden("denied")})
+    routes = pr_primary_routes({("", f"{FILTER_BASE}/paths-filter/vault-pr"): vo.Forbidden("denied")})
     cov = vo.Coverage()
     h = vo.collect_health(FakeReader(routes), cov, paths_filters=True)
     assert h["replication"]["performance"]["paths_filters"] is None
@@ -647,8 +637,8 @@ def test_pr_paths_filters_denied_is_null_and_recorded():
 def test_pr_paths_filters_dynamic_denied_and_errors():
     routes = pr_primary_routes(
         {
-            ("", f"{FILTER_BASE}/dynamic-filter/vault-pr"): vo.hvac_exc.Forbidden("denied"),
-            ("", f"{FILTER_BASE}/paths-filter/vault-pr-stale"): vo.hvac_exc.InternalServerError("boom"),
+            ("", f"{FILTER_BASE}/dynamic-filter/vault-pr"): vo.Forbidden("denied"),
+            ("", f"{FILTER_BASE}/paths-filter/vault-pr-stale"): vo.InternalServerError("boom"),
         }
     )
     cov = vo.Coverage()
@@ -658,7 +648,7 @@ def test_pr_paths_filters_dynamic_denied_and_errors():
 
 
 def test_pr_no_filters_is_empty_list():
-    routes = pr_primary_routes({("", f"{FILTER_BASE}/paths-filter/vault-pr"): vo.hvac_exc.InvalidPath("none")})
+    routes = pr_primary_routes({("", f"{FILTER_BASE}/paths-filter/vault-pr"): vo.InvalidPath("none")})
     assert vo.collect_health(FakeReader(routes), vo.Coverage(), paths_filters=True)["replication"]["performance"]["paths_filters"] == []
 
 
@@ -698,10 +688,10 @@ def test_activity_config_recording(enabled, recording):
 
 def test_activity_config_denied_and_errors():
     cov = vo.Coverage()
-    assert vo.read_activity_config(FakeReader({("", CONFIG_PATH): vo.hvac_exc.Forbidden("denied")}), cov) is None
+    assert vo.read_activity_config(FakeReader({("", CONFIG_PATH): vo.Forbidden("denied")}), cov) is None
     assert {"namespace": "/", "scope": CONFIG_PATH} in cov.denied
     cov = vo.Coverage()
-    assert vo.read_activity_config(FakeReader({("", CONFIG_PATH): vo.hvac_exc.InternalServerError("boom")}), cov) is None
+    assert vo.read_activity_config(FakeReader({("", CONFIG_PATH): vo.InternalServerError("boom")}), cov) is None
     assert cov.errors
     weird = vo.read_activity_config(FakeReader({("", CONFIG_PATH): {"data": {"enabled": None, "retention_months": "n/a", "reporting_enabled": "yes"}}}), vo.Coverage())
     assert weird == {"enabled": None, "recording": None, "retention_months": None, "reporting_enabled": None}
@@ -720,7 +710,7 @@ def test_heartbeat_age_uses_server_time_not_host_clock(monkeypatch):
 
 
 def test_paths_filters_read_only_for_health_and_audit():
-    reader = FakeReader(pr_primary_routes({("", f"{FILTER_BASE}/paths-filter/vault-pr"): vo.hvac_exc.Forbidden("denied")}))
+    reader = FakeReader(pr_primary_routes({("", f"{FILTER_BASE}/paths-filter/vault-pr"): vo.Forbidden("denied")}))
     cov = vo.Coverage()
     h = vo.collect_health(reader, cov)  # usage, entities, policies, inventory
     assert "paths_filters" not in h["replication"]["performance"]
@@ -731,8 +721,8 @@ def test_dynamic_filter_denial_recorded_once():
     routes = pr_primary_routes(
         {
             ("", f"{FILTER_BASE}/paths-filter/vault-pr-stale"): {"data": {"mode": "allow", "paths": ["tn001/"]}},
-            ("", f"{FILTER_BASE}/dynamic-filter/vault-pr"): vo.hvac_exc.Forbidden("denied"),
-            ("", f"{FILTER_BASE}/dynamic-filter/vault-pr-stale"): vo.hvac_exc.Forbidden("denied"),
+            ("", f"{FILTER_BASE}/dynamic-filter/vault-pr"): vo.Forbidden("denied"),
+            ("", f"{FILTER_BASE}/dynamic-filter/vault-pr-stale"): vo.Forbidden("denied"),
         }
     )
     reader, cov = FakeReader(routes), vo.Coverage()
