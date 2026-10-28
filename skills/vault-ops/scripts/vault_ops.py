@@ -45,7 +45,7 @@ from typing import Any
 import requests
 
 TOOL_NAME = "vault-ops"
-TOOL_VERSION = "0.4.0"
+TOOL_VERSION = "0.4.1"
 SCHEMA_VERSION = "1.10.0"
 
 EXIT_OK, EXIT_FATAL, EXIT_GAPS, EXIT_FINDINGS, EXIT_INTERRUPTED = 0, 1, 2, 3, 130
