@@ -2,7 +2,7 @@
 
 An end-to-end manual test of the dev environment, DR and performance replication and the vault-ops skill. Run every command from the repo root.
 
-The automated version is one destructive command: `task test:e2e` ([`scripts/e2e.sh`](../scripts/e2e.sh)). It runs `down`, `clean`, `up:all`, `dr:enable`, `pr:enable`, `seed`, `seed:findings`, `token:policies`, `token:pr`, `test:all`, `test:ce` and `lint`, and stops at the first failure.
+The automated version is one destructive command: `task test:e2e` ([`scripts/e2e.sh`](../scripts/e2e.sh)). It runs `down`, `clean`, `up:all`, `dr:enable`, `pr:enable`, `seed`, `seed:findings`, `seed:ns`, `token:policies`, `token:pr`, `token:ns`, `test:all`, `test:ce` and `lint`, and stops at the first failure.
 
 ## 1. Start from scratch
 
@@ -25,6 +25,8 @@ task seed               # about 1–2 min, 132 namespaces
 task seed:findings
 task token:policies     # 1h read-only token (+ policy/Sentinel readers), saved to .tmp/audit-token
 task token:pr           # same policies, minted on vault-pr: .tmp/audit-token-pr
+task seed:ns            # child namespace admin/ (NS=team-x for another) with a chain down to depth 5
+task token:ns           # same policies, written and minted inside admin/: .tmp/audit-token-ns
 ```
 
 Enable DR and performance replication **before** seeding. Both enables briefly restart the primary and drops client activity Vault hasn't saved yet, so seeding first leaves the client count at 1 instead of about 841. See [replication.md](replication.md#behaviour-to-know).
@@ -32,7 +34,7 @@ Enable DR and performance replication **before** seeding. Both enables briefly r
 ## 3. Run the tests
 
 ```bash
-task test:all           # unit + integration (incl. DR and PR); expect all passed, coverage >= 80%
+task test:all           # unit + integration (incl. DR, PR and child-namespace token); expect all passed, coverage >= 80%
 task test:ce           # Community dev server from compose.ce.yaml
 task lint
 task test:ci            # what CI runs: lint, plugin manifests, unit tests (no Vault)
@@ -59,6 +61,7 @@ task skill:run:pr -- audit                                    # works; tn009 is 
 task skill:run -- usage                                       # billing period + current month client counts
 task skill:run -- entities                                    # counts + VT-ID findings, no metadata
 task skill:run -- entities --namespace tn001 --list           # adds metadata, aliases, policies per entity
+task skill:run:ns -- audit                                    # child-namespace token: run.token_namespace admin/, run.platform enterprise, cluster blocks (seal, metrics too) null, no denials
 ```
 
 To read a result, pipe it through `jq`, for example:
@@ -94,6 +97,22 @@ Then ask "audit my vault", "check replication health on all nodes" or "show the 
 - draft remediation without applying it
 
 VT-LIC-001 will fire if the dev license expires within 90 days.
+
+## 7. HCP Vault Dedicated (optional, local only)
+
+Never part of CI, `test:all` or `test:e2e`. Needs `terraform`, the `hcp` CLI and `jq`, an `hcp auth login` session (or `HCP_CLIENT_ID`/`HCP_CLIENT_SECRET`) and `HCP_PROJECT_ID` in `.env`. The Development tier is billed hourly: create, test and destroy in one sitting.
+
+```bash
+task hcp:plan                     # terraform fmt check, validate, plan (changes nothing)
+task hcp:apply                    # run it yourself: terraform apply, answer "yes" (HVN + dev cluster, ~10-20 min)
+task hcp:seed                     # admin/ chain down to depth 5 and a few mounts, as the HCP admin token
+task hcp:token                    # .tmp/admin-token-hcp (6h, for you) + policies in admin/ + 1h read-only .tmp/audit-token-hcp
+task test:hcp                     # tests/test_child_ns.py against the cluster
+task skill:run:hcp -- audit       # or health / usage
+task hcp:destroy                  # run it yourself: terraform destroy (Terraform asks "yes")
+```
+
+Expect `run.platform: "hcp"`, `run.token_namespace: "admin/"`, complete coverage, `health.seal.type` set by HCP's managed auto-unseal (e.g. `awskms`), `health.metrics: null` (skipped on HCP) and the other cluster blocks null. HCP has no root token: `.tmp/admin-token-hcp` (`hcp-root` policy in `admin/`) is the most you get, e.g. `eval "$(task hcp:env)" && vault namespace list` (`TOKEN=audit task hcp:env` for the read-only token). Never use it for the skill, and never commit HCP outputs or Terraform state (gitignored): they hold real addresses and IDs.
 
 ## Clean up
 

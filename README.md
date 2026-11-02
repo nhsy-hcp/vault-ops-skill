@@ -29,7 +29,7 @@ claude
 | --- | --- | --- |
 | `VAULT_ADDR`, `VAULT_TOKEN` | yes | Vault address and a token from [`vault-ops-readonly.hcl`](skills/vault-ops/policies/vault-ops-readonly.hcl) |
 | `VAULT_CACERT` / `VAULT_SKIP_VERIFY` | recommended / dev only | TLS verification |
-| `VAULT_NAMESPACE` | no | Start namespace for `audit`, `inventory`, `entities` |
+| `VAULT_NAMESPACE` | no | Start namespace for `audit`, `inventory`, `entities`, `policies`. Required when the token was created in a child namespace (e.g. `admin` on HCP Vault Dedicated): set it to that namespace or one below it |
 | `VAULT_OPS_OUTPUT_DIR` | no | Results location (default `.tmp/vault-ops/` in the working directory, git-ignored) |
 
 The other variables in `.env.template` (`VAULT_LICENSE`, `VAULT_IMAGE`, `VAULT_HOST_*`, `VAULT_DR_*`, `VAULT_PR_*`, `CONTAINER_CLI`) are only for this repo's local dev cluster. Setup details and safety notes: [skills/vault-ops/README.md](skills/vault-ops/README.md).
@@ -65,6 +65,8 @@ uv run --script skills/vault-ops/scripts/vault_ops.py <command> [--output-dir DI
 
 Environment: `VAULT_ADDR`, `VAULT_TOKEN`, `VAULT_NAMESPACE`, `VAULT_SKIP_VERIFY`, `VAULT_CACERT`, `VAULT_OPS_OUTPUT_DIR`. Files are written 0600; stdout carries only their paths.
 
+Every output's `run` block records `platform`: `hcp` when the `VAULT_ADDR` host ends in `.hashicorp.cloud` (HCP Vault Dedicated, public or private endpoint), otherwise `enterprise` or `community` from the `sys/health` version, or `null` if that is unknown. Vault has no API signal for HCP, so an HCP cluster behind your own DNS name or a proxy shows as `enterprise`. The label survives `--redact-addr` without exposing the host.
+
 ### Rules
 
 | Rule | Severity | Checks |
@@ -88,7 +90,7 @@ Environment: `VAULT_ADDR`, `VAULT_TOKEN`, `VAULT_NAMESPACE`, `VAULT_SKIP_VERIFY`
 | VT-ID-001..003 | low/info | Entity without aliases, policies attached directly to an entity, disabled entity |
 | VT-ID-004..005 | low | Far more entities than active clients, alias name shared by several entities |
 | VT-POL-001..005 | medium/low/info | ACL policy with write or sudo on every path, policy that can change access control (policies, auth, mounts, tokens, identity), sudo, same-named policy drifted across namespaces, unparseable policy (from `policies`) |
-| VT-CLI-001..005 | low/info | Token-only client sprawl, sharp client growth, mount creating new clients every month, most clients in root, activity log disabled so counts aren't recorded (from `usage`) |
+| VT-CLI-001..005 | low/info | Token-only client sprawl, sharp client growth, mount creating new clients every month, most clients in root (or the token's namespace), activity log disabled so counts aren't recorded (from `usage`) |
 
 Details and remediation: [`references/rules.md`](skills/vault-ops/references/rules.md). Schema: [`findings.schema.json`](skills/vault-ops/schemas/findings.schema.json).
 
@@ -98,6 +100,10 @@ Details and remediation: [`references/rules.md`](skills/vault-ops/references/rul
 vault policy write vault-ops-readonly skills/vault-ops/policies/vault-ops-readonly.hcl
 vault token create -policy=vault-ops-readonly -no-default-policy -orphan -ttl=1h -explicit-max-ttl=1h
 ```
+
+Mint it in the root namespace for a full review. Where you can only reach a child namespace (e.g. `admin` on HCP Vault Dedicated), add `-namespace=<ns>` to both commands and set `VAULT_NAMESPACE=<ns>`: every subcommand then covers that namespace's tree, and root-only cluster data (licence, raft, lease TTLs, audit devices, snapshots, metrics) is skipped rather than reported as denied. `run.token_namespace` in every output says where the token lives.
+
+On HCP Vault Dedicated (`run.platform: hcp`) there is no root-namespace token at all: HCP exposes only [a few `sys` endpoints](https://developer.hashicorp.com/vault/cloud/what-is-hcp-vault/security-overview#system-api-endpoints) to customers. `health` there reads leader, replication status and `sys/seal-status` (HashiCorp-managed auto-unseal) and skips `sys/metrics`; licence, raft, lease TTLs, audit devices and snapshots are managed by HashiCorp, with audit log streaming and snapshots (production tier) configured in the HCP portal.
 
 The policy is read/list only and never grants reading ACL or Sentinel policy bodies. For a policy review with `policies`, an admin also loads `skills/vault-ops/policies/vault-ops-policy-reader.hcl` (`read` on `sys/policies/acl/*` per namespace level, no `list` or `sudo`) and adds `-policy=vault-ops-policy-reader` to the token; the script parses bodies in memory and writes only names, hashes and flagged rules. Sentinel checks (VT-SNT-*, in `audit` and `policies`) likewise need `skills/vault-ops/policies/vault-ops-sentinel-reader.hcl` (`read` on `sys/policies/{egp,rgp}/*`) and `-policy=vault-ops-sentinel-reader`; Sentinel source is never written. The two exact list paths, `sys/audit` and `sys/storage/raft/snapshot-auto/config`, also get `sudo` because Vault protects them; neither grants writes, and snapshot configs (which hold storage credentials) stay unreadable.
 
@@ -137,12 +143,14 @@ task up:all               # primary :8210, DR :8220, performance secondary :8240
 task dr:enable && task pr:enable   # replication primary -> secondaries (before seeding)
 task seed && task seed:findings && task token:policies && task token:pr
 task skill:run -- audit   # run the skill script with the read-only token (skill:run:pr for vault-pr)
+task seed:ns && task token:ns && task skill:run:ns -- audit   # child-namespace token (NS=admin by default)
 task test:all && task lint
 task test:e2e             # everything above from scratch (destructive: wipes .tmp/vault)
 ```
 
 - CI: [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs `task test:ci` as two jobs, `lint` then `test-ci` (plugin manifests, unit tests), on pushes to `main` and on pull requests. It needs no Vault, licence or secrets. Run it locally with `act`.
-- Skill evals: `task eval` runs the [`claude plugin eval`](evals/) suite: thirteen offline cases that check the skill triggers (and doesn't on Terraform authoring), interprets saved findings, compares two runs, flags partial coverage, explains DR-secondary, sealed-node and performance-secondary health, reviews ACL and Sentinel policies (with and without the reader add-ons), keeps entity details private, refuses to change Vault and never reads `.env` for a token. Each case also runs a no-plugin baseline arm. It needs no Vault, but uses API credits (about $8 for the default 3 runs; `task eval -- --case <name> --runs 1` while iterating, since an extra `--tag` widens the filter rather than narrowing it). Results go to `evals/results/` (gitignored). It is not part of CI.
+- Skill evals: `task eval` runs the [`claude plugin eval`](evals/) suite: fourteen offline cases that check the skill triggers (and doesn't on Terraform authoring), interprets saved findings, compares two runs, flags partial coverage, explains DR-secondary, sealed-node, performance-secondary and child-namespace-token results, reviews ACL and Sentinel policies (with and without the reader add-ons), keeps entity details private, refuses to change Vault and never reads `.env` for a token. Each case also runs a no-plugin baseline arm. It needs no Vault, but uses API credits (about $8 for the default 3 runs; `task eval -- --case <name> --runs 1` while iterating, since an extra `--tag` widens the filter rather than narrowing it). Results go to `evals/results/` (gitignored). It is not part of CI.
+- HCP Vault Dedicated (local only, never CI): `terraform/hcp/` creates a Development-tier cluster. You run `task hcp:apply` and `task hcp:destroy` yourself (they prompt); `task hcp:seed` seeds `admin/`; `task hcp:token` writes the HCP admin token (`.tmp/admin-token-hcp`, 6h, for your own `vault` commands: `eval "$(task hcp:env)"`) and a 1h read-only token (`.tmp/audit-token-hcp`); `task test:hcp` and `task skill:run:hcp` test the skill with the read-only one. Needs `terraform`, the `hcp` CLI (`hcp auth login`) and `HCP_PROJECT_ID` in `.env`. Billed hourly: destroy it when done. See [docs/testing.md](docs/testing.md).
 - Compose setup, DR and performance replication, failure drills: [docs/replication.md](docs/replication.md). Manual test walkthrough: [docs/testing.md](docs/testing.md)
 - All tasks and repo conventions: [AGENTS.md](AGENTS.md)
 
