@@ -108,6 +108,11 @@ tasks:
     cmds:
       - scripts/seed_findings.sh
 
+  seed:ns:
+    desc: "Seed a child namespace for child-namespace token tests (default admin/; NS=team-x task seed:ns): a chain down to depth 5 and a few mounts (root token)"
+    cmds:
+      - NS="${NS:-admin}" scripts/seed_child_ns.sh
+
   token:audit:
     desc: Write vault-ops-readonly policy and mint a 1h token to .tmp/audit-token
     cmds:
@@ -122,6 +127,12 @@ tasks:
     desc: Like token:policies, but minted on the performance secondary (tokens are per cluster) into .tmp/audit-token-pr
     cmds:
       - VAULT_ADDR="${VAULT_PR_ADDR:-https://127.0.0.1:8240}" TOKEN_FILE=.tmp/audit-token-pr POLICY_READER=1 scripts/audit_token.sh
+
+  token:ns:
+    desc: "Like token:policies, but written and minted in the child namespace NS (default admin) into .tmp/audit-token-ns"
+    cmds:
+      - VAULT_NAMESPACE="${NS:-admin}" TOKEN_FILE=.tmp/audit-token-ns POLICY_READER=1 scripts/audit_token.sh
+      - echo "${NS:-admin}" > .tmp/audit-token-ns.namespace
 
   skill:run:
     desc: "Run the skill script with the audit token: task skill:run -- <audit|health|inventory|usage|entities|diff>"
@@ -140,6 +151,93 @@ tasks:
       - sh: test -s .tmp/audit-token-pr
         msg: "No PR audit token; run: task token:pr"
 
+  skill:run:ns:
+    desc: "Run the skill script with the child-namespace token from token:ns: task skill:run:ns -- <cmd>"
+    cmds:
+      - VAULT_NAMESPACE="$(cat .tmp/audit-token-ns.namespace)" VAULT_TOKEN="$(cat .tmp/audit-token-ns)" uv run --script {{.SKILL_SCRIPT}} {{.CLI_ARGS | default "--help"}}
+    preconditions:
+      - sh: test -s .tmp/audit-token-ns
+        msg: "No child-namespace token; run: task seed:ns token:ns"
+
+  # ---- HCP Vault Dedicated (local only, never in CI): terraform/hcp, user runs hcp:apply / hcp:destroy
+  hcp:deps:
+    desc: Check terraform, hcp and jq, and HCP credentials (hcp auth login or HCP_CLIENT_ID/HCP_CLIENT_SECRET)
+    internal: true
+    run: once
+    cmds:
+      - for tool in terraform hcp jq; do command -v "$tool" >/dev/null || { echo "error - $tool not found" >&2; exit 1; }; done
+      - hcp auth print-access-token >/dev/null 2>&1 || { echo "error - no HCP credentials; run - hcp auth login" >&2; exit 1; }
+
+  hcp:init:
+    internal: true
+    deps: [hcp:deps]
+    preconditions:
+      - sh: test -n "${HCP_PROJECT_ID:-}"
+        msg: "HCP_PROJECT_ID is not set in .env"
+    cmds:
+      - terraform -chdir=terraform/hcp init -input=false
+
+  hcp:plan:
+    desc: Terraform fmt check, validate and plan for the HCP Vault Dedicated cluster (changes nothing)
+    deps: [hcp:init]
+    cmds:
+      - terraform -chdir=terraform/hcp fmt -check
+      - terraform -chdir=terraform/hcp validate
+      - TF_VAR_project_id="$HCP_PROJECT_ID" terraform -chdir=terraform/hcp plan
+
+  hcp:apply:
+    desc: "Create the HCP Vault Dedicated cluster and HVN (terraform apply; run it yourself: Terraform asks to confirm)"
+    deps: [hcp:init]
+    cmds:
+      - TF_VAR_project_id="$HCP_PROJECT_ID" terraform -chdir=terraform/hcp apply
+      - terraform -chdir=terraform/hcp output
+
+  hcp:seed:
+    desc: Seed the HCP cluster's admin/ namespace with the child-namespace test layout (scripts/seed_child_ns.sh, as the HCP admin token)
+    deps: [hcp:deps]
+    cmds:
+      - scripts/hcp_seed.sh
+
+  hcp:token:
+    desc: Fetch the HCP admin token into .tmp/admin-token-hcp (6h, humans/setup only) and mint a 1h read-only token in admin/ into .tmp/audit-token-hcp
+    deps: [hcp:deps]
+    cmds:
+      - scripts/hcp_token.sh
+
+  hcp:env:
+    desc: 'Print shell exports for the HCP cluster: eval "$(task hcp:env)" (admin token; TOKEN=audit task hcp:env for the read-only one)'
+    silent: true
+    preconditions:
+      - sh: test -s ".tmp/${TOKEN:-admin}-token-hcp"
+        msg: "No token file; run: task hcp:token"
+    cmds:
+      # Each statement ends in ";" so both eval "$(task hcp:env)" and an unquoted eval $(task hcp:env) work.
+      - echo "export VAULT_ADDR=$(terraform -chdir=terraform/hcp output -raw vault_public_endpoint_url);"
+      - echo "export VAULT_NAMESPACE=admin;"
+      - echo "export VAULT_TOKEN=\"\$(cat {{.ROOT_DIR}}/.tmp/${TOKEN:-admin}-token-hcp)\";"
+
+  test:hcp:
+    desc: Child-namespace integration tests against the HCP cluster with .tmp/audit-token-hcp (local only)
+    preconditions:
+      - sh: test -s .tmp/audit-token-hcp
+        msg: "No HCP token; run: task hcp:token"
+    cmds:
+      - env -u VAULT_TOKEN -u VAULT_SKIP_VERIFY -u VAULT_CACERT VAULT_ADDR="$(terraform -chdir=terraform/hcp output -raw vault_public_endpoint_url)" VAULT_NAMESPACE=admin VAULT_NS_TOKEN="$(cat .tmp/audit-token-hcp)" VAULT_NS_TOKEN_NAMESPACE=admin uv run pytest -q -rs -m integration tests/test_child_ns.py
+
+  skill:run:hcp:
+    desc: "Run the skill script against the HCP cluster with .tmp/audit-token-hcp: task skill:run:hcp -- <cmd>"
+    preconditions:
+      - sh: test -s .tmp/audit-token-hcp
+        msg: "No HCP token; run: task hcp:token"
+    cmds:
+      - env -u VAULT_SKIP_VERIFY -u VAULT_CACERT VAULT_ADDR="$(terraform -chdir=terraform/hcp output -raw vault_public_endpoint_url)" VAULT_NAMESPACE=admin VAULT_TOKEN="$(cat .tmp/audit-token-hcp)" uv run --script {{.SKILL_SCRIPT}} {{.CLI_ARGS | default "--help"}}
+
+  hcp:destroy:
+    desc: "Destroy the HCP Vault Dedicated cluster and HVN (terraform destroy; run it yourself: it prompts)"
+    deps: [hcp:init]
+    cmds:
+      - TF_VAR_project_id="$HCP_PROJECT_ID" terraform -chdir=terraform/hcp destroy
+
   lint:
     desc: Run all pre-commit hooks (ruff, shellcheck, gitleaks, yaml/json)
     cmds:
@@ -154,7 +252,7 @@ tasks:
   test:integration:
     desc: Integration tests against the seeded dev Vault with the audit token
     cmds:
-      - VAULT_TOKEN="$(cat .tmp/audit-token)" VAULT_PR_TOKEN="$(cat .tmp/audit-token-pr 2>/dev/null || true)" uv run pytest -q -m integration
+      - VAULT_TOKEN="$(cat .tmp/audit-token)" VAULT_PR_TOKEN="$(cat .tmp/audit-token-pr 2>/dev/null || true)" VAULT_NS_TOKEN="$(cat .tmp/audit-token-ns 2>/dev/null || true)" VAULT_NS_TOKEN_NAMESPACE="$(cat .tmp/audit-token-ns.namespace 2>/dev/null || true)" uv run pytest -q -m integration
     preconditions:
       - sh: test -s .tmp/audit-token
         msg: "No audit token; run: task token:audit"
@@ -167,10 +265,10 @@ tasks:
   test:all:
     desc: Unit + integration tests with coverage
     cmds:
-      - VAULT_TOKEN="$(cat .tmp/audit-token)" VAULT_PR_TOKEN="$(cat .tmp/audit-token-pr 2>/dev/null || true)" uv run pytest -q -m "integration or not integration" --cov=vault_ops --cov-report=term-missing --cov-fail-under=80
+      - VAULT_TOKEN="$(cat .tmp/audit-token)" VAULT_PR_TOKEN="$(cat .tmp/audit-token-pr 2>/dev/null || true)" VAULT_NS_TOKEN="$(cat .tmp/audit-token-ns 2>/dev/null || true)" VAULT_NS_TOKEN_NAMESPACE="$(cat .tmp/audit-token-ns.namespace 2>/dev/null || true)" uv run pytest -q -m "integration or not integration" --cov=vault_ops --cov-report=term-missing --cov-fail-under=80
 
   test:e2e:
-    desc: "Full e2e from scratch (destructive: wipes .tmp/vault): down, clean, up:all, dr:enable, pr:enable, seed, seed:findings, tokens, test:all, test:ce, lint"
+    desc: "Full e2e from scratch (destructive: wipes .tmp/vault): down, clean, up:all, dr:enable, pr:enable, seed, seed:findings, seed:ns, tokens, test:all, test:ce, lint"
     cmds:
       - scripts/e2e.sh
 
@@ -206,4 +304,4 @@ tasks:
       - VOLUMES=1 scripts/vault_down.sh || echo "warning - node volumes not removed (container engine down or .env incomplete); run 'task clean' again once it is up" >&2
       - rm -rf .pytest_cache .ruff_cache .coverage htmlcov
       - find . -name __pycache__ -type d -prune -exec rm -rf {} +
-      - rm -rf .tmp/vault .tmp/vault-ops .tmp/audit-token .tmp/audit-token-pr .tmp/*.log
+      - rm -rf .tmp/vault .tmp/vault-ops .tmp/audit-token .tmp/audit-token-pr .tmp/audit-token-ns .tmp/audit-token-ns.namespace .tmp/audit-token-hcp .tmp/audit-token-hcp.namespace .tmp/admin-token-hcp .tmp/*.log

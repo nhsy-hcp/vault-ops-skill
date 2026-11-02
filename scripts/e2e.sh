@@ -7,8 +7,8 @@ set -euo pipefail
 steps=(
   down clean up:all
   dr:enable pr:enable  # before seed: enabling replication restarts the primary and drops unsaved client activity
-  seed seed:findings
-  token:policies token:pr
+  seed seed:findings seed:ns
+  token:policies token:pr token:ns
   test:all test:ce lint
 )
 

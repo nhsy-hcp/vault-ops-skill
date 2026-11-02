@@ -7,6 +7,13 @@
 .tmp/
 .plans/
 
+# Terraform (terraform/hcp): local state and plans hold cluster endpoints and org/project IDs
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfplan
+
 # claude plugin eval run output
 evals/results/
 
