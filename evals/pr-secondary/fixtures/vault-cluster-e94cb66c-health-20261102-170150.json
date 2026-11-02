@@ -1,15 +1,17 @@
 {
-  "schema_version": "1.10.0",
+  "schema_version": "1.12.0",
   "tool": {
     "name": "vault-ops",
-    "version": "0.4.0"
+    "version": "0.4.2"
   },
   "run": {
     "cluster_name": "vault-cluster-e94cb66c",
     "vault_addr": "https://127.0.0.1:8210",
     "start_namespace": "/",
-    "started_at": "2026-10-06T09:23:42Z",
-    "finished_at": "2026-10-06T09:23:42Z",
+    "token_namespace": "/",
+    "platform": "enterprise",
+    "started_at": "2026-11-02T17:01:50Z",
+    "finished_at": "2026-11-02T17:01:50Z",
     "duration_seconds": 0.0
   },
   "coverage": {
@@ -30,19 +32,19 @@
     "replication_performance_mode": "primary",
     "dr_secondary": false,
     "performance_secondary": false,
-    "server_time_utc": 1791278622,
+    "server_time_utc": 1793638910,
     "seal": null,
     "leader": {
       "ha_enabled": true,
       "is_self": true,
       "leader_address_present": true,
-      "raft_committed_index": 18215
+      "raft_committed_index": 175027
     },
     "license": {
-      "license_id": "f6fdb17e-11ee-e20e-045f-b8110f344f1e",
+      "license_id": "de2f5894-1d03-9873-fdbb-b935cc0070c3",
       "edition": "",
-      "expiration_time": "2026-10-31T00:00:00Z",
-      "termination_time": "2026-10-31T00:00:00Z",
+      "expiration_time": "2027-08-31T00:00:00Z",
+      "termination_time": "2027-08-31T00:00:00Z",
       "features": [
         "HSM",
         "Performance Replication",
@@ -68,7 +70,8 @@
         "SPIFFE Secrets Engine",
         "OpenLDAP Secrets Engine",
         "PKI External CA Secrets Engine",
-        "Okta Auth Engine"
+        "Okta Auth Engine",
+        "Agentic IAM"
       ],
       "performance_standby_count": 9999
     },
@@ -77,7 +80,7 @@
         "mode": "primary",
         "state": "running",
         "corrupted_merkle_tree": false,
-        "last_wal": 14279,
+        "last_wal": 75526,
         "known_secondaries": [
           "vault-dr"
         ],
@@ -85,9 +88,9 @@
           {
             "node_id": "vault-dr",
             "connection_status": "connected",
-            "last_heartbeat": "2026-10-06T09:23:41Z",
+            "last_heartbeat": "2026-11-02T17:01:49Z",
             "clock_skew_ms": -1,
-            "replication_primary_canary_age_ms": 888
+            "replication_primary_canary_age_ms": 658
           }
         ]
       },
@@ -95,7 +98,7 @@
         "mode": "primary",
         "state": "running",
         "corrupted_merkle_tree": false,
-        "last_wal": 14279,
+        "last_wal": 75526,
         "known_secondaries": [
           "vault-pr",
           "vault-pr-stale"
@@ -104,9 +107,9 @@
           {
             "node_id": "vault-pr",
             "connection_status": "connected",
-            "last_heartbeat": "2026-10-06T09:23:41Z",
-            "clock_skew_ms": 0,
-            "replication_primary_canary_age_ms": 776
+            "last_heartbeat": "2026-11-02T17:01:48Z",
+            "clock_skew_ms": -1,
+            "replication_primary_canary_age_ms": 899
           },
           {
             "node_id": "vault-pr-stale",
@@ -159,9 +162,9 @@
               "node_status": "alive",
               "healthy": true,
               "last_contact": "0s",
-              "last_term": 5,
-              "last_index": 18208,
-              "stable_since": "2026-10-06T09:23:12.826577163Z",
+              "last_term": 7,
+              "last_index": 175006,
+              "stable_since": "2026-11-02T12:42:35.119854768Z",
               "version": "2.1.1"
             }
           ]
@@ -207,37 +210,19 @@
     },
     "metrics": {
       "node_scope": true,
-      "timestamp": "2026-10-06T09:23:30Z",
-      "leases": 725,
+      "timestamp": "2026-11-02T17:01:40Z",
+      "leases": 484,
       "irrevocable_leases": 0,
       "in_flight_requests": 0,
       "raft_fsm_pending": 0,
-      "raft_oldest_log_age_ms": 1675040,
-      "goroutines": 966,
-      "alloc_bytes": 403262100,
-      "sys_bytes": 451113300,
+      "raft_oldest_log_age_ms": 3957589,
+      "goroutines": 1116,
+      "alloc_bytes": 303660480,
+      "sys_bytes": 607374700,
       "token_count": null
     }
   },
   "findings": [
-    {
-      "fingerprint": "ff861aa9963689fd",
-      "rule_id": "VT-LIC-001",
-      "severity": "medium",
-      "category": "lifecycle",
-      "namespace": "/",
-      "object": {
-        "kind": "cluster",
-        "path": null,
-        "type": "license"
-      },
-      "title": "License expires soon",
-      "detail": "License expires on 2026-10-31 (24 days remaining) \u2014 renew before the grace period ends.",
-      "evidence": {
-        "days_remaining": 24,
-        "expiration_time": "2026-10-31T00:00:00Z"
-      }
-    },
     {
       "fingerprint": "93e868ab26d8ff8a",
       "rule_id": "VT-HLTH-002",
@@ -257,6 +242,26 @@
         ],
         "mode": "primary",
         "state": "running"
+      }
+    },
+    {
+      "fingerprint": "4ca802a1e4e4d936",
+      "rule_id": "VT-SNAP-002",
+      "severity": "medium",
+      "category": "backup",
+      "namespace": "/",
+      "object": {
+        "kind": "snapshot_config",
+        "path": "vault-ops-local",
+        "type": "file"
+      },
+      "title": "Automated snapshot failing or overdue",
+      "detail": "Automated snapshot `vault-ops-local`: no snapshot has started for 39365m past its scheduled time \u2014 check the status and the storage target.",
+      "evidence": {
+        "consecutive_errors": 0,
+        "last_snapshot_end": "2026-10-06T08:56:17Z",
+        "next_snapshot_start": "2026-10-06T08:56:47Z",
+        "overdue_seconds": 2361900
       }
     },
     {

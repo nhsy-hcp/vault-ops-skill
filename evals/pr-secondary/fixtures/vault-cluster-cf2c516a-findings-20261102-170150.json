@@ -1,15 +1,17 @@
 {
-  "schema_version": "1.10.0",
+  "schema_version": "1.12.0",
   "tool": {
     "name": "vault-ops",
-    "version": "0.4.0"
+    "version": "0.4.2"
   },
   "run": {
     "cluster_name": "vault-cluster-cf2c516a",
     "vault_addr": "<redacted>",
     "start_namespace": "/",
-    "started_at": "2026-10-06T09:25:19Z",
-    "finished_at": "2026-10-06T09:25:20Z",
+    "token_namespace": "/",
+    "platform": "enterprise",
+    "started_at": "2026-11-02T17:01:50Z",
+    "finished_at": "2026-11-02T17:01:51Z",
     "duration_seconds": 1.0,
     "worker_threads": 4
   },
@@ -21,46 +23,27 @@
     "sentinel": "supported"
   },
   "coverage": {
-    "namespaces_processed": 119,
+    "namespaces_processed": 124,
     "complete": true,
     "denied": [],
     "errors": []
   },
   "summary": {
-    "total": 15,
+    "total": 17,
     "by_severity": {
       "high": 0,
-      "medium": 3,
+      "medium": 2,
       "low": 0,
-      "info": 12
+      "info": 15
     },
     "by_rule": {
       "VT-AUD-003": 1,
-      "VT-LIC-001": 1,
-      "VT-NS-001": 11,
+      "VT-NS-001": 14,
       "VT-NS-002": 1,
       "VT-SNAP-001": 1
     }
   },
   "findings": [
-    {
-      "fingerprint": "ff861aa9963689fd",
-      "rule_id": "VT-LIC-001",
-      "severity": "medium",
-      "category": "lifecycle",
-      "namespace": "/",
-      "object": {
-        "kind": "cluster",
-        "path": null,
-        "type": "license"
-      },
-      "title": "License expires soon",
-      "detail": "License expires on 2026-10-31 (24 days remaining) \u2014 renew before the grace period ends.",
-      "evidence": {
-        "days_remaining": 24,
-        "expiration_time": "2026-10-31T00:00:00Z"
-      }
-    },
     {
       "fingerprint": "cd036c0de008de11",
       "rule_id": "VT-SNAP-001",
@@ -112,6 +95,63 @@
       "evidence": {
         "auth_types": [
           "token"
+        ]
+      }
+    },
+    {
+      "fingerprint": "08f9d8deafcf06e2",
+      "rule_id": "VT-NS-001",
+      "severity": "info",
+      "category": "hygiene",
+      "namespace": "admin/l2/l3/",
+      "object": {
+        "kind": "namespace",
+        "path": null,
+        "type": null
+      },
+      "title": "Namespace has no auth method beyond token",
+      "detail": "No auth method beyond the built-in token backend \u2014 nothing can log in to this namespace directly.",
+      "evidence": {
+        "auth_types": [
+          "ns_token"
+        ]
+      }
+    },
+    {
+      "fingerprint": "7a6db641a4da1b13",
+      "rule_id": "VT-NS-001",
+      "severity": "info",
+      "category": "hygiene",
+      "namespace": "admin/l2/l3/l4/",
+      "object": {
+        "kind": "namespace",
+        "path": null,
+        "type": null
+      },
+      "title": "Namespace has no auth method beyond token",
+      "detail": "No auth method beyond the built-in token backend \u2014 nothing can log in to this namespace directly.",
+      "evidence": {
+        "auth_types": [
+          "ns_token"
+        ]
+      }
+    },
+    {
+      "fingerprint": "e903fdfdb0da7bfe",
+      "rule_id": "VT-NS-001",
+      "severity": "info",
+      "category": "hygiene",
+      "namespace": "admin/l2/l3/l4/l5/",
+      "object": {
+        "kind": "namespace",
+        "path": null,
+        "type": null
+      },
+      "title": "Namespace has no auth method beyond token",
+      "detail": "No auth method beyond the built-in token backend \u2014 nothing can log in to this namespace directly.",
+      "evidence": {
+        "auth_types": [
+          "ns_token"
         ]
       }
     },

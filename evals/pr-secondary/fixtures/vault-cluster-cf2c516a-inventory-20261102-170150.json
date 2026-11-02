@@ -1,56 +1,58 @@
 {
-  "schema_version": "1.10.0",
+  "schema_version": "1.12.0",
   "tool": {
     "name": "vault-ops",
-    "version": "0.4.0"
+    "version": "0.4.2"
   },
   "run": {
     "cluster_name": "vault-cluster-cf2c516a",
     "vault_addr": "<redacted>",
     "start_namespace": "/",
-    "started_at": "2026-10-06T09:25:19Z",
-    "finished_at": "2026-10-06T09:25:20Z",
+    "token_namespace": "/",
+    "platform": "enterprise",
+    "started_at": "2026-11-02T17:01:50Z",
+    "finished_at": "2026-11-02T17:01:51Z",
     "duration_seconds": 1.0,
     "worker_threads": 4
   },
   "coverage": {
-    "namespaces_processed": 119,
+    "namespaces_processed": 124,
     "complete": true,
     "denied": [],
     "errors": []
   },
   "summary": {
-    "namespaces": 119,
-    "max_depth": 3,
-    "auth_mounts_total": 443,
-    "secrets_mounts_total": 432,
+    "namespaces": 124,
+    "max_depth": 5,
+    "auth_mounts_total": 450,
+    "secrets_mounts_total": 435,
     "auth_mounts_by_type": {
-      "approle": 108,
+      "approle": 109,
       "jwt": 108,
-      "ns_token": 118,
+      "ns_token": 123,
       "token": 1,
-      "userpass": 108
+      "userpass": 109
     },
     "secrets_mounts_by_type": {
       "database": 108,
-      "kv": 108,
+      "kv": 110,
       "pki": 108,
-      "transit": 108
+      "transit": 109
     },
     "auth_types": {
       "ns_token": {
-        "mounts": 118,
-        "namespaces": 118
+        "mounts": 123,
+        "namespaces": 123
       },
       "approle": {
-        "mounts": 108,
-        "namespaces": 108
-      },
-      "jwt": {
-        "mounts": 108,
-        "namespaces": 108
+        "mounts": 109,
+        "namespaces": 109
       },
       "userpass": {
+        "mounts": 109,
+        "namespaces": 109
+      },
+      "jwt": {
         "mounts": 108,
         "namespaces": 108
       },
@@ -60,24 +62,24 @@
       }
     },
     "secrets_types": {
-      "database": {
-        "mounts": 108,
-        "namespaces": 108
-      },
       "kv": {
+        "mounts": 110,
+        "namespaces": 110
+      },
+      "transit": {
+        "mounts": 109,
+        "namespaces": 109
+      },
+      "database": {
         "mounts": 108,
         "namespaces": 108
       },
       "pki": {
         "mounts": 108,
         "namespaces": 108
-      },
-      "transit": {
-        "mounts": 108,
-        "namespaces": 108
       }
     },
-    "acl_policies": 1110,
+    "acl_policies": 1113,
     "acl_policies_top": [
       {
         "namespace": "tn001/ci-cd/dev/",
@@ -150,6 +152,20 @@
         ]
       },
       {
+        "depth": 1,
+        "auth_types": [
+          "ns_token",
+          "userpass"
+        ],
+        "secrets_types": [
+          "kv"
+        ],
+        "count": 1,
+        "examples": [
+          "admin/"
+        ]
+      },
+      {
         "depth": 2,
         "auth_types": [
           "approle",
@@ -168,6 +184,20 @@
           "tn001/ci-cd/",
           "tn001/kubernetes/",
           "tn001/observability/"
+        ]
+      },
+      {
+        "depth": 2,
+        "auth_types": [
+          "approle",
+          "ns_token"
+        ],
+        "secrets_types": [
+          "kv"
+        ],
+        "count": 1,
+        "examples": [
+          "admin/l2/"
         ]
       },
       {
@@ -197,9 +227,34 @@
           "ns_token"
         ],
         "secrets_types": [],
+        "count": 2,
+        "examples": [
+          "admin/l2/l3/",
+          "tn010/prototypes/empty-leaf/"
+        ]
+      },
+      {
+        "depth": 4,
+        "auth_types": [
+          "ns_token"
+        ],
+        "secrets_types": [],
         "count": 1,
         "examples": [
-          "tn010/prototypes/empty-leaf/"
+          "admin/l2/l3/l4/"
+        ]
+      },
+      {
+        "depth": 5,
+        "auth_types": [
+          "ns_token"
+        ],
+        "secrets_types": [
+          "transit"
+        ],
+        "count": 1,
+        "examples": [
+          "admin/l2/l3/l4/l5/"
         ]
       }
     ]
@@ -224,6 +279,131 @@
         "vault-ops-readonly",
         "vault-ops-sentinel-reader"
       ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "admin/",
+      "depth": 1,
+      "auth_count": 2,
+      "secrets_count": 1,
+      "acl_policy_count": 3,
+      "auth_mounts": [
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        },
+        {
+          "path": "userpass/",
+          "type": "userpass",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "secret/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        }
+      ],
+      "acl_policies": [
+        "vault-ops-policy-reader",
+        "vault-ops-readonly",
+        "vault-ops-sentinel-reader"
+      ],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "admin/l2/",
+      "depth": 2,
+      "auth_count": 2,
+      "secrets_count": 1,
+      "acl_policy_count": 0,
+      "auth_mounts": [
+        {
+          "path": "approle/",
+          "type": "approle",
+          "local": false
+        },
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "apps/",
+          "type": "kv",
+          "version": "2",
+          "local": false
+        }
+      ],
+      "acl_policies": [],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "admin/l2/l3/",
+      "depth": 3,
+      "auth_count": 1,
+      "secrets_count": 0,
+      "acl_policy_count": 0,
+      "auth_mounts": [
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [],
+      "acl_policies": [],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "admin/l2/l3/l4/",
+      "depth": 4,
+      "auth_count": 1,
+      "secrets_count": 0,
+      "acl_policy_count": 0,
+      "auth_mounts": [
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [],
+      "acl_policies": [],
+      "egp_policies": [],
+      "rgp_policies": []
+    },
+    {
+      "namespace": "admin/l2/l3/l4/l5/",
+      "depth": 5,
+      "auth_count": 1,
+      "secrets_count": 1,
+      "acl_policy_count": 0,
+      "auth_mounts": [
+        {
+          "path": "token/",
+          "type": "ns_token",
+          "local": false
+        }
+      ],
+      "secrets_mounts": [
+        {
+          "path": "transit/",
+          "type": "transit",
+          "version": null,
+          "local": false
+        }
+      ],
+      "acl_policies": [],
       "egp_policies": [],
       "rgp_policies": []
     },

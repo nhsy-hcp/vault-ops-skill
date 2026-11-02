@@ -1,0 +1,143 @@
+{
+  "schema_version": "1.12.0",
+  "tool": {
+    "name": "vault-ops",
+    "version": "0.4.2"
+  },
+  "run": {
+    "cluster_name": "vault-cluster-e94cb66c",
+    "vault_addr": "<redacted>",
+    "start_namespace": "admin/",
+    "token_namespace": "admin/",
+    "platform": "enterprise",
+    "started_at": "2026-11-02T16:41:28Z",
+    "finished_at": "2026-11-02T16:41:28Z",
+    "duration_seconds": 0.0,
+    "worker_threads": 4
+  },
+  "cluster_context": {
+    "vault_version": "2.1.1+ent",
+    "enterprise": true,
+    "system_max_lease_ttl_seconds": null,
+    "system_default_lease_ttl_seconds": null,
+    "sentinel": "supported"
+  },
+  "coverage": {
+    "namespaces_processed": 5,
+    "complete": true,
+    "denied": [],
+    "errors": []
+  },
+  "summary": {
+    "total": 5,
+    "by_severity": {
+      "high": 0,
+      "medium": 1,
+      "low": 1,
+      "info": 3
+    },
+    "by_rule": {
+      "VT-HLTH-002": 1,
+      "VT-NS-001": 3,
+      "VT-REPL-002": 1
+    }
+  },
+  "findings": [
+    {
+      "fingerprint": "93e868ab26d8ff8a",
+      "rule_id": "VT-HLTH-002",
+      "severity": "medium",
+      "category": "replication",
+      "namespace": "/",
+      "object": {
+        "kind": "cluster",
+        "path": "performance",
+        "type": "performance"
+      },
+      "title": "Replication enabled but not healthy",
+      "detail": "PERFORMANCE replication `primary` has disconnected peer(s): vault-pr-stale \u2014 check the cluster port (8201) path and the peer's status.",
+      "evidence": {
+        "disconnected_peers": [
+          "vault-pr-stale"
+        ],
+        "mode": "primary",
+        "state": "running"
+      }
+    },
+    {
+      "fingerprint": "15ea6aaef89cbb87",
+      "rule_id": "VT-REPL-002",
+      "severity": "low",
+      "category": "replication",
+      "namespace": "/",
+      "object": {
+        "kind": "cluster",
+        "path": "performance:vault-pr-stale",
+        "type": "performance"
+      },
+      "title": "Known secondary has no heartbeat (never connected, or down since the primary started)",
+      "detail": "Known performance secondary `vault-pr-stale` has no heartbeat since this primary started: either it never connected (an unused activation token, or a secondary removed without `revoke-secondary`) or it has been down since the primary restarted. Confirm which with the team before revoking anything.",
+      "evidence": {
+        "connection_status": "disconnected",
+        "secondary_id": "vault-pr-stale"
+      }
+    },
+    {
+      "fingerprint": "08f9d8deafcf06e2",
+      "rule_id": "VT-NS-001",
+      "severity": "info",
+      "category": "hygiene",
+      "namespace": "admin/l2/l3/",
+      "object": {
+        "kind": "namespace",
+        "path": null,
+        "type": null
+      },
+      "title": "Namespace has no auth method beyond token",
+      "detail": "No auth method beyond the built-in token backend \u2014 nothing can log in to this namespace directly.",
+      "evidence": {
+        "auth_types": [
+          "ns_token"
+        ]
+      }
+    },
+    {
+      "fingerprint": "7a6db641a4da1b13",
+      "rule_id": "VT-NS-001",
+      "severity": "info",
+      "category": "hygiene",
+      "namespace": "admin/l2/l3/l4/",
+      "object": {
+        "kind": "namespace",
+        "path": null,
+        "type": null
+      },
+      "title": "Namespace has no auth method beyond token",
+      "detail": "No auth method beyond the built-in token backend \u2014 nothing can log in to this namespace directly.",
+      "evidence": {
+        "auth_types": [
+          "ns_token"
+        ]
+      }
+    },
+    {
+      "fingerprint": "e903fdfdb0da7bfe",
+      "rule_id": "VT-NS-001",
+      "severity": "info",
+      "category": "hygiene",
+      "namespace": "admin/l2/l3/l4/l5/",
+      "object": {
+        "kind": "namespace",
+        "path": null,
+        "type": null
+      },
+      "title": "Namespace has no auth method beyond token",
+      "detail": "No auth method beyond the built-in token backend \u2014 nothing can log in to this namespace directly.",
+      "evidence": {
+        "auth_types": [
+          "ns_token"
+        ]
+      }
+    }
+  ]
+}
