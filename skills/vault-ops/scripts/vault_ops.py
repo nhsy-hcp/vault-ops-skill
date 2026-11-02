@@ -41,12 +41,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any
+from urllib.parse import urlsplit
 
 import requests
 
 TOOL_NAME = "vault-ops"
 TOOL_VERSION = "0.4.1"
-SCHEMA_VERSION = "1.10.0"
+SCHEMA_VERSION = "1.12.0"
 
 EXIT_OK, EXIT_FATAL, EXIT_GAPS, EXIT_FINDINGS, EXIT_INTERRUPTED = 0, 1, 2, 3, 130
 
@@ -133,9 +134,12 @@ DEPRECATED_STATUSES = frozenset({"deprecated", "pending-removal", "removed"})
 BROAD_EGP_PATHS = frozenset({"*", "/*"})
 # 404 bodies for an Enterprise-only path on Community: "unsupported path" (older), "enterprise-only feature" (2.x).
 ENTERPRISE_ONLY_MARKERS = ("unsupported path", "enterprise-only feature")
+# 401 body for a licensed feature the cluster's licence lacks (e.g. Sentinel on a tier without it).
+FEATURE_NOT_LICENSED_MARKERS = ("feature not enabled",)
 ALWAYS_TRUE_MAIN = re.compile(r"^main\s*=\s*rule\s*\{\s*true\s*\}$")
 ALWAYS_FALSE_MAIN = re.compile(r"^main\s*=\s*(?:rule\s*\{\s*false\s*\}|false)$")
 SENTINEL_IMPORT = re.compile(r'^\s*import\s+"([^"]+)"', re.M)
+SEAL_KEYS = ("type", "t", "n", "progress", "migration", "recovery_seal")
 HEALTHY_REPLICATION_STATES = frozenset({"running", "stream-wals", "idle"})
 # VT-REPL-001/003: replication link thresholds. The primary's canary age is how stale the
 # newest replicated write is on the peer; heartbeats arrive every few seconds when healthy.
@@ -439,6 +443,10 @@ class Config:
     token: str
     verify: bool | str
     namespace: str = ""
+    # Where the token lives, from lookup-self ("" = root); None until validated (DR secondary, sealed node).
+    token_namespace: str | None = None
+    # run.platform from the VAULT_ADDR host and the sys/health version (detect_platform); set by connect().
+    platform: str | None = None
 
     @classmethod
     def from_env(cls, namespace: str | None = None) -> Config:
@@ -491,12 +499,25 @@ class VaultReader:
         return payload.get("data", payload) if isinstance(payload.get("data"), dict) else payload
 
     def validate(self) -> None:
+        """lookup-self in the start namespace; records where the token lives in config.token_namespace.
+
+        Sent with the start namespace's header so a token created in a child namespace validates; a
+        root-namespace token may look itself up from any descendant.
+        """
+        ns = self.config.namespace
         try:
-            self.get("auth/token/lookup-self")
+            payload = self.get("auth/token/lookup-self", ns)
         except Forbidden as exc:
-            raise SystemExit("error: token rejected (403 on auth/token/lookup-self)") from exc
+            raise SystemExit(
+                f"error: token rejected (403 on auth/token/lookup-self in namespace {display_namespace(ns)}). "
+                "A token created in a child namespace needs VAULT_NAMESPACE (or --namespace) set to that namespace or one below it "
+                "(e.g. VAULT_NAMESPACE=admin on HCP Vault Dedicated)."
+            ) from exc
         except (VaultError, requests.exceptions.RequestException) as exc:
             raise SystemExit(f"error: token validation failed at {self.config.addr}: {sanitise_error(exc)}") from exc
+        data = payload.get("data") if isinstance(payload.get("data"), dict) else {}
+        path = data.get("namespace_path")
+        self.config.token_namespace = normalise_namespace(path if isinstance(path, str) else "")
 
     def probe(self) -> dict[str, Any]:
         """Unauthenticated sys/health; works on every node type, DR secondaries included."""
@@ -531,6 +552,7 @@ def connect(namespace: str | None, health_only: bool = False) -> tuple[Config, V
     config = Config.from_env(namespace)
     reader = VaultReader(config)
     probe = reader.probe()
+    config.platform = detect_platform(config.addr, probe.get("version"))
     if reason := unauthenticated_only(probe):
         if not health_only:
             raise SystemExit(
@@ -691,6 +713,12 @@ def read_sentinel_policies(reader: VaultReader, coverage: Coverage, ns: str, kin
     except InvalidPath as exc:
         # Vault 404s both "no Sentinel in this build" and "no policies here"; only the body differs.
         return ("unsupported" if any(m in str(exc).lower() for m in ENTERPRISE_ONLY_MARKERS) else "supported"), {}
+    except Unauthorized as exc:
+        # Enterprise build whose licence lacks Sentinel: same as a build without it.
+        if any(m in str(exc).lower() for m in FEATURE_NOT_LICENSED_MARKERS):
+            return "unsupported", {}
+        coverage.error(ns, exc)
+        return "none", {}
     except Forbidden:
         coverage.deny(ns, f"sentinel {kind.upper()} policies")
         return "none", {}
@@ -1045,13 +1073,26 @@ def collect_sentinel_policies(reader: VaultReader, coverage: Coverage, namespace
     return ("unsupported" if state["status"] == "unknown" else state["status"]), found
 
 
-def collect_health(reader: VaultReader, coverage: Coverage, probe: dict[str, Any] | None = None, paths_filters: bool = False) -> dict[str, Any]:
+def collect_health(
+    reader: VaultReader,
+    coverage: Coverage,
+    probe: dict[str, Any] | None = None,
+    paths_filters: bool = False,
+    scoped: bool = False,
+    platform: str | None = None,
+    token_ns: str = "",
+) -> dict[str, Any]:
     """Cluster-level status. Every read is optional; failures land in coverage.
 
     On a DR secondary only the unauthenticated endpoints answer (health, leader,
     replication status), so license and lease reads are skipped there. A sealed or
     uninitialized node answers only sys/health and sys/seal-status, so nothing else is read.
     `paths_filters` (health/audit only) also reads performance paths filters on a performance primary.
+    `scoped` (the token lives in a child namespace): root-only cluster reads are skipped and left None,
+    and a 403 on leader or replication status is not a coverage gap.
+    `platform == "hcp"` with a child-namespace token (`scoped`, the only kind HCP Vault Dedicated issues): also reads
+    sys/seal-status (one of HCP_SYS_AVAILABLE) in the token's namespace, a 403/404 there not being a gap; sys/metrics stays
+    unread, as on any scoped run.
     """
     health: dict[str, Any] = probe or {}
     if probe is None:
@@ -1091,7 +1132,8 @@ def collect_health(reader: VaultReader, coverage: Coverage, probe: dict[str, Any
         try:
             return reader.data(path)
         except Forbidden:
-            coverage.deny("", scope)
+            if not scoped:
+                coverage.deny("", scope)
         except InvalidPath:
             pass
         except (VaultError, requests.exceptions.RequestException) as exc:
@@ -1101,7 +1143,7 @@ def collect_health(reader: VaultReader, coverage: Coverage, probe: dict[str, Any
     if unavailable:
         # Every other endpoint answers 503 "Vault is sealed"; seal-status is unauthenticated.
         if (seal := optional("sys/seal-status", "sys/seal-status")) is not None:
-            result["seal"] = {k: seal.get(k) for k in ("type", "t", "n", "progress", "migration", "recovery_seal")}
+            result["seal"] = {k: seal.get(k) for k in SEAL_KEYS}
         return result
     if (leader := optional("sys/leader", "sys/leader")) is not None:
         result["leader"] = {
@@ -1110,7 +1152,9 @@ def collect_health(reader: VaultReader, coverage: Coverage, probe: dict[str, Any
             "leader_address_present": bool(leader.get("leader_address")),
             "raft_committed_index": leader.get("raft_committed_index"),
         }
-    if result["enterprise"] and not dr_secondary and (lic := optional("sys/license/status", "sys/license/status")) is not None:
+    # Root-only cluster reads: skipped on a DR secondary (rejects authenticated reads) and with a child-namespace token.
+    cluster_reads = not dr_secondary and not scoped
+    if result["enterprise"] and cluster_reads and (lic := optional("sys/license/status", "sys/license/status")) is not None:
         auto = lic.get("autoloaded") if isinstance(lic.get("autoloaded"), dict) else lic
         result["license"] = {
             k: auto.get(k)
@@ -1131,11 +1175,11 @@ def collect_health(reader: VaultReader, coverage: Coverage, probe: dict[str, Any
         else:
             result["replication"] = {kind: replication_summary(repl.get(kind) or {}) for kind in ("dr", "performance")}
             perf = result["replication"]["performance"]
-            if paths_filters and perf.get("mode") == "primary" and not dr_secondary:
+            if paths_filters and perf.get("mode") == "primary" and cluster_reads:
                 perf["paths_filters"] = collect_paths_filters(reader, coverage, perf.get("known_secondaries") or [])
-    if not dr_secondary:
+    if cluster_reads:
         result["raft"] = collect_raft(reader, coverage)
-    if not dr_secondary and (cfg := optional("sys/config/state/sanitized", "sys/config/state/sanitized")) is not None:
+    if cluster_reads and (cfg := optional("sys/config/state/sanitized", "sys/config/state/sanitized")) is not None:
 
         def positive(value: Any) -> int | None:
             # 0 means "not configured" (Vault's built-in 768h applies), not a real ceiling
@@ -1145,12 +1189,22 @@ def collect_health(reader: VaultReader, coverage: Coverage, probe: dict[str, Any
             "default_lease_ttl_seconds": positive(cfg.get("default_lease_ttl")),
             "max_lease_ttl_seconds": positive(cfg.get("max_lease_ttl")),
         }
-    if not dr_secondary:
+    if cluster_reads:
         result["audit_devices"] = collect_audit_devices(reader, coverage)
         # Automated snapshots are Enterprise and raft only; elsewhere the endpoint 404s like "none configured".
         if result["enterprise"] and result["raft"] is not None:
             result["snapshots"] = collect_snapshots(reader, coverage)
         result["metrics"] = collect_metrics(reader, coverage)
+    elif platform == "hcp" and not dr_secondary:
+        # HCP Vault Dedicated: seal status (managed auto-unseal), read in the token's namespace as HCP requires.
+        try:
+            seal = reader.data("sys/seal-status", token_ns)
+            result["seal"] = {k: seal.get(k) for k in SEAL_KEYS}
+        except (Forbidden, InvalidPath):
+            pass
+        except (VaultError, requests.exceptions.RequestException) as exc:
+            coverage.error("", exc)
+        # sys/metrics is skipped on HCP by design (HashiCorp plans to make it production-tier only): metrics stays None.
     return result
 
 
@@ -1946,6 +2000,60 @@ def snapshot_findings(snapshots: dict[str, Any] | None, now: datetime) -> list[F
     return findings
 
 
+def full_activity_namespace(token_ns: str, namespace_path: Any, relative: bool = True) -> str:
+    """Full namespace path for an activity-log row read in `token_ns`; `relative` says whether the response's rows are
+    relative to `token_ns` (decided once per response by `activity_paths_are_full`)."""
+    path = normalise_namespace(namespace_path if isinstance(namespace_path, str) else "")
+    if not token_ns or not relative:
+        return path
+    return f"{token_ns}/{path}" if path else token_ns
+
+
+def _activity_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    """Every namespace row of an activity response: by_namespace, months[].namespaces, months[].new_clients.namespaces."""
+    rows = [r for r in payload.get("by_namespace") or [] if isinstance(r, dict)]
+    for m in payload.get("months") or []:
+        if isinstance(m, dict):
+            rows += [r for r in m.get("namespaces") or [] if isinstance(r, dict)]
+            if isinstance(m.get("new_clients"), dict):
+                rows += [r for r in m["new_clients"].get("namespaces") or [] if isinstance(r, dict)]
+    return rows
+
+
+def activity_paths_are_full(payload: dict[str, Any] | None, token_ns: str) -> bool:
+    """True when every row of the response already holds a full path inside `token_ns` (what Vault returns: rows carry
+    the namespace's canonical path). A "" row or one outside the subtree means the rows are relative. Decided once per
+    response, so a descendant named like the token namespace (`admin/admin/`) is never merged into `admin/`; a relative
+    response whose rows all start with the token namespace's own name is read as full, an accepted ambiguity."""
+    if not payload or not token_ns:
+        return False
+    paths = [normalise_namespace(r.get("namespace_path") if isinstance(r.get("namespace_path"), str) else "") for r in _activity_rows(payload)]
+    return bool(paths) and all(p == token_ns or p.startswith(f"{token_ns}/") for p in paths)
+
+
+def scope_activity(payload: dict[str, Any] | None, token_ns: str) -> dict[str, Any] | None:
+    """Copy of an activity response with every `namespace_path` as a full path (no-op at root)."""
+    if not payload or not token_ns:
+        return payload
+    relative = not activity_paths_are_full(payload, token_ns)
+
+    def rows(items: Any) -> list[Any]:
+        return [{**r, "namespace_path": full_activity_namespace(token_ns, r.get("namespace_path"), relative)} if isinstance(r, dict) else r for r in items or []]
+
+    def month(m: Any) -> Any:
+        if not isinstance(m, dict):
+            return m
+        out = {**m, "namespaces": rows(m.get("namespaces"))}
+        if isinstance(m.get("new_clients"), dict):
+            out["new_clients"] = {**m["new_clients"], "namespaces": rows(m["new_clients"].get("namespaces"))}
+        return out
+
+    scoped = {**payload, "by_namespace": rows(payload.get("by_namespace"))}
+    if "months" in payload:
+        scoped["months"] = [month(m) for m in payload.get("months") or []]
+    return scoped
+
+
 def active_entity_clients(activity: dict[str, Any], current: dict[str, Any] | None = None) -> dict[str, int] | None:
     """Active entity clients per namespace: the higher of the billing period and the current month.
 
@@ -2053,8 +2161,14 @@ def usage_findings(
     current: dict[str, Any] | None = None,
     enterprise: bool = False,
     activity_log: dict[str, Any] | None = None,
+    token_ns: str = "",
 ) -> list[Finding]:
-    """Client-count anti-patterns from the activity log (billing period) and the current month."""
+    """Client-count anti-patterns from the activity log (billing period) and the current month.
+
+    `token_ns` is the token's namespace: with a child-namespace token it is the top of what the
+    activity log reports, so VT-CLI-004 judges it as the effective root.
+    Row paths must already be full paths (`scope_activity`).
+    """
     findings: list[Finding] = []
     if activity_log and activity_log.get("recording") is False:
         findings.append(
@@ -2093,16 +2207,17 @@ def usage_findings(
                     source=source,
                 )
             )
-    root = sum(client_count(row.get("counts")) for row in rows if not normalise_namespace(row.get("namespace_path")))
+    root = sum(client_count(row.get("counts")) for row in rows if normalise_namespace(row.get("namespace_path")) == token_ns)
     if enterprise and total >= CLIENT_RULE_MIN_CLIENTS and root / total > ROOT_NAMESPACE_SHARE_WARNING:
+        where = f"the `{display_namespace(token_ns)}` namespace (the top namespace this token sees)" if token_ns else "the root namespace"
         findings.append(
             finding(
                 "VT-CLI-004",
-                "",
+                token_ns,
                 "namespace",
                 None,
                 None,
-                f"{root} of {total} clients ({share(root, total)}) are in the root namespace — tenants share one policy and identity space.",
+                f"{root} of {total} clients ({share(root, total)}) are in {where} — tenants share one policy and identity space.",
                 root_clients=root,
                 clients=total,
                 namespaces_reported=len(rows),
@@ -2178,12 +2293,41 @@ def sort_findings(findings: list[Finding]) -> list[Finding]:
 # --------------------------------------------------------------------------- documents
 
 
-def run_block(cluster: str, addr: str, start_ns: str, started: datetime, workers: int | None) -> dict[str, Any]:
+# HCP Vault Dedicated endpoints (public and private) are served under this domain. Vault exposes no API
+# signal for HCP, so the host is the only one; HCP behind custom DNS or a proxy reports as "enterprise".
+HCP_HOST_SUFFIX = ".hashicorp.cloud"
+# The sys endpoints HCP Vault Dedicated documents for customer tokens. With a child-namespace token on HCP the skill reads
+# leader and seal-status and leaves sys/metrics unread; every other root-level sys read stays skipped too. https://developer.hashicorp.com/vault/cloud/what-is-hcp-vault/security-overview#system-api-endpoints
+HCP_SYS_AVAILABLE = ("sys/leader", "sys/metrics", "sys/seal-status")
+
+
+def detect_platform(addr: str, version: str | None) -> str | None:
+    """Informational platform label for run.platform: "hcp", "enterprise", "community" or None (version unknown).
+
+    The host decides first because HCP Vault Dedicated also reports a +ent version. The only behaviour keyed on it is the
+    HCP read profile in `collect_health` (seal-status read, metrics skipped); rules and scoping never depend on it.
+    """
+    try:
+        host = (urlsplit(addr).hostname or "").lower()
+    except ValueError:
+        host = ""
+    if host.endswith(HCP_HOST_SUFFIX):
+        return "hcp"
+    if not isinstance(version, str) or not version:
+        return None
+    return "enterprise" if "+ent" in version else "community"
+
+
+def run_block(cluster: str, addr: str, start_ns: str, started: datetime, workers: int | None, token_ns: str | None = None, platform: str | None = None) -> dict[str, Any]:
     finished = utc_now()
     block = {
         "cluster_name": cluster,
         "vault_addr": addr,
         "start_namespace": display_namespace(start_ns),
+        # Where the token lives; not "/" means root-only cluster blocks were skipped. null: token not validated.
+        "token_namespace": display_namespace(token_ns) if token_ns is not None else None,
+        # From the real VAULT_ADDR host and the sys/health version, so it survives --redact-addr; informational only.
+        "platform": platform,
         "started_at": iso(started),
         "finished_at": iso(finished),
         "duration_seconds": round((finished - started).total_seconds(), 1),
@@ -2316,8 +2460,9 @@ def build_usage_document(
     current: dict[str, Any] | None = None,
     enterprise: bool = False,
     activity_log: dict[str, Any] | None = None,
+    token_ns: str = "",
 ) -> dict[str, Any]:
-    findings = sort_findings(usage_findings(activity, current, enterprise, activity_log))
+    findings = sort_findings(usage_findings(activity, current, enterprise, activity_log, token_ns))
 
     def counts(block: dict[str, Any] | None) -> dict[str, int]:
         block = block or {}
@@ -2600,19 +2745,23 @@ def _addr(config: Config, redact: bool) -> str:
 ACTIVITY_LOG_RECORDING = {"enable": True, "default-enabled": True, "disable": False, "default-disabled": False}
 
 
-def read_activity_config(reader: VaultReader, coverage: Coverage) -> dict[str, Any] | None:
+def read_activity_config(reader: VaultReader, coverage: Coverage, token_ns: str = "") -> dict[str, Any] | None:
     """Activity-log configuration (allowlisted fields), so zero client counts can be told apart from a disabled log.
 
-    `recording` is True/False from `enabled`, None for an unknown value. None when unreadable (recorded in coverage).
+    `recording` is True/False from `enabled`, None for an unknown value. None when unreadable (recorded in coverage,
+    except a 403 with a child-namespace token: this cluster setting may be readable from the root namespace only).
     """
     path = "sys/internal/counters/config"
     try:
-        data = reader.data(path) or {}
+        data = reader.data(path, token_ns) or {}
     except Forbidden:
-        coverage.deny("", path)
+        if not token_ns:
+            coverage.deny("", path)
         return None
+    except InvalidPath:
+        return None  # endpoint not served here (e.g. in a child namespace on some platforms): nothing to judge
     except (VaultError, requests.exceptions.RequestException) as exc:
-        coverage.error("", exc)
+        coverage.error(token_ns, exc)
         return None
     enabled = data.get("enabled")
     retention = data.get("retention_months")
@@ -2624,16 +2773,19 @@ def read_activity_config(reader: VaultReader, coverage: Coverage) -> dict[str, A
     }
 
 
-def read_activity(reader: VaultReader, coverage: Coverage, path: str, params: dict[str, Any] | None = None) -> dict[str, Any] | None:
-    """Activity-log read at root. {} when nothing is recorded yet; None when denied or failed (recorded in coverage)."""
+def read_activity(reader: VaultReader, coverage: Coverage, path: str, params: dict[str, Any] | None = None, token_ns: str = "") -> dict[str, Any] | None:
+    """Activity-log read in the token's namespace (root: every namespace), row paths made full.
+
+    {} when nothing is recorded yet; None when denied or failed (recorded in coverage).
+    """
     try:
-        return reader.data(path, params=params)
+        return scope_activity(reader.data(path, token_ns, params=params), token_ns)
     except Forbidden:
-        coverage.deny("", path)
+        coverage.deny(token_ns, path)
     except InvalidPath:
         return {}
     except (VaultError, requests.exceptions.RequestException) as exc:
-        coverage.error("", exc)
+        coverage.error(token_ns, exc)
     return None
 
 
@@ -2641,11 +2793,11 @@ def cmd_audit(args: argparse.Namespace) -> int:
     config, reader, probe = connect(args.namespace)
     started = utc_now()
     coverage = Coverage()
-    health = collect_health(reader, coverage, probe, paths_filters=True)
+    health = collect_health(reader, coverage, probe, paths_filters=True, scoped=bool(config.token_namespace), platform=config.platform, token_ns=config.token_namespace or "")
     data = Walker(reader, coverage, workers=args.workers, sentinel=not args.no_sentinel).walk(config.namespace)
     max_ttl = (health.get("lease_ttls") or {}).get("max_lease_ttl_seconds")
     findings = mount_findings(data, max_ttl, performance_secondary=bool(health.get("performance_secondary"))) + namespace_findings(data) + sentinel_findings(data) + health_findings(health)
-    run = run_block(health["cluster_name"], _addr(config, args.redact_addr), config.namespace, started, args.workers)
+    run = run_block(health["cluster_name"], _addr(config, args.redact_addr), config.namespace, started, args.workers, config.token_namespace, config.platform)
     document = build_findings_document(findings, coverage, health, data.sentinel, run)
     print(write_json(output_path(args.output_dir, health["cluster_name"], "findings", started), document))
     # Same walk, no extra reads: the report's type distribution and hierarchy come from here.
@@ -2657,12 +2809,12 @@ def cmd_health(args: argparse.Namespace) -> int:
     config, reader, probe = connect(args.namespace, health_only=True)
     started = utc_now()
     coverage = Coverage()
-    health = collect_health(reader, coverage, probe, paths_filters=True)
+    health = collect_health(reader, coverage, probe, paths_filters=True, scoped=bool(config.token_namespace), platform=config.platform, token_ns=config.token_namespace or "")
     findings = sort_findings(health_findings(health))
     document = {
         "schema_version": SCHEMA_VERSION,
         "tool": {"name": TOOL_NAME, "version": TOOL_VERSION},
-        "run": run_block(health["cluster_name"], _addr(config, args.redact_addr), "", started, None),
+        "run": run_block(health["cluster_name"], _addr(config, args.redact_addr), config.namespace, started, None, config.token_namespace, config.platform),
         "coverage": coverage.to_dict(),
         "health": health,
         "findings": [f.to_dict() for f in findings],
@@ -2675,25 +2827,27 @@ def cmd_inventory(args: argparse.Namespace) -> int:
     config, reader, probe = connect(args.namespace)
     started = utc_now()
     coverage = Coverage()
-    health = collect_health(reader, coverage, probe)
+    health = collect_health(reader, coverage, probe, scoped=bool(config.token_namespace), platform=config.platform, token_ns=config.token_namespace or "")
     data = Walker(reader, coverage, workers=args.workers, sentinel=not args.no_sentinel).walk(config.namespace)
-    run = run_block(health["cluster_name"], _addr(config, args.redact_addr), config.namespace, started, args.workers)
+    run = run_block(health["cluster_name"], _addr(config, args.redact_addr), config.namespace, started, args.workers, config.token_namespace, config.platform)
     document = build_inventory_document(data, coverage, run)
     print(write_json(output_path(args.output_dir, health["cluster_name"], "inventory", started), document))
     return EXIT_OK
 
 
 def cmd_usage(args: argparse.Namespace) -> int:
-    config, reader, probe = connect("")  # activity is queried at root; it already reports every namespace
+    config, reader, probe = connect(args.namespace)
     started = utc_now()
     coverage = Coverage()
-    health = collect_health(reader, coverage, probe)
+    token_ns = config.token_namespace or ""
+    health = collect_health(reader, coverage, probe, scoped=bool(token_ns), platform=config.platform, token_ns=config.token_namespace or "")
+    # Activity is queried in the token's namespace (root: every namespace), not the start namespace.
     params = {k: v for k, v in (("start_time", args.start), ("end_time", args.end)) if v}
-    activity = read_activity(reader, coverage, "sys/internal/counters/activity", params or None) or {}
-    current = read_activity(reader, coverage, "sys/internal/counters/activity/monthly") if not args.end else None
-    activity_log = read_activity_config(reader, coverage)
-    run = run_block(health["cluster_name"], _addr(config, args.redact_addr), "", started, None)
-    document = build_usage_document(activity, args.top, run, coverage, current, enterprise=bool(health.get("enterprise")), activity_log=activity_log)
+    activity = read_activity(reader, coverage, "sys/internal/counters/activity", params or None, token_ns) or {}
+    current = read_activity(reader, coverage, "sys/internal/counters/activity/monthly", token_ns=token_ns) if not args.end else None
+    activity_log = read_activity_config(reader, coverage, token_ns)
+    run = run_block(health["cluster_name"], _addr(config, args.redact_addr), token_ns, started, None, config.token_namespace, config.platform)
+    document = build_usage_document(activity, args.top, run, coverage, current, enterprise=bool(health.get("enterprise")), activity_log=activity_log, token_ns=token_ns)
     print(write_json(output_path(args.output_dir, health["cluster_name"], "usage", started), document))
     return EXIT_OK
 
@@ -2702,15 +2856,16 @@ def cmd_entities(args: argparse.Namespace) -> int:
     config, reader, probe = connect(args.namespace)
     started = utc_now()
     coverage = Coverage()
-    health = collect_health(reader, coverage, probe)
+    token_ns = config.token_namespace or ""
+    health = collect_health(reader, coverage, probe, scoped=bool(token_ns), platform=config.platform, token_ns=config.token_namespace or "")
     namespaces = discover_namespaces(reader, coverage, config.namespace, args.workers)
     coverage.namespaces_processed = len(namespaces)
     entities = collect_entities(reader, coverage, namespaces, args.workers)
-    # Activity is read at root (it reports every namespace) to compare entity counts with active clients.
-    activity = read_activity(reader, coverage, "sys/internal/counters/activity")
-    current = read_activity(reader, coverage, "sys/internal/counters/activity/monthly")
+    # Activity is read in the token's namespace (root: every namespace) to compare entity counts with active clients.
+    activity = read_activity(reader, coverage, "sys/internal/counters/activity", token_ns=token_ns)
+    current = read_activity(reader, coverage, "sys/internal/counters/activity/monthly", token_ns=token_ns)
     active = active_entity_clients(activity, current) if activity is not None else None
-    run = run_block(health["cluster_name"], _addr(config, args.redact_addr), config.namespace, started, args.workers)
+    run = run_block(health["cluster_name"], _addr(config, args.redact_addr), config.namespace, started, args.workers, config.token_namespace, config.platform)
     document = build_entities_document(entities, coverage, run, include_list=args.list, active=active)
     print(write_json(output_path(args.output_dir, health["cluster_name"], "entities", started), document))
     return EXIT_OK
@@ -2720,12 +2875,12 @@ def cmd_policies(args: argparse.Namespace) -> int:
     config, reader, probe = connect(args.namespace)
     started = utc_now()
     coverage = Coverage()
-    health = collect_health(reader, coverage, probe)
+    health = collect_health(reader, coverage, probe, scoped=bool(config.token_namespace), platform=config.platform, token_ns=config.token_namespace or "")
     namespaces = discover_namespaces(reader, coverage, config.namespace, args.workers)
     coverage.namespaces_processed = len(namespaces)
     policies = collect_acl_policies(reader, coverage, namespaces, args.workers)
     sentinel_status, sentinel = ("skipped", []) if args.no_sentinel else collect_sentinel_policies(reader, coverage, namespaces, args.workers)
-    run = run_block(health["cluster_name"], _addr(config, args.redact_addr), config.namespace, started, args.workers)
+    run = run_block(health["cluster_name"], _addr(config, args.redact_addr), config.namespace, started, args.workers, config.token_namespace, config.platform)
     document = build_policies_document(policies, coverage, run, sentinel_status, sentinel)
     print(write_json(output_path(args.output_dir, health["cluster_name"], "policies", started), document))
     return EXIT_OK

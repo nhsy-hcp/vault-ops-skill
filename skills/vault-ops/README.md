@@ -20,7 +20,7 @@ A read-only HashiCorp Vault operations review for Claude Code. Ask Claude to aud
 
 ## Setup
 
-An admin loads the policy once (root namespace):
+An admin loads the policy once, in the root namespace for a full review:
 
 ```bash
 vault policy write vault-ops-readonly policies/vault-ops-readonly.hcl
@@ -32,6 +32,8 @@ For a policy permission review, also load the read-only add-ons and add `-policy
 vault policy write vault-ops-policy-reader policies/vault-ops-policy-reader.hcl
 vault policy write vault-ops-sentinel-reader policies/vault-ops-sentinel-reader.hcl
 ```
+
+If you can only reach a child namespace (e.g. `admin` on HCP Vault Dedicated), write the policies and mint the token there instead: add `-namespace=<ns>` to the `vault policy write` and `vault token create` commands and export `VAULT_NAMESPACE=<ns>`. Every subcommand then reviews that namespace's tree; cluster-level data only the root namespace can read (licence, raft, lease TTLs, audit devices, snapshots, metrics) is skipped, not reported as a permission problem.
 
 Each session, export the environment and start Claude:
 
@@ -50,7 +52,7 @@ Tokens are per cluster. To review a performance replication secondary, mint the 
 | `VAULT_TOKEN` | yes | Token from `vault-ops-readonly` (1h TTL recommended) |
 | `VAULT_CACERT` | recommended | CA bundle for TLS verification |
 | `VAULT_SKIP_VERIFY` | dev only | `true` disables TLS verification |
-| `VAULT_NAMESPACE` | no | Namespace to start `audit` / `inventory` / `entities` from (default: root) |
+| `VAULT_NAMESPACE` | no | Namespace to start `audit` / `inventory` / `entities` / `policies` from (default: root). Required for a token created in a child namespace: that namespace or one below it |
 | `VAULT_OPS_OUTPUT_DIR` | no | Where results are written (default `.tmp/vault-ops/` in the working directory) |
 
 Credentials only ever come from the environment. The skill never asks for a token, never reads `.env` or token files, and never mints tokens.

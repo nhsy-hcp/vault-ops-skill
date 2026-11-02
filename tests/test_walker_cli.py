@@ -89,6 +89,22 @@ def test_walker_sentinel_unsupported_and_skipped(message):
     assert vo.Walker(FakeReader(routes), vo.Coverage(), sentinel=False).walk("").sentinel == "skipped"
 
 
+def test_walker_sentinel_not_licensed_is_unsupported():
+    """An Enterprise licence without Sentinel answers 401 "Feature Not Enabled" (e.g. HCP Vault Dedicated Development tier)."""
+    routes = {
+        ("", "sys/auth"): mounts(token="token"),
+        ("", "sys/mounts"): mounts(sys="system"),
+        ("", "sys/policies/egp"): vo.Unauthorized("1 error occurred:\n\t* Feature Not Enabled\n\n"),
+    }
+    cov = vo.Coverage()
+    assert vo.Walker(FakeReader(routes), cov).walk("").sentinel == "unsupported"
+    assert cov.to_dict()["complete"] is True
+    routes[("", "sys/policies/egp")] = vo.Unauthorized("something else")
+    cov = vo.Coverage()
+    vo.Walker(FakeReader(routes), cov).walk("")
+    assert [e["message"] for e in cov.errors] == ["Unauthorized"]  # any other 401 is still an error
+
+
 def test_collect_health_maps_fields():
     routes = {
         ("", "sys/health"): {"cluster_name": "c1", "version": "2.1.1+ent", "sealed": False, "initialized": True},
@@ -137,7 +153,7 @@ def test_audit_cli_end_to_end(env, monkeypatch, capsys):
     routes = dict(ROUTES)
     routes[("", "auth/token/lookup-self")] = {"data": {}}
     routes[("", "sys/health")] = {"cluster_name": "c1", "version": "2.1.1+ent", "sealed": False}
-    monkeypatch.setattr(vo, "VaultReader", lambda cfg: _ValidatingFake(routes))
+    monkeypatch.setattr(vo, "VaultReader", lambda cfg: _ValidatingFake(routes, cfg))
     code = vo.main(["audit", "--redact-addr", "--fail-on-gaps"])
     out = capsys.readouterr().out.strip().splitlines()
     assert code == vo.EXIT_GAPS
@@ -155,7 +171,7 @@ def test_other_subcommands(env, monkeypatch, capsys):
     routes[("", "auth/token/lookup-self")] = {"data": {}}
     routes[("", "sys/health")] = {"cluster_name": "c1", "version": "2.1.1"}
     routes[("", "sys/internal/counters/activity")] = {"data": {"total": {"clients": 3}, "by_namespace": []}}
-    monkeypatch.setattr(vo, "VaultReader", lambda cfg: _ValidatingFake(routes))
+    monkeypatch.setattr(vo, "VaultReader", lambda cfg: _ValidatingFake(routes, cfg))
     for cmd in (["health"], ["inventory", "--no-sentinel"], ["usage"]):
         assert vo.main(cmd) == vo.EXIT_OK
     paths = capsys.readouterr().out.split()
@@ -185,8 +201,17 @@ def test_diff_cli(env, tmp_path, capsys):
 
 
 class _ValidatingFake(FakeReader):
-    def validate(self):
-        self.get("auth/token/lookup-self")
+    """FakeReader running the real VaultReader.validate, so lookup-self routing and token_namespace are exercised.
+
+    Pass the Config that `connect()` built (`lambda cfg: _ValidatingFake(routes, cfg)`): validate records the
+    token namespace on it.
+    """
+
+    validate = vo.VaultReader.validate
+
+    def __init__(self, routes, config=None):
+        super().__init__(routes)
+        self.config = config or vo.Config(addr="https://vault.example:8200", token=FAKE_TOKEN, verify=False)
 
     def probe(self):
         return self.get("sys/health")
@@ -394,7 +419,7 @@ def test_dr_secondary_health_skips_authenticated_reads(env, monkeypatch, capsys)
 @pytest.mark.parametrize("command", [["audit"], ["inventory"], ["usage"]])
 def test_dr_secondary_refused_for_authenticated_subcommands(env, monkeypatch, capsys, command):
     routes = {("", "sys/health"): {"replication_dr_mode": "secondary"}}
-    monkeypatch.setattr(vo, "VaultReader", lambda cfg: _ValidatingFake(routes))
+    monkeypatch.setattr(vo, "VaultReader", lambda cfg: _ValidatingFake(routes, cfg))
     assert vo.main(command) == vo.EXIT_FATAL
     assert "DR secondary" in capsys.readouterr().err
 
@@ -402,14 +427,7 @@ def test_dr_secondary_refused_for_authenticated_subcommands(env, monkeypatch, ca
 def test_validate_reports_vault_errors_without_traceback(env, monkeypatch, capsys):
     routes = {("", "sys/health"): {"replication_dr_mode": "disabled"}, ("", "auth/token/lookup-self"): vo.InvalidRequest("boom")}
 
-    class Reader(_ValidatingFake):
-        validate = vo.VaultReader.validate
-
-        def __init__(self):
-            super().__init__(routes)
-            self.config = vo.Config.from_env()
-
-    monkeypatch.setattr(vo, "VaultReader", lambda cfg: Reader())
+    monkeypatch.setattr(vo, "VaultReader", lambda cfg: _ValidatingFake(routes, cfg))
     assert vo.main(["health"]) == vo.EXIT_FATAL
     assert "token validation failed" in capsys.readouterr().err
 
@@ -693,6 +711,9 @@ def test_activity_config_denied_and_errors():
     cov = vo.Coverage()
     assert vo.read_activity_config(FakeReader({("", CONFIG_PATH): vo.InternalServerError("boom")}), cov) is None
     assert cov.errors
+    cov = vo.Coverage()
+    assert vo.read_activity_config(FakeReader({("admin", CONFIG_PATH): vo.InvalidPath("unsupported path")}), cov, "admin") is None
+    assert cov.to_dict()["complete"] is True  # not served in a child namespace on some platforms: nothing to judge
     weird = vo.read_activity_config(FakeReader({("", CONFIG_PATH): {"data": {"enabled": None, "retention_months": "n/a", "reporting_enabled": "yes"}}}), vo.Coverage())
     assert weird == {"enabled": None, "recording": None, "retention_months": None, "reporting_enabled": None}
 

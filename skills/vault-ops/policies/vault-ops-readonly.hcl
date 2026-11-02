@@ -7,17 +7,21 @@
 # Body reads live in the opt-in add-ons vault-ops-policy-reader (ACL) and
 # vault-ops-sentinel-reader (Sentinel).
 #
-# Namespace-local rules repeat per nesting level ("+" = exactly one segment);
-# root plus five levels are covered. Create the token in the ROOT namespace:
+# Paths are relative to the namespace the policy is written in. Namespace-local rules
+# repeat per nesting level ("+" = exactly one segment); that namespace plus five levels
+# below it are covered. Create the token in the ROOT namespace for a full review:
 #   vault policy write vault-ops-readonly vault-ops-readonly.hcl
 #   vault token create -policy=vault-ops-readonly -ttl=1h -explicit-max-ttl=1h -orphan
+# Or in a child namespace when that is all you can access (e.g. admin on HCP Vault
+# Dedicated): add -namespace=<ns> to both commands and set VAULT_NAMESPACE=<ns> for the
+# skill. The "root-namespace token only" reads below are then skipped, not denied.
 
 # --- token self-check (validate) ---
 path "auth/token/lookup-self" {
   capabilities = ["read"]
 }
 
-# --- cluster-wide status (root only) ---
+# --- cluster-wide status (root-namespace token only) ---
 path "sys/config/state/sanitized" {
   capabilities = ["read"]
 }
@@ -70,7 +74,7 @@ path "sys/metrics" {
   capabilities = ["read"]
 }
 
-# --- audit devices (root only) ---
+# --- audit devices (root-namespace token only) ---
 # Listing devices is a sudo-protected endpoint. The exact path (no glob) grants
 # no access to sys/audit/<path>, so devices can't be enabled or disabled.
 path "sys/audit" {

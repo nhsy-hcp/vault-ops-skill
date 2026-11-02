@@ -50,6 +50,7 @@ def test_secondary_health_without_token_endpoints(dr_addr, capsys, tmp_path, mon
     assert code == 0
     h = doc["health"]
     assert h["dr_secondary"] is True and h["sealed"] is False
+    assert doc["run"]["platform"] == "enterprise"  # from unauthenticated sys/health
     assert h["replication"]["dr"]["mode"] == "secondary"
     assert h["replication"]["dr"]["state"] == "stream-wals"
     assert [p["connection_status"] for p in h["replication"]["dr"]["primaries"]] == ["connected"]

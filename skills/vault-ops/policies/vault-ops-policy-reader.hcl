@@ -6,7 +6,8 @@
 # writes only policy names, a body hash and flagged rules (path + capabilities):
 # bodies and allowed/denied parameter values never reach its output files.
 #
-# Attach it next to vault-ops-readonly, only for a policy review, in the ROOT namespace:
+# Attach it next to vault-ops-readonly, only for a policy review, in the namespace the
+# token is created in (ROOT, or a child namespace with -namespace=<ns> on both commands):
 #   vault policy write vault-ops-policy-reader vault-ops-policy-reader.hcl
 #   vault token create -policy=vault-ops-readonly -policy=vault-ops-policy-reader \
 #     -no-default-policy -orphan -ttl=1h -explicit-max-ttl=1h

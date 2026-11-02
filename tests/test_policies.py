@@ -169,7 +169,7 @@ def cli_env(monkeypatch, tmp_path):
 
 def test_policies_cli(cli_env, monkeypatch, capsys):
     routes = {**ROUTES, ("", "auth/token/lookup-self"): {"data": {}}, ("", "sys/health"): {"cluster_name": "c1", "version": "2.1.1+ent"}}
-    monkeypatch.setattr(vo, "VaultReader", lambda cfg: _ValidatingFake(routes))
+    monkeypatch.setattr(vo, "VaultReader", lambda cfg: _ValidatingFake(routes, cfg))
     assert vo.main(["policies", "-w", "2"]) == vo.EXIT_OK
     path = Path(capsys.readouterr().out.strip())
     assert "c1-policies-" in path.name and path.stat().st_mode & 0o777 == 0o600
@@ -325,7 +325,7 @@ def test_sentinel_source_never_written():
 def test_policies_cli_sentinel(cli_env, monkeypatch, capsys):
     routes = {**ROUTES, **SENTINEL_ROUTES, ("", "auth/token/lookup-self"): {"data": {}}, ("", "sys/health"): {"cluster_name": "c1", "version": "2.1.1+ent"}}
     readers = []
-    monkeypatch.setattr(vo, "VaultReader", lambda cfg: readers.append(_ValidatingFake(routes)) or readers[-1])
+    monkeypatch.setattr(vo, "VaultReader", lambda cfg: readers.append(_ValidatingFake(routes, cfg)) or readers[-1])
     assert vo.main(["policies"]) == vo.EXIT_OK
     doc = json.loads(Path(capsys.readouterr().out.strip()).read_text())
     assert doc["sentinel"]["status"] == "supported" and "VT-SNT-006" in doc["summary"]["by_rule"]

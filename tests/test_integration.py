@@ -61,7 +61,7 @@ def test_audit_full_coverage_and_rules(capsys, tmp_path, schema):
     assert not doc["coverage"]["errors"] and all(SENTINEL_READER in d["scope"] for d in denied), doc["coverage"]
     assert doc["coverage"]["namespaces_processed"] > 100
     assert doc["cluster_context"]["sentinel"] == "supported"
-    assert doc["cluster_context"]["enterprise"] is True
+    assert doc["cluster_context"]["enterprise"] is True and doc["run"]["platform"] == "enterprise"
     assert set(doc["summary"]["by_rule"]) >= SEEDED_RULES | (SEEDED_SENTINEL_RULES if sentinel_reader else set())
     assert not any(f["object"]["path"] == "vault-ops-hard" for f in doc["findings"])
     (inv_path,) = tmp_path.glob("*-inventory-*.json")

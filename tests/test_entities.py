@@ -143,8 +143,8 @@ def cli_env(monkeypatch, tmp_path):
 
 
 def test_entities_cli_scoped(cli_env, monkeypatch, capsys):
-    routes = {**ROUTES, ("", "auth/token/lookup-self"): {"data": {}}, ("", "sys/health"): {"cluster_name": "c1", "version": "2.1.1+ent"}}
-    monkeypatch.setattr(vo, "VaultReader", lambda cfg: _ValidatingFake(routes))
+    routes = {**ROUTES, ("tn001/app", "auth/token/lookup-self"): {"data": {}}, ("", "sys/health"): {"cluster_name": "c1", "version": "2.1.1+ent"}}
+    monkeypatch.setattr(vo, "VaultReader", lambda cfg: _ValidatingFake(routes, cfg))
     assert vo.main(["entities", "--namespace", "tn001/app", "--list"]) == vo.EXIT_OK
     doc = json.loads(Path(capsys.readouterr().out.strip()).read_text())
     assert doc["run"]["start_namespace"] == "tn001/app/"

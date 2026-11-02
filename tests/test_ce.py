@@ -31,7 +31,7 @@ def test_audit(capsys, tmp_path, schema):
     jsonschema.validate(findings, schema)
     assert findings["coverage"] == {"namespaces_processed": 1, "complete": True, "denied": [], "errors": []}
     assert findings["cluster_context"]["sentinel"] == "unsupported"
-    assert findings["cluster_context"]["enterprise"] is False
+    assert findings["cluster_context"]["enterprise"] is False and findings["run"]["platform"] == "community"
     assert {"VT-AUD-001", "VT-MOUNT-006"} <= set(findings["summary"]["by_rule"])
     assert not any(r.startswith("VT-SNT-") for r in findings["summary"]["by_rule"])
     assert inventory["summary"]["sentinel"] == "unsupported" and inventory["summary"]["namespaces"] == 1
@@ -79,6 +79,7 @@ def test_sealed_health(capsys, tmp_path):
     code, (doc,) = run(capsys, "health", "--output-dir", str(tmp_path))
     assert code == vo.EXIT_OK
     assert doc["health"]["sealed"] is True and doc["health"]["seal"]["type"] == "shamir"
+    assert doc["run"]["platform"] == "community"  # version still comes from unauthenticated sys/health
     assert doc["coverage"]["complete"] is True
     assert [f["rule_id"] for f in doc["findings"]] == ["VT-HLTH-001"]
 
