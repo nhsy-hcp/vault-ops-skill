@@ -56,7 +56,7 @@ uv run --script skills/vault-ops/scripts/vault_ops.py <command> [--output-dir DI
 | Command | Output | Notes |
 | --- | --- | --- |
 | `audit` | `{cluster}-findings-{ts}.json` + `{cluster}-inventory-{ts}.json` | `--namespace`, `-w/--workers`, `--no-sentinel`, `--redact-addr`, `--fail-on {medium,low,info}`, `--fail-on-gaps` |
-| `health` | `{cluster}-health-{ts}.json` | seal, HA leader, raft peers and autopilot, version, license, DR and performance replication (peer heartbeat, canary age, clock skew, Merkle corruption, paths filters), lease ceilings, audit devices, automated snapshots, node metrics (`sys/metrics`) |
+| `health` | `{cluster}-health-{ts}.json` | seal, HA leader and active-node uptime (`active_time`), raft peers and autopilot, version, license, DR and performance replication (peer heartbeat, canary age, clock skew, Merkle corruption, paths filters), lease ceilings, audit devices, automated snapshots, node metrics (`sys/metrics`) |
 | `inventory` | `{cluster}-inventory-{ts}.json` | namespaces, non-built-in mounts, ACL policy **names**; summary has type distribution (mounts + namespaces per type), max depth, Sentinel counts by enforcement level and namespace `shapes` |
 | `usage` | `{cluster}-usage-{ts}.json` | billing-period client counts plus `current_month`, and `activity_log` (whether Vault records client activity at all) |
 | `entities` | `{cluster}-entities-{ts}.json` | per-namespace entity counts and findings; `--list` adds metadata, aliases and policies per entity |

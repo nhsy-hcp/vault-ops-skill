@@ -122,6 +122,24 @@ def test_collect_health_maps_fields():
     assert cov.denied == [{"namespace": "/", "scope": "sys/config/state/sanitized"}]
 
 
+def test_collect_health_active_time():
+    routes = {
+        ("", "sys/health"): {"sealed": False, "initialized": True, "server_time_utc": 1793640326},  # 2026-11-02T17:25:26Z
+        ("", "sys/leader"): {"ha_enabled": True, "is_self": True, "leader_address": "x", "active_time": "2026-11-01T17:25:26Z"},
+    }
+    leader = vo.collect_health(FakeReader(routes), vo.Coverage())["leader"]
+    assert leader["active_time"] == "2026-11-01T17:25:26Z" and leader["active_seconds"] == 86400
+
+
+@pytest.mark.parametrize("value", ["0001-01-01T00:00:00Z", None, "", "garbage", 5])
+def test_active_since_standby_or_missing(value):
+    assert vo.active_since(value, 1793640326) == {"active_time": None, "active_seconds": None}
+
+
+def test_active_since_falls_back_to_local_clock():
+    assert vo.active_since("2020-01-01T00:00:00Z", None)["active_seconds"] > 0
+
+
 @pytest.fixture
 def env(monkeypatch, tmp_path):
     monkeypatch.setenv("VAULT_ADDR", "https://vault.example:8200/")

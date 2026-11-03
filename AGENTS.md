@@ -12,7 +12,7 @@ A **read-only** HashiCorp Vault ops Claude skill (`skills/vault-ops/`) plus a lo
 | `.claude/skills/vault-ops` | Symlink to `skills/vault-ops`, so sessions in this repo load the skill |
 | `skills/vault-ops/SKILL.md` | Skill workflow and guardrails (what Claude does when the skill triggers) |
 | `skills/vault-ops/scripts/vault_ops.py` | PEP 723 single-file collector: `audit` (findings + inventory), `health`, `inventory`, `usage`, `entities`, `policies`, `diff` |
-| `skills/vault-ops/schemas/findings.schema.json` | JSON Schema (draft 2020-12) for findings files, `schema_version` 1.12.0 |
+| `skills/vault-ops/schemas/findings.schema.json` | JSON Schema (draft 2020-12) for findings files, `schema_version` 1.13.0 |
 | `skills/vault-ops/references/rules.md` | Rule catalogue (VT-*) with drafted remediation |
 | `skills/vault-ops/policies/vault-ops-readonly.hcl` | Least-privilege Vault policy for the skill's token (ACL and Sentinel policy names only) |
 | `skills/vault-ops/policies/vault-ops-policy-reader.hcl` | Opt-in add-on for `policies`: `read` on `sys/policies/acl/*` per nesting level, nothing else |

@@ -47,7 +47,7 @@ import requests
 
 TOOL_NAME = "vault-ops"
 TOOL_VERSION = "0.4.2"
-SCHEMA_VERSION = "1.12.0"
+SCHEMA_VERSION = "1.13.0"
 
 EXIT_OK, EXIT_FATAL, EXIT_GAPS, EXIT_FINDINGS, EXIT_INTERRUPTED = 0, 1, 2, 3, 130
 
@@ -347,6 +347,16 @@ def parse_time(timestamp: Any) -> datetime | None:
     except ValueError:
         return None
     return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+
+
+def active_since(active_time: Any, server_time: int | None) -> dict[str, Any]:
+    """`active_time` from sys/leader (when this node became active) and seconds since then on the node's clock.
+    A standby reports the zero time `0001-01-01T00:00:00Z`; that and anything unparseable become None."""
+    parsed = parse_time(active_time) if isinstance(active_time, str) and active_time else None
+    if parsed is None or parsed.year < 2000:
+        return {"active_time": None, "active_seconds": None}
+    now = datetime.fromtimestamp(server_time, UTC) if isinstance(server_time, int) and server_time > 0 else utc_now()
+    return {"active_time": active_time, "active_seconds": max(0, int((now - parsed).total_seconds()))}
 
 
 def as_bool(value: Any) -> bool:
@@ -1151,6 +1161,7 @@ def collect_health(
             "is_self": leader.get("is_self"),
             "leader_address_present": bool(leader.get("leader_address")),
             "raft_committed_index": leader.get("raft_committed_index"),
+            **active_since(leader.get("active_time"), result["server_time_utc"]),
         }
     # Root-only cluster reads: skipped on a DR secondary (rejects authenticated reads) and with a child-namespace token.
     cluster_reads = not dr_secondary and not scoped
