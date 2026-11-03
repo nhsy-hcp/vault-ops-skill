@@ -1,0 +1,255 @@
+{
+  "schema_version": "1.13.0",
+  "rules": {
+    "VT-AUD-001": {
+      "severity": "medium",
+      "category": "audit",
+      "title": "No audit device enabled"
+    },
+    "VT-AUD-002": {
+      "severity": "low",
+      "category": "audit",
+      "title": "Only one audit device enabled"
+    },
+    "VT-AUD-003": {
+      "severity": "medium",
+      "category": "audit",
+      "title": "Audit device logs raw values or unhashed accessors"
+    },
+    "VT-AUTH-001": {
+      "severity": "low",
+      "category": "exposure",
+      "title": "Auth mount listed to unauthenticated callers"
+    },
+    "VT-CLI-001": {
+      "severity": "low",
+      "category": "clients",
+      "title": "Most clients are token-only (non-entity)"
+    },
+    "VT-CLI-002": {
+      "severity": "low",
+      "category": "clients",
+      "title": "Client count growing sharply"
+    },
+    "VT-CLI-003": {
+      "severity": "low",
+      "category": "clients",
+      "title": "Mount creates new clients every month"
+    },
+    "VT-CLI-004": {
+      "severity": "info",
+      "category": "clients",
+      "title": "Most clients in the root namespace"
+    },
+    "VT-CLI-005": {
+      "severity": "low",
+      "category": "clients",
+      "title": "Activity log disabled: client counts are not recorded"
+    },
+    "VT-HLTH-001": {
+      "severity": "medium",
+      "category": "availability",
+      "title": "Node sealed or no active leader"
+    },
+    "VT-HLTH-002": {
+      "severity": "medium",
+      "category": "replication",
+      "title": "Replication enabled but not healthy"
+    },
+    "VT-HLTH-003": {
+      "severity": "info",
+      "category": "lifecycle",
+      "title": "Vault version below supported window"
+    },
+    "VT-HLTH-004": {
+      "severity": "medium",
+      "category": "availability",
+      "title": "Raft autopilot reports the cluster or a server unhealthy"
+    },
+    "VT-HLTH-005": {
+      "severity": "low",
+      "category": "lease",
+      "title": "Irrevocable leases present"
+    },
+    "VT-HLTH-006": {
+      "severity": "medium",
+      "category": "lease",
+      "title": "Lease count is high"
+    },
+    "VT-ID-001": {
+      "severity": "low",
+      "category": "identity",
+      "title": "Entity has no aliases"
+    },
+    "VT-ID-002": {
+      "severity": "info",
+      "category": "identity",
+      "title": "Policies attached directly to entity"
+    },
+    "VT-ID-003": {
+      "severity": "info",
+      "category": "identity",
+      "title": "Entity is disabled"
+    },
+    "VT-ID-004": {
+      "severity": "low",
+      "category": "identity",
+      "title": "Far more entities than active clients"
+    },
+    "VT-ID-005": {
+      "severity": "low",
+      "category": "identity",
+      "title": "Alias name shared by several entities"
+    },
+    "VT-LEASE-001": {
+      "severity": "low",
+      "category": "lease",
+      "title": "Cluster default lease TTL is long"
+    },
+    "VT-LIC-001": {
+      "severity": "medium",
+      "category": "lifecycle",
+      "title": "License expires soon"
+    },
+    "VT-MOUNT-001": {
+      "severity": "medium",
+      "category": "lifecycle",
+      "title": "Plugin deprecated or pending removal"
+    },
+    "VT-MOUNT-002": {
+      "severity": "low",
+      "category": "lease",
+      "title": "Mount max lease TTL overrides cluster ceiling"
+    },
+    "VT-MOUNT-003": {
+      "severity": "info",
+      "category": "replication",
+      "title": "Mount is local (not replicated)"
+    },
+    "VT-MOUNT-004": {
+      "severity": "low",
+      "category": "lease",
+      "title": "Mount default lease TTL is long"
+    },
+    "VT-MOUNT-005": {
+      "severity": "info",
+      "category": "hygiene",
+      "title": "Many mounts of one type in a namespace"
+    },
+    "VT-MOUNT-006": {
+      "severity": "info",
+      "category": "hygiene",
+      "title": "KV version 1 mount"
+    },
+    "VT-NS-001": {
+      "severity": "info",
+      "category": "hygiene",
+      "title": "Namespace has no auth method beyond token"
+    },
+    "VT-NS-002": {
+      "severity": "info",
+      "category": "hygiene",
+      "title": "Leaf namespace appears unused"
+    },
+    "VT-POL-001": {
+      "severity": "medium",
+      "category": "access",
+      "title": "ACL policy grants write or sudo on every path"
+    },
+    "VT-POL-002": {
+      "severity": "medium",
+      "category": "access",
+      "title": "ACL policy can change access control"
+    },
+    "VT-POL-003": {
+      "severity": "low",
+      "category": "access",
+      "title": "ACL policy grants sudo"
+    },
+    "VT-POL-004": {
+      "severity": "low",
+      "category": "access",
+      "title": "Same-named ACL policy differs across namespaces"
+    },
+    "VT-POL-005": {
+      "severity": "info",
+      "category": "access",
+      "title": "ACL policy could not be parsed"
+    },
+    "VT-REPL-001": {
+      "severity": "medium",
+      "category": "replication",
+      "title": "Replication peer is lagging"
+    },
+    "VT-REPL-002": {
+      "severity": "low",
+      "category": "replication",
+      "title": "Known secondary has no heartbeat (never connected, or down since the primary started)"
+    },
+    "VT-REPL-003": {
+      "severity": "medium",
+      "category": "replication",
+      "title": "Clock skew between replication peers"
+    },
+    "VT-REPL-004": {
+      "severity": "high",
+      "category": "replication",
+      "title": "Replication merkle tree reported corrupted"
+    },
+    "VT-REPL-005": {
+      "severity": "info",
+      "category": "replication",
+      "title": "Performance replication paths filter in use"
+    },
+    "VT-SNAP-001": {
+      "severity": "medium",
+      "category": "backup",
+      "title": "No automated Raft snapshots configured"
+    },
+    "VT-SNAP-002": {
+      "severity": "medium",
+      "category": "backup",
+      "title": "Automated snapshot failing or overdue"
+    },
+    "VT-SNAP-003": {
+      "severity": "info",
+      "category": "backup",
+      "title": "Automated snapshots stored on the node's local disk"
+    },
+    "VT-SNT-001": {
+      "severity": "low",
+      "category": "governance",
+      "title": "Sentinel policy is advisory"
+    },
+    "VT-SNT-002": {
+      "severity": "info",
+      "category": "governance",
+      "title": "Sentinel policy is overridable"
+    },
+    "VT-SNT-003": {
+      "severity": "info",
+      "category": "governance",
+      "title": "EGP applies to every path"
+    },
+    "VT-SNT-004": {
+      "severity": "low",
+      "category": "governance",
+      "title": "Sentinel policy always evaluates true"
+    },
+    "VT-SNT-005": {
+      "severity": "low",
+      "category": "governance",
+      "title": "Same-named Sentinel policy differs across namespaces"
+    },
+    "VT-SNT-006": {
+      "severity": "medium",
+      "category": "governance",
+      "title": "Hard-mandatory Sentinel policy always evaluates false"
+    },
+    "VT-SNT-007": {
+      "severity": "info",
+      "category": "governance",
+      "title": "Sentinel policy makes outbound HTTP calls"
+    }
+  }
+}

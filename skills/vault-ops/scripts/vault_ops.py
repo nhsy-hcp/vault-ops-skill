@@ -221,6 +221,14 @@ RULES: dict[str, Rule] = {
 }
 
 
+def rules_catalogue() -> dict[str, Any]:
+    """RULES as plain data, the source of references/rules.json (shared with other tools to detect drift)."""
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "rules": {rid: {"severity": r.severity, "category": r.category, "title": r.title} for rid, r in sorted(RULES.items())},
+    }
+
+
 @dataclass(frozen=True)
 class Finding:
     rule_id: str

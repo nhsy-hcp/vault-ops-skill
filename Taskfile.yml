@@ -290,6 +290,11 @@ tasks:
     cmds:
       - dot -Tsvg docs/architecture.dot -o docs/architecture.svg
 
+  rules:export:
+    desc: Write skills/vault-ops/references/rules.json from RULES in vault_ops.py
+    cmds:
+      - uv run python scripts/export_rules.py
+
   plugin:validate:
     desc: Validate the plugin and marketplace manifests (strict)
     cmds:
