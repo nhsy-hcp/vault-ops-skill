@@ -2,7 +2,7 @@
 
 An end-to-end manual test of the dev environment, DR and performance replication and the vault-ops skill. Run every command from the repo root.
 
-The automated version is one destructive command: `task test:e2e` ([`scripts/e2e.sh`](../scripts/e2e.sh)). It runs `down`, `clean`, `up:all`, `dr:enable`, `pr:enable`, `seed`, `seed:findings`, `seed:ns`, `token:policies`, `token:pr`, `token:ns`, `test:all`, `test:ce` and `lint`, and stops at the first failure.
+The automated version is one destructive command: `task test:e2e` ([`scripts/e2e.sh`](../scripts/e2e.sh)). It runs `down`, `clean`, `up:all`, `dr:enable`, `pr:enable`, `seed`, `seed:findings`, `seed:ns`, `token:policies`, `token:pr`, `token:ns`, `test:all`, `test:ce` and `lint`, and stops at the first failure. Its output is also written to `.tmp/e2e/e2e-<UTC timestamp>.log`, which `task clean` keeps.
 
 ## 1. Start from scratch
 

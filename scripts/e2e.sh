@@ -12,9 +12,16 @@ steps=(
   test:all test:ce lint
 )
 
+# Log to .tmp/e2e/, which `task clean` keeps (it removes .tmp/*.log, so a redirect there is lost mid-run).
+log_dir=.tmp/e2e
+mkdir -p "$log_dir"
+log="${log_dir}/e2e-$(date -u +%Y%m%dT%H%M%SZ).log"
+exec > >(tee -a "$log") 2>&1
+echo "e2e log: ${log}"
+
 start=$SECONDS
 for step in "${steps[@]}"; do
   echo "==> task ${step}"
   task "$step"
 done
-echo "e2e passed in $((SECONDS - start))s"
+echo "e2e passed in $((SECONDS - start))s (log: ${log})"
