@@ -47,6 +47,8 @@ With the plugin installed (or in this repo, where `.claude/skills/vault-ops` lin
 
 The skill reports coverage gaps first, ranks and groups findings, and drafts remediation commands without running them.
 
+![vault-ops skill flow: Claude runs vault_ops.py, which reads Vault with a read-only token (GET/LIST only) and writes JSON results that Claude reads back](docs/skill-flow.png)
+
 ### Script subcommands
 
 ```bash
