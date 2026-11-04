@@ -23,7 +23,7 @@ task pr:enable          # performance secondary: stream-wals, then token 'root' 
 task pr:status
 task seed               # about 1–2 min, 132 namespaces
 task seed:findings
-task token:policies     # 1h read-only token (+ policy/Sentinel readers), saved to .tmp/audit-token
+task token:policies     # 8h read-only token (+ policy/Sentinel readers), saved to .tmp/audit-token
 task token:pr           # same policies, minted on vault-pr: .tmp/audit-token-pr
 task seed:ns            # child namespace admin/ (NS=team-x for another) with a chain down to depth 5
 task token:ns           # same policies, written and minted inside admin/: .tmp/audit-token-ns

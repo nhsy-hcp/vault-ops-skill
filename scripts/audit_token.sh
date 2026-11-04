@@ -1,5 +1,5 @@
 #!/bin/bash
-# Write the vault-ops-readonly policy and mint an orphan token (TTL, default 1h) into .tmp/audit-token (0600).
+# Write the vault-ops-readonly policy and mint an orphan token (TTL, default 8h) into .tmp/audit-token (0600).
 # TOKEN_FILE overrides the output file (token:pr mints on the performance secondary: tokens are
 # per cluster, policy writes there are forwarded to the primary).
 # POLICY_READER=1 also writes and attaches the read-only add-ons vault-ops-policy-reader
@@ -10,7 +10,7 @@ set -euo pipefail
 : "${VAULT_TOKEN:?VAULT_TOKEN must be set}"
 POLICY_DIR="skills/vault-ops/policies"
 TOKEN_FILE="${TOKEN_FILE:-.tmp/audit-token}"
-TTL="${TTL:-1h}"
+TTL="${TTL:-8h}"
 POLICIES=(vault-ops-readonly)
 if [[ "${POLICY_READER:-0}" == "1" ]]; then
   POLICIES+=(vault-ops-policy-reader vault-ops-sentinel-reader)

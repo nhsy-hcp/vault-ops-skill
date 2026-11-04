@@ -114,7 +114,7 @@ tasks:
       - NS="${NS:-admin}" scripts/seed_child_ns.sh
 
   token:audit:
-    desc: Write vault-ops-readonly policy and mint a 1h token to .tmp/audit-token
+    desc: "Write vault-ops-readonly policy and mint an 8h token to .tmp/audit-token (TTL=1h task token:audit to override)"
     cmds:
       - scripts/audit_token.sh
 
