@@ -258,3 +258,22 @@ def test_main_refuses_spent_run_dir(tmp_path):
     pytest.importorskip("gepa")
     (tmp_path / "spend.json").write_text('{"spent_usd": 40.0}')
     assert ge.main(["--resume", str(tmp_path), "--budget-usd", "40"]) == 1
+
+
+def test_main_removes_plugin_copies_even_on_error(tmp_path, monkeypatch):
+    """`claude plugin eval .` discovers plugin copies under .tmp/gepa/*/cand and tests them instead of the repo."""
+
+    def boom(args, run_dir, *rest):
+        (run_dir / "cand" / "abc" / ".claude-plugin").mkdir(parents=True)
+        raise RuntimeError("crash mid-run")
+
+    monkeypatch.setattr(ge, "optimise", boom)
+    with pytest.raises(RuntimeError):
+        ge.main(["--resume", str(tmp_path)])
+    assert not (tmp_path / "cand").exists()
+
+
+def test_task_eval_refuses_while_plugin_copies_exist():
+    taskfile = (ROOT / "Taskfile.yml").read_text()
+    block = taskfile.split("\n  eval:\n", 1)[1].split("\n  eval:gepa:", 1)[0]
+    assert ".tmp/gepa/*/cand" in block

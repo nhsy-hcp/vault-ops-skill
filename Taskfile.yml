@@ -286,6 +286,10 @@ tasks:
 
   eval:
     desc: "Skill evals (claude plugin eval, offline cases, uses API credits): task eval -- [--runs 1] [--case <glob>]"
+    preconditions:
+      # claude plugin eval also discovers plugin copies below the repo and tests those instead
+      - sh: "! ls -d .tmp/gepa/*/cand >/dev/null 2>&1"
+        msg: "GEPA plugin copies exist in .tmp/gepa/*/cand (a task eval:gepa run is in progress or crashed); wait for it or delete them"
     cmds:
       # --scaffold runs our own evals/**/scaffold scripts to stage fixtures; results land in evals/results/
       - claude plugin eval . --tag offline --scaffold --trust-plugin --no-publish -j 4 {{.CLI_ARGS}}

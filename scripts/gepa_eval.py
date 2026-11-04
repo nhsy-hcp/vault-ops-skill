@@ -351,49 +351,16 @@ def claude_reflection_lm(model: str, budget: Budget, cwd: Path):
     return call
 
 
-def build_parser() -> argparse.ArgumentParser:
-    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("--budget-usd", type=float, default=40.0, help="ceiling for eval runs + reflection, cumulative across --resume (default 40)")
-    ap.add_argument("--max-metric-calls", type=int, default=None, help="optional GEPA cap on case evaluations")
-    ap.add_argument("--reflection-model", default="opus", help="model for `claude -p` reflection (default opus)")
-    ap.add_argument("--model", default=None, help="override the agent model in eval runs")
-    ap.add_argument("--train-runs", type=int, default=3, help="agent runs per training case (default 3; 1 hides flaky failures)")
-    ap.add_argument("--val-runs", type=int, default=3, help="agent runs per validation case (default 3)")
-    ap.add_argument("--minibatch", type=int, default=3, help="reflection minibatch size (default 3)")
-    ap.add_argument("-j", "--concurrency", type=int, default=4)
-    ap.add_argument(
-        "--train-on-val",
-        action=argparse.BooleanOptionalAction,
-        default=True,
-        help="also put the validation cases in the trainset, so their failures drive reflection (default on; GEPA reflects only on train failures)",
-    )
-    ap.add_argument("--resume", type=Path, default=None, help="existing run dir to resume (reuses cached case results and spend)")
-    return ap
+def remove_plugin_copies(run_dir: Path) -> None:
+    """Delete cand/ (full plugin copies). Left in the repo, `claude plugin eval .` discovers and tests them too."""
+    shutil.rmtree(run_dir / "cand", ignore_errors=True)
 
 
-def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
-
+def optimise(args: argparse.Namespace, run_dir: Path, train: list[str], val: list[str], skill_text: str, budget: Budget, adapter: ClaudeEvalAdapter) -> int:
+    """Run GEPA and write best/SKILL.md, best.diff and summary.json into run_dir."""
     import gepa
 
-    skill_text = (ROOT / SKILL_REL).read_text()
     frontmatter, seed_body = split_skill(skill_text)
-    cases = offline_cases(ROOT / "evals")
-    val = [c for c in VAL_CASES if c in cases]
-    train = cases if args.train_on_val else [c for c in cases if c not in val]
-    if len(val) != len(VAL_CASES) or not train:
-        print(f"[gepa] unexpected case set: {cases}", file=sys.stderr)
-        return 1
-
-    run_dir = args.resume or ROOT / ".tmp" / "gepa" / datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-    run_dir.mkdir(parents=True, exist_ok=True)
-    budget = Budget(args.budget_usd, run_dir / "spend.json", min_launch=PER_RUN_USD * min(args.train_runs, args.val_runs))
-    adapter = ClaudeEvalAdapter(run_dir, frontmatter, seed_body, budget, args.train_runs, args.val_runs, args.concurrency, args.model)
-    print(f"[gepa] run dir {run_dir}; train {train}; val {val}; budget ${args.budget_usd:.2f} (${budget.spent:.2f} already spent)", file=sys.stderr)
-    if budget.exhausted:
-        print("[gepa] budget already spent for this run dir; raise --budget-usd to continue", file=sys.stderr)
-        return 1
-
     try:
         result = gepa.optimize(
             seed_candidate={COMPONENT: seed_body},
@@ -432,6 +399,52 @@ def main(argv: list[str] | None = None) -> int:
     print(f"[gepa] seed {summary['seed_val_score']:.3f} -> best {summary['best_val_score']:.3f} (candidate {result.best_idx}); spent ${budget.spent:.2f}", file=sys.stderr)
     print(run_dir / "best.diff")
     return 0
+
+
+def build_parser() -> argparse.ArgumentParser:
+    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    ap.add_argument("--budget-usd", type=float, default=40.0, help="ceiling for eval runs + reflection, cumulative across --resume (default 40)")
+    ap.add_argument("--max-metric-calls", type=int, default=None, help="optional GEPA cap on case evaluations")
+    ap.add_argument("--reflection-model", default="opus", help="model for `claude -p` reflection (default opus)")
+    ap.add_argument("--model", default=None, help="override the agent model in eval runs")
+    ap.add_argument("--train-runs", type=int, default=3, help="agent runs per training case (default 3; 1 hides flaky failures)")
+    ap.add_argument("--val-runs", type=int, default=3, help="agent runs per validation case (default 3)")
+    ap.add_argument("--minibatch", type=int, default=3, help="reflection minibatch size (default 3)")
+    ap.add_argument("-j", "--concurrency", type=int, default=4)
+    ap.add_argument(
+        "--train-on-val",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="also put the validation cases in the trainset, so their failures drive reflection (default on; GEPA reflects only on train failures)",
+    )
+    ap.add_argument("--resume", type=Path, default=None, help="existing run dir to resume (reuses cached case results and spend)")
+    return ap
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    skill_text = (ROOT / SKILL_REL).read_text()
+    frontmatter, seed_body = split_skill(skill_text)
+    cases = offline_cases(ROOT / "evals")
+    val = [c for c in VAL_CASES if c in cases]
+    train = cases if args.train_on_val else [c for c in cases if c not in val]
+    if len(val) != len(VAL_CASES) or not train:
+        print(f"[gepa] unexpected case set: {cases}", file=sys.stderr)
+        return 1
+
+    run_dir = args.resume or ROOT / ".tmp" / "gepa" / datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    run_dir.mkdir(parents=True, exist_ok=True)
+    budget = Budget(args.budget_usd, run_dir / "spend.json", min_launch=PER_RUN_USD * min(args.train_runs, args.val_runs))
+    adapter = ClaudeEvalAdapter(run_dir, frontmatter, seed_body, budget, args.train_runs, args.val_runs, args.concurrency, args.model)
+    print(f"[gepa] run dir {run_dir}; train {train}; val {val}; budget ${args.budget_usd:.2f} (${budget.spent:.2f} already spent)", file=sys.stderr)
+    if budget.exhausted:
+        print("[gepa] budget already spent for this run dir; raise --budget-usd to continue", file=sys.stderr)
+        return 1
+
+    try:
+        return optimise(args, run_dir, train, val, skill_text, budget, adapter)
+    finally:
+        remove_plugin_copies(run_dir)
 
 
 if __name__ == "__main__":
