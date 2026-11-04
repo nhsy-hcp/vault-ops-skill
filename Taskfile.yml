@@ -309,7 +309,7 @@ tasks:
       - dot -Tsvg docs/architecture.dot -o docs/architecture.svg
 
   rules:export:
-    desc: Write skills/vault-ops/references/rules.json from RULES in vault_ops.py
+    desc: Write references/rules.json and the generated blocks of references/rules.md from RULES in vault_ops.py
     cmds:
       - uv run python scripts/export_rules.py
 
