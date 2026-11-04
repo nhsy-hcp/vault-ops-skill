@@ -296,14 +296,14 @@
       }
     },
     {
-      "fingerprint": "0bde5906321d0c52",
+      "fingerprint": "b04e2e9de2513412",
       "rule_id": "VT-ID-001",
       "severity": "low",
       "category": "identity",
       "namespace": "tn009/soc2/dev/",
       "object": {
         "kind": "entity",
-        "path": "vault-ops-direct",
+        "path": "5e175235-0f54-a59a-5434-dfe58649bd20",
         "type": null
       },
       "title": "Entity has no aliases",
@@ -314,14 +314,14 @@
       }
     },
     {
-      "fingerprint": "ab9003384f2dc79c",
+      "fingerprint": "6997cc8884eef283",
       "rule_id": "VT-ID-001",
       "severity": "low",
       "category": "identity",
       "namespace": "tn009/soc2/dev/",
       "object": {
         "kind": "entity",
-        "path": "vault-ops-disabled",
+        "path": "07e525bc-6840-403d-049c-e50a2440f635",
         "type": null
       },
       "title": "Entity has no aliases",
@@ -332,14 +332,14 @@
       }
     },
     {
-      "fingerprint": "23731b2abb8b948b",
+      "fingerprint": "f4064cc447c0168f",
       "rule_id": "VT-ID-001",
       "severity": "low",
       "category": "identity",
       "namespace": "tn009/soc2/dev/",
       "object": {
         "kind": "entity",
-        "path": "vault-ops-orphan",
+        "path": "e2e0b708-c6a5-82ac-a060-19bbb2983779",
         "type": null
       },
       "title": "Entity has no aliases",
@@ -350,14 +350,14 @@
       }
     },
     {
-      "fingerprint": "c559f03d3ed07f26",
+      "fingerprint": "85197cf971abaffb",
       "rule_id": "VT-ID-002",
       "severity": "info",
       "category": "identity",
       "namespace": "tn009/soc2/dev/",
       "object": {
         "kind": "entity",
-        "path": "vault-ops-direct",
+        "path": "5e175235-0f54-a59a-5434-dfe58649bd20",
         "type": null
       },
       "title": "Policies attached directly to entity",
@@ -370,14 +370,14 @@
       }
     },
     {
-      "fingerprint": "222ee8435d196ccf",
+      "fingerprint": "8d3d5015248ac644",
       "rule_id": "VT-ID-003",
       "severity": "info",
       "category": "identity",
       "namespace": "tn009/soc2/dev/",
       "object": {
         "kind": "entity",
-        "path": "vault-ops-disabled",
+        "path": "07e525bc-6840-403d-049c-e50a2440f635",
         "type": null
       },
       "title": "Entity is disabled",

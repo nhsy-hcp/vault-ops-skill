@@ -56,7 +56,16 @@ def test_entity_findings():
     _, _, entities = collect()
     entities["tn001/app"][0].disabled = True  # alice
     found = {(f.rule_id, f.object_path) for f in vo.entity_findings(entities)}
-    assert found == {("VT-ID-001", "orphan"), ("VT-ID-001", "gone"), ("VT-ID-002", "svc"), ("VT-ID-003", "alice")}
+    assert found == {("VT-ID-001", "e2"), ("VT-ID-001", "e4"), ("VT-ID-002", "e3"), ("VT-ID-003", "e1")}  # entity IDs, never names
+    assert all(f.evidence["entity_id"] == f.object_path for f in vo.entity_findings(entities) if f.object_kind == "entity")
+
+
+def test_entity_names_never_in_findings_or_default_output():
+    _, _, entities = collect()
+    entities["tn001/app"][0].disabled = True
+    findings = json.dumps([f.to_dict() for f in vo.entity_findings(entities)])
+    for name in ("alice", "orphan", "svc", "gone"):
+        assert f'"{name}"' not in findings
 
 
 def add_entities(entities, ns, count, alias_name=None):

@@ -2827,7 +2827,7 @@ def entity_findings(entities: dict[str, list[Entity]], active: dict[str, int] | 
                         "VT-ID-001",
                         ns,
                         "entity",
-                        e.name,
+                        e.id,  # never the name: names appear only in `entities --list`
                         None,
                         "Entity has no aliases — no login maps to it, so it is orphaned or was created by hand and never linked.",
                         entity_id=e.id,
@@ -2840,7 +2840,7 @@ def entity_findings(entities: dict[str, list[Entity]], active: dict[str, int] | 
                         "VT-ID-002",
                         ns,
                         "entity",
-                        e.name,
+                        e.id,  # never the name: names appear only in `entities --list`
                         None,
                         f"Policies attached directly to the entity ({', '.join(e.policies)}) — prefer granting through groups so access is reviewable in one place.",
                         entity_id=e.id,
@@ -2853,7 +2853,7 @@ def entity_findings(entities: dict[str, list[Entity]], active: dict[str, int] | 
                         "VT-ID-003",
                         ns,
                         "entity",
-                        e.name,
+                        e.id,  # never the name: names appear only in `entities --list`
                         None,
                         "Entity is disabled — its tokens are refused; remove it if the identity is gone for good.",
                         entity_id=e.id,
