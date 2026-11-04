@@ -94,7 +94,7 @@ Every output's `run` block records `platform`: `hcp` when the `VAULT_ADDR` host 
 | VT-POL-001..005 | medium/low/info | ACL policy with write or sudo on every path, policy that can change access control (policies, auth, mounts, tokens, identity), sudo, same-named policy drifted across namespaces, unparseable policy (from `policies`) |
 | VT-CLI-001..005 | low/info | Token-only client sprawl, sharp client growth, mount creating new clients every month, most clients in root (or the token's namespace), activity log disabled so counts aren't recorded (from `usage`) |
 
-Details and remediation: [`references/rules.md`](skills/vault-ops/references/rules.md). Schema: [`findings.schema.json`](skills/vault-ops/schemas/findings.schema.json).
+Details and remediation: [`references/rules.md`](skills/vault-ops/references/rules.md); the same catalogue as data (remediation command templates, scope, ranking) for other tools: [`references/rules.json`](skills/vault-ops/references/rules.json). Schema: [`findings.schema.json`](skills/vault-ops/schemas/findings.schema.json).
 
 ### Least-privilege token
 
