@@ -61,11 +61,15 @@ def test_entity_findings():
 
 
 def test_entity_names_never_in_findings_or_default_output():
-    _, _, entities = collect()
+    cov, _, entities = collect()
     entities["tn001/app"][0].disabled = True
-    findings = json.dumps([f.to_dict() for f in vo.entity_findings(entities)])
-    for name in ("alice", "orphan", "svc", "gone"):
-        assert f'"{name}"' not in findings
+    for i, e in enumerate(entities["tn001/app"]):
+        e.name = f"entity-name-marker-{i}"  # distinctive, so a substring check can't collide with detail text
+    findings = vo.entity_findings(entities)
+    assert {f.rule_id for f in findings} >= {"VT-ID-001", "VT-ID-002", "VT-ID-003"}
+    texts = [json.dumps([f.to_dict() for f in findings]), json.dumps(vo.build_entities_document(entities, cov, {"cluster_name": "c1"}, include_list=False))]
+    assert not any("entity-name-marker" in text for text in texts)  # names only in `--list` rows
+    assert "entity-name-marker" in json.dumps(vo.build_entities_document(entities, cov, {}, include_list=True))
 
 
 def add_entities(entities, ns, count, alias_name=None):

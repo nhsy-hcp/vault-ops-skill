@@ -22,9 +22,10 @@ TABLES = {
     "acl": lambda rid: rid.startswith("VT-POL-"),
     "sentinel": lambda rid: rid in ("VT-SNT-005", "VT-SNT-006", "VT-SNT-007"),
 }
+# Every scope but `namespace` (the default: judged in each walked namespace) is listed in rules.md; render_scopes fails on a scope without a label.
 SCOPE_LABELS = {
     "root_only": "**Not judged** (`root_only`)",
-    "health": "**Judged only when the node allows the status reads** (`health`)",
+    "health": "**Judged from `sys/health` and status reads**, whatever the token's namespace (`health`)",
     "token_namespace": "**Judged in the token's namespace** (`token_namespace`)",
 }
 BLOCK = re.compile(r"(<!-- BEGIN GENERATED (?P<name>[a-z]+)[^>]*-->\n)(?P<body>.*?)(<!-- END GENERATED (?P=name) -->)", re.DOTALL)
@@ -38,10 +39,6 @@ def table_of(rid: str) -> str:
     return next(name for name, claims in reversed(TABLES.items()) if claims(rid))
 
 
-def cell(text: str) -> str:
-    return text.replace("|", "\\|")
-
-
 def remediation(rule: vault_ops.Rule) -> str:
     commands = "; ".join(f"`{c}`" for c in rule.commands)
     if not commands:
@@ -53,7 +50,8 @@ def render_table(name: str) -> str:
     lines = ["| rule_id | Sev | What it means | Draft remediation | Watch out for |", "| --- | --- | --- | --- | --- |"]
     for rid, rule in vault_ops.RULES.items():
         if table_of(rid) == name:
-            lines.append(f"| {rid} | {rule.severity} | {cell(rule.meaning)} | {cell(remediation(rule))} | {cell(rule.watch_out)} |")
+            # Rule text never holds `|` (tested), so cells need no escaping.
+            lines.append(f"| {rid} | {rule.severity} | {rule.meaning} | {remediation(rule)} | {rule.watch_out} |")
     return "\n".join(lines) + "\n"
 
 
@@ -63,9 +61,13 @@ def render_placeholders() -> str:
 
 def render_scopes() -> str:
     lines = []
-    for scope, label in SCOPE_LABELS.items():
-        ids = [rid for rid in vault_ops.RANK_ORDER if vault_ops.RULES[rid].scope == scope]
-        lines.append(f"- {label}: {', '.join(sorted(ids))}.")
+    for scope in vault_ops.SCOPES:
+        if scope == "namespace":
+            continue
+        if scope not in SCOPE_LABELS:
+            raise SystemExit(f"export_rules.py: no SCOPE_LABELS entry for scope {scope!r}")
+        ids = sorted(rid for rid, rule in vault_ops.RULES.items() if rule.scope == scope)
+        lines.append(f"- {SCOPE_LABELS[scope]}: {', '.join(ids)}.")
     notes: dict[str, list[str]] = {}
     for rid, rule in sorted(vault_ops.RULES.items()):
         if rule.scope_note:
@@ -87,6 +89,8 @@ def update_rules_md(text: str) -> str:
         name = m.group("name")
         if name not in wanted:
             raise SystemExit(f"rules.md: unknown generated block {name!r}")
+        if name in seen:
+            raise SystemExit(f"rules.md: generated block {name!r} appears twice")
         seen.add(name)
         return m.group(1) + wanted[name] + m.group(4)
 

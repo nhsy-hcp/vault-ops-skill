@@ -1,5 +1,5 @@
-"""references/rules.json is the complete rule catalogue (readable on its own); it and the generated
-blocks of references/rules.md must match RULES."""
+"""references/rules.json is the complete rule catalogue, readable on its own; it and the generated blocks of
+references/rules.md must match RULES. fill_commands is the reference implementation of its placeholders."""
 
 import importlib.util
 import json
@@ -71,16 +71,53 @@ def test_command_placeholders_are_declared(rule_id):
         command.format_map(dict.fromkeys(vo.PLACEHOLDERS, "x"))  # valid template: no stray braces
 
 
-def test_every_placeholder_is_used():
+def test_every_placeholder_is_used_and_described():
     used = set().union(*(fields(c) for r in vo.RULES.values() for c in r.commands))
     assert used == set(vo.PLACEHOLDERS)
-    assert CATALOGUE["placeholders"] == list(vo.PLACEHOLDERS)
+    assert list(vo.PLACEHOLDERS) == sorted(vo.PLACEHOLDERS)
+    assert CATALOGUE["placeholders"] == vo.PLACEHOLDERS and all(text.strip() for text in vo.PLACEHOLDERS.values())
 
 
-def test_nsflag_expands_to_a_namespace_flag():
-    command = vo.RULES["VT-MOUNT-006"].commands[0]
-    assert command.format_map({"nsflag": "-namespace=team-a/ ", "path": "kv/"}) == "vault kv enable-versioning -namespace=team-a/ kv/"
-    assert command.format_map({"nsflag": "", "path": "kv/"}) == "vault kv enable-versioning kv/"
+def finding_for(rule_id, namespace="admin/team-a/", kind="auth_mount", **evidence):
+    """A findings.json-shaped finding with every placeholder source set."""
+    evidence = {"entity_id": "0f1e-entity", "secondary_id": "pr-east", "baseline_seconds": 2764800, **evidence}
+    return {"rule_id": rule_id, "namespace": namespace, "object": {"kind": kind, "path": "kv/", "type": "egp"}, "evidence": evidence}
+
+
+@pytest.mark.parametrize("rule_id", sorted(vo.RULES))
+def test_fill_commands_fills_every_placeholder(rule_id):
+    filled = vo.fill_commands(finding_for(rule_id))
+    assert len(filled) == len(vo.RULES[rule_id].commands)
+    for command in filled:
+        assert "{" not in command and "}" not in command, command
+        assert not any(f"<{name}>" in command for name in vo.PLACEHOLDERS), command
+
+
+def test_fill_commands_namespace_flags():
+    nested = vo.fill_commands({**finding_for("VT-MOUNT-006"), "namespace": "tn009/soc2/dev/"})
+    assert nested == ["vault kv enable-versioning -namespace=tn009/soc2/dev/ kv/"]  # display form already ends in `/`
+    assert vo.fill_commands({**finding_for("VT-MOUNT-006"), "namespace": "/"}) == ["vault kv enable-versioning kv/"]
+    assert vo.fill_commands(finding_for("VT-NS-002", namespace="admin/team-a/")) == ["vault namespace delete -namespace=admin/ team-a"]
+    assert vo.fill_commands(finding_for("VT-NS-002", namespace="team-a/")) == ["vault namespace delete team-a"]
+
+
+def test_fill_commands_derived_values():
+    assert vo.fill_commands(finding_for("VT-MOUNT-002")) == ["vault auth tune -namespace=admin/team-a/ -max-lease-ttl=768h kv/"]
+    assert vo.fill_commands(finding_for("VT-MOUNT-002", kind="secrets_mount", baseline_seconds=90)) == ["vault secrets tune -namespace=admin/team-a/ -max-lease-ttl=90s kv/"]
+
+
+def test_fill_commands_leaves_missing_values_to_the_operator():
+    finding = {"rule_id": "VT-ID-001", "namespace": "/", "object": {"kind": "entity", "path": None, "type": None}, "evidence": {}}
+    assert vo.fill_commands(finding)[0] == "vault delete identity/entity/id/<entity_id>"
+    assert vo.fill_commands({"rule_id": "VT-NOPE-001"}) == [] and vo.fill_commands(finding_for("VT-REPL-003")) == []
+
+
+def test_fill_commands_on_real_findings(cluster_data):
+    findings = [f.to_dict() for f in vo.mount_findings(cluster_data, 3600)]
+    assert findings
+    for finding in findings:
+        for command in vo.fill_commands(finding):
+            assert "{" not in command and not any(f"<{name}>" in command for name in vo.PLACEHOLDERS), command
 
 
 def test_rank_order_is_a_permutation_sorted_by_tier():
@@ -101,6 +138,17 @@ def test_ranking_guidance_matches_rank_tiers():
         line = re.search(rf"^{tier}\. (.*)$", guidance, re.MULTILINE).group(1)
         assert tuple(re.findall(r"VT-[A-Z]+-\d+", line)) == ids, f"tier {tier}"
         assert not re.search(r"VT-[A-Z]+-\d+(/|\.\.)", line), "no shorthand: name every rule"
+
+
+def test_every_listed_scope_has_a_label():
+    assert set(export_rules.SCOPE_LABELS) == set(vo.SCOPES) - {"namespace"}
+
+
+def test_duplicate_generated_block_is_refused():
+    text = (REFERENCES / "rules.md").read_text()
+    block = re.search(r"<!-- BEGIN GENERATED tablesentinel.*?<!-- END GENERATED tablesentinel -->", text, re.DOTALL).group(0)
+    with pytest.raises(SystemExit, match="appears twice"):
+        export_rules.update_rules_md(text + "\n" + block + "\n")
 
 
 def test_every_rule_has_a_valid_scope():

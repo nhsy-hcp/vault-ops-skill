@@ -1,20 +1,20 @@
 {
   "schema_version": "1.14.0",
-  "placeholders": [
-    "nsflag",
-    "parent_flag",
-    "leaf",
-    "path",
-    "name",
-    "cli",
-    "kind",
-    "entity_id",
-    "baseline_seconds",
-    "secondary_id"
-  ],
+  "placeholders": {
+    "baseline": "`evidence.baseline_seconds` as a TTL: `<n>h` when it is whole hours (e.g. `768h`), otherwise `<n>s`",
+    "cli": "`auth` when `object.kind` is `auth_mount`, `secrets` when it is `secrets_mount`",
+    "entity_id": "`evidence.entity_id`",
+    "kind": "`object.type` (e.g. `egp`, `rgp`, `dr`, `performance`)",
+    "leaf": "the last segment of `namespace`, without a slash (e.g. `team-a` for `admin/team-a/`)",
+    "name": "`object.path` (the object's name)",
+    "nsflag": "`-namespace=<namespace> ` with a trailing space, `<namespace>` being `namespace` as written in the finding (e.g. `admin/team-a/`); empty when `namespace` is `/`",
+    "parent_flag": "`-namespace=<parent> ` with a trailing space, `<parent>` being the parent of `namespace` (e.g. `admin/` for `admin/team-a/`); empty when the parent is `/`",
+    "path": "`object.path`",
+    "secondary_id": "`evidence.secondary_id`"
+  },
   "scopes": {
     "root_only": "root-only cluster data: not judged for a child-namespace token, so its absence means nothing there",
-    "health": "unauthenticated or status reads: judged when the node lets the token read them",
+    "health": "read from `sys/health` (judged on every run) or from leader and replication status (judged when the node answers them)",
     "token_namespace": "client activity, read in the token's namespace (the top of the tree for a child-namespace token)",
     "namespace": "judged in every walked namespace"
   },
@@ -149,10 +149,8 @@
       "category": "clients",
       "title": "Mount creates new clients every month",
       "meaning": "At least 90% of a mount's clients in the latest full month were new, and the mount already had clients the month before (at least 50 clients). Identities are created per login or run instead of reused.",
-      "commands": [
-        "vault read {nsflag}auth/{path}role/<role>"
-      ],
-      "action": "An operator reads the mount's roles and makes the identity stable: JWT/OIDC `user_claim` per workload (not per run), one AppRole per application (not per instance), Kubernetes `alias_name_source` set to the service account.",
+      "commands": [],
+      "action": "For an auth mount, an operator reads its roles (`auth/<mount>/role/<role>`; the token mount uses `auth/token/roles/<role>`) and makes the identity stable: JWT/OIDC `user_claim` per workload (not per run), one AppRole per application (not per instance), Kubernetes `alias_name_source` set to the service account. For a secrets mount, find which workloads authenticate to use it.",
       "watch_out": "Uses billing-period months only: the first month of any window reports every client as new, so it is never judged.",
       "scope": "token_namespace",
       "rank_tier": 4
@@ -196,7 +194,7 @@
       "watch_out": "Run checks against each node; one sealed standby may be fine behind a load balancer.",
       "scope": "health",
       "rank_tier": 2,
-      "scope_note": "Judged only when the node lets the token read leader and replication status (a 403 there is not a gap with a child-namespace token)."
+      "scope_note": "The sealed check (from `sys/health`) is judged on every run; the no-leader check needs `sys/leader`, which a child-namespace token may be refused (not a gap)."
     },
     "VT-HLTH-002": {
       "severity": "medium",
@@ -210,7 +208,7 @@
       "watch_out": "Read-only investigation only. Never suggest `demote`/`promote`/`failover` without an incident runbook. A secondary that is restarting shows as disconnected briefly.",
       "scope": "health",
       "rank_tier": 2,
-      "scope_note": "Judged only when the node lets the token read leader and replication status (a 403 there is not a gap with a child-namespace token)."
+      "scope_note": "Judged only when the node lets the token read replication status (a 403 there is not a gap with a child-namespace token)."
     },
     "VT-HLTH-003": {
       "severity": "info",
@@ -350,7 +348,7 @@
       "title": "License expires soon",
       "meaning": "License expires within 90 days (`evidence.days_remaining`).",
       "commands": [
-        "vault license reload"
+        "vault write -f sys/config/reload/license"
       ],
       "action": "Obtain a renewed license, update it on every node (`license_path`, `VAULT_LICENSE_PATH` or `VAULT_LICENSE`), then reload it (or restart).",
       "watch_out": "After expiry there is a grace period before termination; check `termination_time` in health output.",
@@ -376,7 +374,7 @@
       "title": "Mount max lease TTL overrides cluster ceiling",
       "meaning": "Mount `max_lease_ttl` exceeds the cluster ceiling (`evidence.baseline_source`: `cluster`, or `fallback` 768h).",
       "commands": [
-        "vault {cli} tune {nsflag}-max-lease-ttl={baseline_seconds}s {path}"
+        "vault {cli} tune {nsflag}-max-lease-ttl={baseline} {path}"
       ],
       "action": "",
       "watch_out": "Existing leases keep their TTL; lowering it affects new leases and renewals only. If `baseline_source=fallback`, the token could not read `sys/config/state/sanitized`: say so (with a child-namespace token that is by design).",
@@ -539,7 +537,7 @@
       "watch_out": "Bulk writes (a big seed or migration) lag briefly and catch up. A disconnected peer is VT-HLTH-002, not lag. Never suggest `demote`/`promote`/`failover`.",
       "scope": "health",
       "rank_tier": 2,
-      "scope_note": "Judged only when the node lets the token read leader and replication status (a 403 there is not a gap with a child-namespace token)."
+      "scope_note": "Judged only when the node lets the token read replication status (a 403 there is not a gap with a child-namespace token)."
     },
     "VT-REPL-002": {
       "severity": "low",
@@ -554,7 +552,7 @@
       "watch_out": "Never revoke on this finding alone: a production secondary that is down after a primary restart looks identical. Don't revoke one that is still being built.",
       "scope": "health",
       "rank_tier": 4,
-      "scope_note": "Judged only when the node lets the token read leader and replication status (a 403 there is not a gap with a child-namespace token)."
+      "scope_note": "Judged only when the node lets the token read replication status (a 403 there is not a gap with a child-namespace token)."
     },
     "VT-REPL-003": {
       "severity": "medium",
@@ -566,7 +564,7 @@
       "watch_out": "Skew affects token and lease expiry and replication timing. Vault reports the skew from the peer it measured: check both sides.",
       "scope": "health",
       "rank_tier": 2,
-      "scope_note": "Judged only when the node lets the token read leader and replication status (a 403 there is not a gap with a child-namespace token)."
+      "scope_note": "Judged only when the node lets the token read replication status (a 403 there is not a gap with a child-namespace token)."
     },
     "VT-REPL-004": {
       "severity": "high",
@@ -581,7 +579,7 @@
       "watch_out": "A reindex is heavy on large clusters. Never suggest `demote`/`promote`/`failover` as the fix.",
       "scope": "health",
       "rank_tier": 2,
-      "scope_note": "Judged only when the node lets the token read leader and replication status (a 403 there is not a gap with a child-namespace token)."
+      "scope_note": "Judged only when the node lets the token read replication status (a 403 there is not a gap with a child-namespace token)."
     },
     "VT-REPL-005": {
       "severity": "info",

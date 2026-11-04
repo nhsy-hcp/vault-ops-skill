@@ -182,23 +182,25 @@ class Rule:
 # How each rule is judged; with a child-namespace token (`run.token_namespace` not `/`) `root_only` rules are not judged at all.
 SCOPES: dict[str, str] = {
     "root_only": "root-only cluster data: not judged for a child-namespace token, so its absence means nothing there",
-    "health": "unauthenticated or status reads: judged when the node lets the token read them",
+    "health": "read from `sys/health` (judged on every run) or from leader and replication status (judged when the node answers them)",
     "token_namespace": "client activity, read in the token's namespace (the top of the tree for a child-namespace token)",
     "namespace": "judged in every walked namespace",
 }
 
 
-# `{field}` placeholders in Rule.commands, filled from a finding; anything in `<angle brackets>` is the operator's choice.
+# `{field}` placeholders in Rule.commands, each defined by the findings format (schemas/findings.schema.json) only, so
+# anything holding a finding can fill them; `fill_commands` is the reference implementation. `<angle brackets>` are
+# values the operator chooses and are left as-is.
 PLACEHOLDERS: dict[str, str] = {
-    "nsflag": "`-namespace=<namespace>/ ` (trailing space) from the finding's `namespace`, or empty when it is `/`",
-    "parent_flag": "`-namespace=<parent>/ ` (trailing space) for the parent of the finding's `namespace`, or empty when the parent is the root",
-    "leaf": "last segment of the finding's `namespace` (the namespace to delete, from its parent)",
-    "path": "`object.path`: a mount path or an audit device path",
-    "name": "`object.path` of a named object: an ACL or Sentinel policy, or an automated snapshot config",
-    "cli": "`auth` or `secrets`, from `object.kind` (`auth_mount` or `secrets_mount`)",
-    "kind": "`object.type`: `egp` or `rgp` for a Sentinel policy, `dr` or `performance` for replication",
+    "baseline": "`evidence.baseline_seconds` as a TTL: `<n>h` when it is whole hours (e.g. `768h`), otherwise `<n>s`",
+    "cli": "`auth` when `object.kind` is `auth_mount`, `secrets` when it is `secrets_mount`",
     "entity_id": "`evidence.entity_id`",
-    "baseline_seconds": "`evidence.baseline_seconds`",
+    "kind": "`object.type` (e.g. `egp`, `rgp`, `dr`, `performance`)",
+    "leaf": "the last segment of `namespace`, without a slash (e.g. `team-a` for `admin/team-a/`)",
+    "name": "`object.path` (the object's name)",
+    "nsflag": "`-namespace=<namespace> ` with a trailing space, `<namespace>` being `namespace` as written in the finding (e.g. `admin/team-a/`); empty when `namespace` is `/`",
+    "parent_flag": "`-namespace=<parent> ` with a trailing space, `<parent>` being the parent of `namespace` (e.g. `admin/` for `admin/team-a/`); empty when the parent is `/`",
+    "path": "`object.path`",
     "secondary_id": "`evidence.secondary_id`",
 }
 
@@ -232,7 +234,7 @@ RULES: dict[str, Rule] = {
         scope="namespace",
         scope_note="With a child-namespace token the cluster ceiling is not read: the baseline falls back to 768h (`baseline_source=fallback`), which is expected there and not a missing permission.",
         meaning="Mount `max_lease_ttl` exceeds the cluster ceiling (`evidence.baseline_source`: `cluster`, or `fallback` 768h).",
-        commands=("vault {cli} tune {nsflag}-max-lease-ttl={baseline_seconds}s {path}",),
+        commands=("vault {cli} tune {nsflag}-max-lease-ttl={baseline} {path}",),
         watch_out=(
             "Existing leases keep their TTL; lowering it affects new leases and renewals only. If `baseline_source=fallback`, the token could not read "
             "`sys/config/state/sanitized`: say so (with a child-namespace token that is by design)."
@@ -386,7 +388,7 @@ RULES: dict[str, Rule] = {
         "License expires soon",
         scope="root_only",
         meaning="License expires within 90 days (`evidence.days_remaining`).",
-        commands=("vault license reload",),
+        commands=("vault write -f sys/config/reload/license",),
         action="Obtain a renewed license, update it on every node (`license_path`, `VAULT_LICENSE_PATH` or `VAULT_LICENSE`), then reload it (or restart).",
         watch_out="After expiry there is a grace period before termination; check `termination_time` in health output.",
     ),
@@ -395,7 +397,7 @@ RULES: dict[str, Rule] = {
         "availability",
         "Node sealed or no active leader",
         scope="health",
-        scope_note="Judged only when the node lets the token read leader and replication status (a 403 there is not a gap with a child-namespace token).",
+        scope_note="The sealed check (from `sys/health`) is judged on every run; the no-leader check needs `sys/leader`, which a child-namespace token may be refused (not a gap).",
         meaning="Node sealed, or HA enabled with no active leader.",
         commands=("vault operator raft list-peers",),
         action=(
@@ -409,7 +411,7 @@ RULES: dict[str, Rule] = {
         "replication",
         "Replication enabled but not healthy",
         scope="health",
-        scope_note="Judged only when the node lets the token read leader and replication status (a 403 there is not a gap with a child-namespace token).",
+        scope_note="Judged only when the node lets the token read replication status (a 403 there is not a gap with a child-namespace token).",
         meaning="DR or performance replication is enabled but its state is not healthy (`evidence.state`), or a peer is not `connected` (`evidence.disconnected_peers`).",
         commands=("vault read sys/replication/{kind}/status",),
         action="Read the status on both clusters; check the peer is up and unsealed, the cluster port (8201) path between them, and WAL gaps (`last_remote_wal` vs the primary's `last_wal`).",
@@ -483,7 +485,7 @@ RULES: dict[str, Rule] = {
         "replication",
         "Replication peer is lagging",
         scope="health",
-        scope_note="Judged only when the node lets the token read leader and replication status (a 403 there is not a gap with a child-namespace token).",
+        scope_note="Judged only when the node lets the token read replication status (a 403 there is not a gap with a child-namespace token).",
         meaning=(
             "A connected replication peer is lagging: the primary's canary is older than 60s (`evidence.canary_age_ms`), or its last heartbeat is older than 60s (`evidence.heartbeat_age_seconds`)."
         ),
@@ -499,7 +501,7 @@ RULES: dict[str, Rule] = {
         "replication",
         "Known secondary has no heartbeat (never connected, or down since the primary started)",
         scope="health",
-        scope_note="Judged only when the node lets the token read leader and replication status (a 403 there is not a gap with a child-namespace token).",
+        scope_note="Judged only when the node lets the token read replication status (a 403 there is not a gap with a child-namespace token).",
         meaning=(
             "The primary lists a secondary with no heartbeat since the primary started (`disconnected`, `evidence.secondary_id`). Either it never connected "
             "(an activation token that was never used, or a secondary torn down without `revoke-secondary`) or it has been down since the primary last restarted: "
@@ -514,7 +516,7 @@ RULES: dict[str, Rule] = {
         "replication",
         "Clock skew between replication peers",
         scope="health",
-        scope_note="Judged only when the node lets the token read leader and replication status (a 403 there is not a gap with a child-namespace token).",
+        scope_note="Judged only when the node lets the token read replication status (a 403 there is not a gap with a child-namespace token).",
         meaning="Clock skew between replication peers is above 2000 ms (`evidence.clock_skew_ms`).",
         action="Check NTP/chrony on every node of both clusters.",
         watch_out="Skew affects token and lease expiry and replication timing. Vault reports the skew from the peer it measured: check both sides.",
@@ -524,7 +526,7 @@ RULES: dict[str, Rule] = {
         "replication",
         "Replication merkle tree reported corrupted",
         scope="health",
-        scope_note="Judged only when the node lets the token read leader and replication status (a 403 there is not a gap with a child-namespace token).",
+        scope_note="Judged only when the node lets the token read replication status (a 403 there is not a gap with a child-namespace token).",
         meaning="Replication reports `corrupted_merkle_tree: true`: the merkle index of replicated data is damaged, so the clusters can drift apart.",
         commands=("vault read sys/replication/{kind}/status", "vault write -f sys/replication/reindex"),
         action="Read-only investigation first: read the status on both clusters and the server logs. The usual fix is a reindex by an operator, per runbook, in a change window.",
@@ -730,10 +732,10 @@ RULES: dict[str, Rule] = {
             "At least 90% of a mount's clients in the latest full month were new, and the mount already had clients the month before (at least 50 clients). "
             "Identities are created per login or run instead of reused."
         ),
-        commands=("vault read {nsflag}auth/{path}role/<role>",),
         action=(
-            "An operator reads the mount's roles and makes the identity stable: JWT/OIDC `user_claim` per workload (not per run), one AppRole per application "
-            "(not per instance), Kubernetes `alias_name_source` set to the service account."
+            "For an auth mount, an operator reads its roles (`auth/<mount>/role/<role>`; the token mount uses `auth/token/roles/<role>`) and makes the identity "
+            "stable: JWT/OIDC `user_claim` per workload (not per run), one AppRole per application (not per instance), Kubernetes `alias_name_source` set to the "
+            "service account. For a secrets mount, find which workloads authenticate to use it."
         ),
         watch_out="Uses billing-period months only: the first month of any window reports every client as new, so it is never judged.",
     ),
@@ -893,6 +895,47 @@ RANK_ORDER: tuple[str, ...] = tuple(rid for tier in sorted(RANK_TIERS) for rid i
 RANK_TIER: dict[str, int] = {rid: tier for tier, ids in RANK_TIERS.items() for rid in ids}
 
 
+def _placeholder_values(finding: dict[str, Any]) -> dict[str, str]:
+    """PLACEHOLDERS for one finding (findings.json form); a field whose source is missing is left out."""
+    ns = finding.get("namespace") or "/"
+    obj = finding.get("object") or {}
+    evidence = finding.get("evidence") or {}
+    segments = [part for part in ns.split("/") if part]
+    parent = "/".join(segments[:-1])
+    values: dict[str, Any] = {
+        "nsflag": f"-namespace={ns} " if segments else "",
+        "parent_flag": f"-namespace={parent}/ " if parent else "",
+        "leaf": segments[-1] if segments else None,
+        "path": obj.get("path"),
+        "name": obj.get("path"),
+        "cli": {"auth_mount": "auth", "secrets_mount": "secrets"}.get(obj.get("kind")),
+        "kind": obj.get("type"),
+        "entity_id": evidence.get("entity_id"),
+        "secondary_id": evidence.get("secondary_id"),
+    }
+    seconds = evidence.get("baseline_seconds")
+    if isinstance(seconds, int) and not isinstance(seconds, bool) and seconds > 0:
+        values["baseline"] = f"{seconds // 3600}h" if seconds % 3600 == 0 else f"{seconds}s"
+    return {k: str(v) for k, v in values.items() if v is not None}
+
+
+class _OperatorChoice(dict):
+    """A placeholder with no value in the finding becomes `<name>`, for the operator to fill."""
+
+    def __missing__(self, key: str) -> str:
+        return f"<{key}>"
+
+
+def fill_commands(finding: dict[str, Any]) -> list[str]:
+    """The rule's drafted commands with every `{field}` filled from `finding` (findings.json form). Drafts for a human:
+    never run. Reference implementation of PLACEHOLDERS."""
+    rule = RULES.get(finding.get("rule_id") or "")
+    if rule is None:
+        return []
+    values = _OperatorChoice(_placeholder_values(finding))
+    return [command.format_map(values) for command in rule.commands]
+
+
 def rules_catalogue() -> dict[str, Any]:
     """RULES as plain data, the source of references/rules.json: the complete catalogue other tools read instead of rules.md."""
 
@@ -914,7 +957,7 @@ def rules_catalogue() -> dict[str, Any]:
 
     return {
         "schema_version": SCHEMA_VERSION,
-        "placeholders": list(PLACEHOLDERS),
+        "placeholders": dict(PLACEHOLDERS),
         "scopes": dict(SCOPES),
         "rank_order": list(RANK_ORDER),
         "rules": {rid: entry(rid, r) for rid, r in sorted(RULES.items())},
