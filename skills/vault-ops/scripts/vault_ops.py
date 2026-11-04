@@ -175,6 +175,17 @@ class Rule:
     commands: tuple[str, ...] = ()
     action: str = ""
     watch_out: str = ""
+    scope: str = field(kw_only=True)  # one of SCOPES
+    scope_note: str = ""  # partial or platform-specific judging
+
+
+# How each rule is judged; with a child-namespace token (`run.token_namespace` not `/`) `root_only` rules are not judged at all.
+SCOPES: dict[str, str] = {
+    "root_only": "root-only cluster data: not judged for a child-namespace token, so its absence means nothing there",
+    "health": "unauthenticated or status reads: judged when the node lets the token read them",
+    "token_namespace": "client activity, read in the token's namespace (the top of the tree for a child-namespace token)",
+    "namespace": "judged in every walked namespace",
+}
 
 
 # `{field}` placeholders in Rule.commands, filled from a finding; anything in `<angle brackets>` is the operator's choice.
@@ -199,6 +210,7 @@ RULES: dict[str, Rule] = {
         "medium",
         "lifecycle",
         "Plugin deprecated or pending removal",
+        scope="namespace",
         meaning="Mount runs a plugin marked `deprecated`, `pending-removal` or `removed` (`evidence.deprecation_status`).",
         commands=("vault {cli} disable {nsflag}{path}",),
         action="Plan migration to the replacement engine: enable it alongside, migrate clients, then disable the old mount in a change window.",
@@ -208,6 +220,7 @@ RULES: dict[str, Rule] = {
         "low",
         "exposure",
         "Auth mount listed to unauthenticated callers",
+        scope="namespace",
         meaning="Auth mount is listed in the UI login page for unauthenticated callers.",
         commands=("vault auth tune {nsflag}-listing-visibility=hidden {path}",),
         watch_out="Harmless for public login methods (e.g. OIDC) that users must see; confirm intent before changing.",
@@ -216,6 +229,8 @@ RULES: dict[str, Rule] = {
         "low",
         "lease",
         "Mount max lease TTL overrides cluster ceiling",
+        scope="namespace",
+        scope_note="With a child-namespace token the cluster ceiling is not read: the baseline falls back to 768h (`baseline_source=fallback`), which is expected there and not a missing permission.",
         meaning="Mount `max_lease_ttl` exceeds the cluster ceiling (`evidence.baseline_source`: `cluster`, or `fallback` 768h).",
         commands=("vault {cli} tune {nsflag}-max-lease-ttl={baseline_seconds}s {path}",),
         watch_out=(
@@ -227,6 +242,7 @@ RULES: dict[str, Rule] = {
         "info",
         "replication",
         "Mount is local (not replicated)",
+        scope="namespace",
         meaning="Mount is `local`: not replicated to performance secondaries or DR.",
         action="Usually intentional (per-cluster data). If not, the data must be recreated on a replicated mount: `local` cannot be changed after enable.",
         watch_out="Only meaningful when replication is in use (see health). On a performance secondary (`health.performance_secondary`) local mounts are that cluster's own data and expected.",
@@ -235,6 +251,7 @@ RULES: dict[str, Rule] = {
         "low",
         "lease",
         "Mount default lease TTL is long",
+        scope="namespace",
         meaning=("Mount explicitly sets `default_lease_ttl` above 768h (`evidence.default_lease_ttl_seconds`, `evidence.threshold_seconds`). Mounts that inherit the cluster default are not flagged."),
         commands=("vault {cli} tune {nsflag}-default-lease-ttl=<value> {path}",),
         watch_out=(
@@ -246,6 +263,7 @@ RULES: dict[str, Rule] = {
         "info",
         "hygiene",
         "Many mounts of one type in a namespace",
+        scope="namespace",
         meaning="More than 20 non-built-in mounts of one type in a namespace (`evidence.mounts_by_type`). One finding per namespace and mount kind (auth/secrets).",
         action=(
             "Consolidate into fewer mounts with per-path ACL policies (for KV, one mount with a path per app). Moving data means re-writing secrets into the new mount; "
@@ -257,6 +275,7 @@ RULES: dict[str, Rule] = {
         "info",
         "hygiene",
         "KV version 1 mount",
+        scope="namespace",
         meaning="KV mount is version 1 (`options.version` missing or `1`): no versioning, soft delete or check-and-set.",
         commands=("vault kv enable-versioning {nsflag}{path}",),
         watch_out=(
@@ -267,6 +286,7 @@ RULES: dict[str, Rule] = {
         "info",
         "hygiene",
         "Namespace has no auth method beyond token",
+        scope="namespace",
         meaning="Namespace has only the token auth backend.",
         commands=("vault auth enable {nsflag}oidc",),
         action="If users or apps should log in here, enable an auth method; otherwise accept it: child namespaces often rely on parent auth and entity groups.",
@@ -276,6 +296,7 @@ RULES: dict[str, Rule] = {
         "info",
         "hygiene",
         "Leaf namespace appears unused",
+        scope="namespace",
         meaning="Leaf namespace with only built-in engines and no children: appears unused.",
         commands=("vault namespace delete {parent_flag}{leaf}",),
         action="Confirm with the owner; if unused, delete it in a change window.",
@@ -285,6 +306,7 @@ RULES: dict[str, Rule] = {
         "low",
         "governance",
         "Sentinel policy is advisory",
+        scope="namespace",
         meaning="Sentinel policy is `advisory`: logs, never blocks.",
         commands=("vault write {nsflag}sys/policies/{kind}/{name} enforcement_level=soft-mandatory policy=@<file> [paths=...]",),
         action="Raise the enforcement level after testing.",
@@ -294,6 +316,7 @@ RULES: dict[str, Rule] = {
         "info",
         "governance",
         "Sentinel policy is overridable",
+        scope="namespace",
         meaning="Sentinel policy is `soft-mandatory`: a sudo token can override it.",
         action="Consider `hard-mandatory` if overrides are not part of the operating model.",
         watch_out=_SENTINEL_RAISE,
@@ -302,6 +325,7 @@ RULES: dict[str, Rule] = {
         "info",
         "governance",
         "EGP applies to every path",
+        scope="namespace",
         meaning="EGP path is `*`: applies to every request in the namespace.",
         action="Narrow `paths` to the endpoints the policy governs.",
         watch_out="A hard-mandatory wildcard EGP that can evaluate false locks out everyone, including admins.",
@@ -310,6 +334,7 @@ RULES: dict[str, Rule] = {
         "low",
         "governance",
         "Sentinel policy always evaluates true",
+        scope="namespace",
         meaning="Sentinel policy body always evaluates true (`main = rule { true }`).",
         commands=("vault delete {nsflag}sys/policies/{kind}/{name}",),
         action="Replace it with a real rule or delete the policy.",
@@ -319,6 +344,7 @@ RULES: dict[str, Rule] = {
         "low",
         "governance",
         "Same-named Sentinel policy differs across namespaces",
+        scope="namespace",
         meaning="An EGP or RGP name exists in several namespaces with different bodies (`evidence.variants`, `evidence.outliers`, `evidence.examples`): copies have drifted.",
         commands=(
             "vault read -namespace=<ns> sys/policies/{kind}/{name}",
@@ -331,6 +357,7 @@ RULES: dict[str, Rule] = {
         "medium",
         "governance",
         "Hard-mandatory Sentinel policy always evaluates false",
+        scope="namespace",
         meaning="A `hard-mandatory` policy whose `main` is always false (`evidence.paths` for an EGP): it denies every request it applies to, and nothing can override it.",
         commands=(
             "vault read {nsflag}sys/policies/{kind}/{name}",
@@ -347,6 +374,7 @@ RULES: dict[str, Rule] = {
         "info",
         "governance",
         "Sentinel policy makes outbound HTTP calls",
+        scope="namespace",
         meaning="The policy imports `http` (`evidence.imports`): each request it applies to can wait on an outbound call, so that endpoint's availability and latency gate Vault requests.",
         commands=("vault read {nsflag}sys/policies/{kind}/{name}",),
         action="Review the policy. Prefer data Vault already has (request, identity, time); if the call is needed, narrow EGP `paths` and confirm the endpoint's timeout and failure behaviour.",
@@ -356,6 +384,7 @@ RULES: dict[str, Rule] = {
         "medium",
         "lifecycle",
         "License expires soon",
+        scope="root_only",
         meaning="License expires within 90 days (`evidence.days_remaining`).",
         commands=("vault license reload",),
         action="Obtain a renewed license, update it on every node (`license_path`, `VAULT_LICENSE_PATH` or `VAULT_LICENSE`), then reload it (or restart).",
@@ -365,6 +394,8 @@ RULES: dict[str, Rule] = {
         "medium",
         "availability",
         "Node sealed or no active leader",
+        scope="health",
+        scope_note="Judged only when the node lets the token read leader and replication status (a 403 there is not a gap with a child-namespace token).",
         meaning="Node sealed, or HA enabled with no active leader.",
         commands=("vault operator raft list-peers",),
         action=(
@@ -377,6 +408,8 @@ RULES: dict[str, Rule] = {
         "medium",
         "replication",
         "Replication enabled but not healthy",
+        scope="health",
+        scope_note="Judged only when the node lets the token read leader and replication status (a 403 there is not a gap with a child-namespace token).",
         meaning="DR or performance replication is enabled but its state is not healthy (`evidence.state`), or a peer is not `connected` (`evidence.disconnected_peers`).",
         commands=("vault read sys/replication/{kind}/status",),
         action="Read the status on both clusters; check the peer is up and unsealed, the cluster port (8201) path between them, and WAL gaps (`last_remote_wal` vs the primary's `last_wal`).",
@@ -386,6 +419,7 @@ RULES: dict[str, Rule] = {
         "info",
         "lifecycle",
         "Vault version below supported window",
+        scope="health",
         meaning="Vault version older than the supported window (`evidence.min_supported`).",
         action="Plan an upgrade path following HashiCorp's upgrade guides (step through required intermediate versions).",
         watch_out="`min_supported` is a constant in the script and may be stale.",
@@ -394,6 +428,7 @@ RULES: dict[str, Rule] = {
         "medium",
         "availability",
         "Raft autopilot reports the cluster or a server unhealthy",
+        scope="root_only",
         meaning="Raft autopilot reports the cluster unhealthy, or a server unhealthy (`evidence.unhealthy_servers`, `evidence.failure_tolerance`).",
         commands=("vault operator raft list-peers", "vault operator raft autopilot state"),
         action=(
@@ -406,6 +441,8 @@ RULES: dict[str, Rule] = {
         "low",
         "lease",
         "Irrevocable leases present",
+        scope="root_only",
+        scope_note="Not judged on HCP Vault Dedicated either (`run.platform` `hcp`): `sys/metrics` is not read there.",
         meaning=(
             "The queried node reports irrevocable leases (`evidence.irrevocable_leases`): Vault tried to revoke them and gave up, so the credentials may still be "
             "valid at the backend (database, cloud, PKI)."
@@ -424,6 +461,8 @@ RULES: dict[str, Rule] = {
         "medium",
         "lease",
         "Lease count is high",
+        scope="root_only",
+        scope_note="Not judged on HCP Vault Dedicated either (`run.platform` `hcp`): `sys/metrics` is not read there.",
         meaning=(
             "The queried node reports more outstanding leases than the review threshold (`evidence.leases`, `evidence.threshold`, 100,000). "
             "Large lease counts slow unseal, leader election and lease expiration."
@@ -443,6 +482,8 @@ RULES: dict[str, Rule] = {
         "medium",
         "replication",
         "Replication peer is lagging",
+        scope="health",
+        scope_note="Judged only when the node lets the token read leader and replication status (a 403 there is not a gap with a child-namespace token).",
         meaning=(
             "A connected replication peer is lagging: the primary's canary is older than 60s (`evidence.canary_age_ms`), or its last heartbeat is older than 60s (`evidence.heartbeat_age_seconds`)."
         ),
@@ -457,6 +498,8 @@ RULES: dict[str, Rule] = {
         "low",
         "replication",
         "Known secondary has no heartbeat (never connected, or down since the primary started)",
+        scope="health",
+        scope_note="Judged only when the node lets the token read leader and replication status (a 403 there is not a gap with a child-namespace token).",
         meaning=(
             "The primary lists a secondary with no heartbeat since the primary started (`disconnected`, `evidence.secondary_id`). Either it never connected "
             "(an activation token that was never used, or a secondary torn down without `revoke-secondary`) or it has been down since the primary last restarted: "
@@ -470,6 +513,8 @@ RULES: dict[str, Rule] = {
         "medium",
         "replication",
         "Clock skew between replication peers",
+        scope="health",
+        scope_note="Judged only when the node lets the token read leader and replication status (a 403 there is not a gap with a child-namespace token).",
         meaning="Clock skew between replication peers is above 2000 ms (`evidence.clock_skew_ms`).",
         action="Check NTP/chrony on every node of both clusters.",
         watch_out="Skew affects token and lease expiry and replication timing. Vault reports the skew from the peer it measured: check both sides.",
@@ -478,6 +523,8 @@ RULES: dict[str, Rule] = {
         "high",
         "replication",
         "Replication merkle tree reported corrupted",
+        scope="health",
+        scope_note="Judged only when the node lets the token read leader and replication status (a 403 there is not a gap with a child-namespace token).",
         meaning="Replication reports `corrupted_merkle_tree: true`: the merkle index of replicated data is damaged, so the clusters can drift apart.",
         commands=("vault read sys/replication/{kind}/status", "vault write -f sys/replication/reindex"),
         action="Read-only investigation first: read the status on both clusters and the server logs. The usual fix is a reindex by an operator, per runbook, in a change window.",
@@ -487,6 +534,7 @@ RULES: dict[str, Rule] = {
         "info",
         "replication",
         "Performance replication paths filter in use",
+        scope="root_only",
         meaning=(
             "A performance paths filter is set for a secondary (`evidence.mode` allow/deny, `evidence.paths`, `evidence.dynamic_filtered_mounts`): those namespaces and mounts don't replicate to it."
         ),
@@ -501,6 +549,7 @@ RULES: dict[str, Rule] = {
         "low",
         "lease",
         "Cluster default lease TTL is long",
+        scope="root_only",
         meaning="Cluster `default_lease_ttl` is above 768h (`evidence.default_lease_ttl_seconds`): every mount that inherits it issues leases this long.",
         action="Lower `default_lease_ttl` in the server configuration on every node, then reload or restart. The operator should confirm the exact steps in the Vault configuration docs.",
         watch_out=("Not reported for a DR secondary or when `sys/config/state/sanitized` is unreadable. An unset default (Vault's built-in 768h) does not fire. Existing leases keep their TTL."),
@@ -509,6 +558,8 @@ RULES: dict[str, Rule] = {
         "medium",
         "audit",
         "No audit device enabled",
+        scope="root_only",
+        scope_note="On HCP Vault Dedicated (`run.platform` `hcp`) audit log streaming is set in the HCP portal: never draft `vault audit` commands there.",
         meaning="No audit device is enabled (`sys/audit` readable and empty).",
         action="Enable at least one audit device (file, syslog or socket) with the operator's log pipeline. The operator should confirm the device options in the Vault audit device docs.",
         watch_out=(
@@ -520,6 +571,8 @@ RULES: dict[str, Rule] = {
         "low",
         "audit",
         "Only one audit device enabled",
+        scope="root_only",
+        scope_note="On HCP Vault Dedicated (`run.platform` `hcp`) audit log streaming is set in the HCP portal: never draft `vault audit` commands there.",
         meaning=("Exactly one audit device is enabled (`evidence.device_path`, `evidence.device_type`). If Vault cannot write to it (disk full, socket down), Vault refuses every request."),
         action="Add a second device of a different type or target, so one failing sink doesn't block requests.",
         watch_out="Vault only blocks when every enabled device fails. Two devices on the same disk share the same failure.",
@@ -528,6 +581,8 @@ RULES: dict[str, Rule] = {
         "medium",
         "audit",
         "Audit device logs raw values or unhashed accessors",
+        scope="root_only",
+        scope_note="On HCP Vault Dedicated (`run.platform` `hcp`) audit log streaming is set in the HCP portal: never draft `vault audit` commands there.",
         meaning="Audit device writes sensitive values in clear (`evidence.log_raw: true`) or token accessors unhashed (`evidence.hmac_accessor: false`).",
         commands=("vault audit disable {path}",),
         action="Options can't be changed in place: enable a replacement device with safe options first, then disable this one.",
@@ -540,6 +595,8 @@ RULES: dict[str, Rule] = {
         "medium",
         "backup",
         "No automated Raft snapshots configured",
+        scope="root_only",
+        scope_note="On HCP Vault Dedicated (`run.platform` `hcp`) snapshots (production tier) are managed in the HCP portal: never draft snapshot commands there.",
         meaning="Enterprise cluster on integrated storage has no automated snapshot config.",
         action=(
             "Create an automated snapshot config (`sys/storage/raft/snapshot-auto/config/<config_name>`) writing to storage off the cluster nodes (object storage). "
@@ -554,6 +611,8 @@ RULES: dict[str, Rule] = {
         "medium",
         "backup",
         "Automated snapshot failing or overdue",
+        scope="root_only",
+        scope_note="On HCP Vault Dedicated (`run.platform` `hcp`) snapshots (production tier) are managed in the HCP portal: never draft snapshot commands there.",
         meaning=(
             "Automated snapshot is failing (`evidence.consecutive_errors` > 0) or overdue: no run for more than max(interval, 25h) past `evidence.next_snapshot_start` (`evidence.overdue_seconds`)."
         ),
@@ -568,6 +627,8 @@ RULES: dict[str, Rule] = {
         "info",
         "backup",
         "Automated snapshots stored on the node's local disk",
+        scope="root_only",
+        scope_note="On HCP Vault Dedicated (`run.platform` `hcp`) snapshots (production tier) are managed in the HCP portal: never draft snapshot commands there.",
         meaning="Automated snapshots are written to the node's local disk (`file` URL scheme).",
         action="Move the config to object storage, or confirm the local path is copied off the node.",
         watch_out="A lost or rebuilt node takes its local snapshots with it. Fine for dev and test clusters. Judged from the last run's URL, so a config that has never run isn't judged.",
@@ -576,6 +637,7 @@ RULES: dict[str, Rule] = {
         "low",
         "identity",
         "Entity has no aliases",
+        scope="namespace",
         meaning="Identity entity has no aliases: no login maps to it (orphaned, or created by hand and never linked).",
         commands=(
             "vault delete {nsflag}identity/entity/id/{entity_id}",
@@ -588,6 +650,7 @@ RULES: dict[str, Rule] = {
         "info",
         "identity",
         "Policies attached directly to entity",
+        scope="namespace",
         meaning="Policies attached directly to an entity (`evidence.policies`).",
         commands=('vault write {nsflag}identity/entity/id/{entity_id} policies=""',),
         action="Move the policies to an identity group and add the entity as a member, then clear the entity's direct policies.",
@@ -597,6 +660,7 @@ RULES: dict[str, Rule] = {
         "info",
         "identity",
         "Entity is disabled",
+        scope="namespace",
         meaning="Entity is disabled: tokens tied to it are refused.",
         action="If the identity is gone for good, delete the entity; if temporary, record why and when it should be re-enabled.",
         watch_out="Disabling is a common offboarding step. It isn't a problem by itself, only stale.",
@@ -605,6 +669,7 @@ RULES: dict[str, Rule] = {
         "low",
         "identity",
         "Far more entities than active clients",
+        scope="namespace",
         meaning=(
             "A namespace has at least 100 entities and more than 3x its active entity clients (`evidence.entities`, `evidence.active_entity_clients`). "
             "Active = the higher of the billing period and the current month."
@@ -620,6 +685,7 @@ RULES: dict[str, Rule] = {
         "low",
         "identity",
         "Alias name shared by several entities",
+        scope="namespace",
         meaning=(
             "The same alias name is on several entities in one namespace through different auth mounts (`evidence.shared_alias_names`, `evidence.entities_affected`). "
             "Each entity is a separate billable client."
@@ -635,6 +701,7 @@ RULES: dict[str, Rule] = {
         "low",
         "clients",
         "Most clients are token-only (non-entity)",
+        scope="token_namespace",
         meaning="Most clients in a namespace are token-only (`non_entity_clients` > 50%, at least 50 clients). Each token without an entity counts as its own client.",
         action=(
             "Move workloads from direct token creation (orphan tokens, token roles) to an auth method that maps to entities (AppRole, Kubernetes, JWT). "
@@ -646,6 +713,7 @@ RULES: dict[str, Rule] = {
         "low",
         "clients",
         "Client count growing sharply",
+        scope="token_namespace",
         meaning="The latest month's clients exceed the average of up to 3 previous months by more than 50% (at least 100 clients). `evidence.month` may be the month in progress.",
         action=(
             "Compare `top_namespaces` between `usage` runs to find where the growth is. Look for CI jobs logging in per step, apps without token caching (Vault Agent), "
@@ -657,6 +725,7 @@ RULES: dict[str, Rule] = {
         "low",
         "clients",
         "Mount creates new clients every month",
+        scope="token_namespace",
         meaning=(
             "At least 90% of a mount's clients in the latest full month were new, and the mount already had clients the month before (at least 50 clients). "
             "Identities are created per login or run instead of reused."
@@ -672,6 +741,8 @@ RULES: dict[str, Rule] = {
         "info",
         "clients",
         "Most clients in the root namespace",
+        scope="token_namespace",
+        scope_note="With a child-namespace token, the token's namespace is judged as the top of the tree.",
         meaning="On Enterprise, more than 80% of clients are in the root namespace (at least 50 clients); with a child-namespace token, in the token's namespace, the top of what it can see.",
         action="Plan tenant namespaces and move teams' auth and secrets into them over time.",
         watch_out="Fine for single-team clusters; only a finding when tenants share root (or the token's namespace).",
@@ -680,6 +751,8 @@ RULES: dict[str, Rule] = {
         "low",
         "clients",
         "Activity log disabled: client counts are not recorded",
+        scope="token_namespace",
+        scope_note="With a child-namespace token, judged only when `sys/internal/counters/config` is readable in the token's namespace (a 403 there is not a gap).",
         meaning=(
             "`sys/internal/counters/config` reports the activity log disabled (`evidence.enabled`: `disable` or `default-disabled`), so Vault records no client "
             "activity and every client count reads zero."
@@ -695,6 +768,7 @@ RULES: dict[str, Rule] = {
         "medium",
         "access",
         "ACL policy grants write or sudo on every path",
+        scope="namespace",
         meaning=(
             "A rule on a path that matches everything in the namespace (`*`, `+/*`, ...) grants `create`/`update`/`patch`/`delete` or `sudo` (`evidence.paths`): "
             "effectively admin there, including child namespaces under the glob."
@@ -712,6 +786,7 @@ RULES: dict[str, Rule] = {
         "medium",
         "access",
         "ACL policy can change access control",
+        scope="namespace",
         meaning=(
             "Write access to an area that controls access (`evidence.areas`, `evidence.paths`): ACL policies, auth methods, secrets engines, namespaces, "
             "token creation or token roles, identity entities, aliases or groups. A holder can grant itself or others more access."
@@ -730,6 +805,7 @@ RULES: dict[str, Rule] = {
         "low",
         "access",
         "ACL policy grants sudo",
+        scope="namespace",
         meaning="The policy grants `sudo` (`evidence.sudo_paths`), which unlocks root-protected endpoints on those paths.",
         commands=("vault policy read {nsflag}{name}", "vault policy write {nsflag}{name} <file>"),
         action="Review the policy. Remove `sudo` unless the path is root-protected and the holder needs it; re-apply from source.",
@@ -742,6 +818,7 @@ RULES: dict[str, Rule] = {
         "low",
         "access",
         "Same-named ACL policy differs across namespaces",
+        scope="namespace",
         meaning="A policy name exists in several namespaces with different bodies (`evidence.variants`, `evidence.outliers`, `evidence.examples`): copies have drifted.",
         commands=("vault policy read -namespace=<ns> {name}", "vault policy write -namespace=<ns> {name} <file>"),
         action="Compare an outlier (`evidence.examples`) with a typical copy, reading it in each namespace. Decide which is right, update the source and re-apply it to every namespace.",
@@ -751,12 +828,69 @@ RULES: dict[str, Rule] = {
         "info",
         "access",
         "ACL policy could not be parsed",
+        scope="namespace",
         meaning="A policy body could not be parsed, so it was not assessed.",
         commands=("vault policy read {nsflag}{name}",),
         action="Review it by hand.",
         watch_out="Usually unusual HCL (heredocs, odd quoting). Vault accepted it, so it is valid; the skill's parser is the limit.",
     ),
 }
+
+# Ranking guidance as data (references/rules.md "Severity ranking guidance"): tier 1 is `coverage.complete == false`,
+# not a rule. Within a tier, the order is the suggested reporting order.
+RANK_TIERS: dict[int, tuple[str, ...]] = {
+    2: (
+        "VT-REPL-004",
+        "VT-HLTH-001",
+        "VT-HLTH-002",
+        "VT-LIC-001",
+        "VT-AUD-001",
+        "VT-SNAP-001",
+        "VT-SNAP-002",
+        "VT-POL-001",
+        "VT-POL-002",
+        "VT-SNT-006",
+        "VT-HLTH-004",
+        "VT-REPL-001",
+        "VT-REPL-003",
+    ),
+    3: ("VT-HLTH-006", "VT-POL-003", "VT-MOUNT-001", "VT-SNT-004", "VT-SNT-001", "VT-SNT-005", "VT-AUD-003", "VT-AUD-002"),
+    4: (
+        "VT-AUTH-001",
+        "VT-MOUNT-002",
+        "VT-MOUNT-004",
+        "VT-LEASE-001",
+        "VT-HLTH-005",
+        "VT-POL-004",
+        "VT-ID-004",
+        "VT-ID-005",
+        "VT-CLI-001",
+        "VT-CLI-002",
+        "VT-CLI-003",
+        "VT-CLI-005",
+        "VT-ID-001",
+        "VT-REPL-002",
+    ),
+    5: (
+        "VT-HLTH-003",
+        "VT-MOUNT-003",
+        "VT-MOUNT-005",
+        "VT-MOUNT-006",
+        "VT-NS-001",
+        "VT-NS-002",
+        "VT-SNT-002",
+        "VT-SNT-003",
+        "VT-SNT-007",
+        "VT-REPL-005",
+        "VT-SNAP-003",
+        "VT-ID-002",
+        "VT-ID-003",
+        "VT-CLI-004",
+        "VT-POL-005",
+    ),
+}
+RANK_ORDER: tuple[str, ...] = tuple(rid for tier in sorted(RANK_TIERS) for rid in RANK_TIERS[tier])
+RANK_TIER: dict[str, int] = {rid: tier for tier, ids in RANK_TIERS.items() for rid in ids}
 
 
 def rules_catalogue() -> dict[str, Any]:
