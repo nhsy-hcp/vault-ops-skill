@@ -106,7 +106,7 @@ Never part of CI, `test:all` or `test:e2e`. Needs `terraform`, the `hcp` CLI and
 task hcp:plan                     # terraform fmt check, validate, plan (changes nothing)
 task hcp:apply                    # run it yourself: terraform apply, answer "yes" (HVN + dev cluster, ~10-20 min)
 task hcp:seed                     # admin/ chain down to depth 5 and a few mounts, as the HCP admin token
-task hcp:token                    # .tmp/admin-token-hcp (6h, for you) + policies in admin/ + 1h read-only .tmp/audit-token-hcp
+task hcp:token                    # .tmp/admin-token-hcp (hcp-root, for you) + policies in admin/ + read-only .tmp/audit-token-hcp; 12h each (-- 8h to override)
 task test:hcp                     # tests/test_child_ns.py against the cluster
 task skill:run:hcp -- audit       # or health / usage
 task hcp:destroy                  # run it yourself: terraform destroy (Terraform asks "yes")

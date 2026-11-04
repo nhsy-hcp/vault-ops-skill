@@ -199,17 +199,22 @@ tasks:
       - scripts/hcp_seed.sh
 
   hcp:token:
-    desc: Fetch the HCP admin token into .tmp/admin-token-hcp (6h, humans/setup only) and mint a 1h read-only token in admin/ into .tmp/audit-token-hcp
+    desc: "Mint an hcp-root token into .tmp/admin-token-hcp (humans/setup only) and a read-only token in admin/ into .tmp/audit-token-hcp: 12h each by default, task hcp:token -- 8h to override"
     deps: [hcp:deps]
     cmds:
-      - scripts/hcp_token.sh
+      - scripts/hcp_token.sh {{.CLI_ARGS}}
+
+  hcp:token:check:
+    internal: true
+    silent: true
+    cmds:
+      - scripts/hcp_token_check.sh
 
   hcp:env:
     desc: 'Print shell exports for the HCP cluster: eval "$(task hcp:env)" (admin token; TOKEN=audit task hcp:env for the read-only one)'
     silent: true
-    preconditions:
-      - sh: test -s ".tmp/${TOKEN:-admin}-token-hcp"
-        msg: "No token file; run: task hcp:token"
+    # Fails (stderr only) when the token file is missing or the token has expired; stdout stays eval-safe.
+    deps: [hcp:token:check]
     cmds:
       # Each statement ends in ";" so both eval "$(task hcp:env)" and an unquoted eval $(task hcp:env) work.
       - echo "export VAULT_ADDR=$(terraform -chdir=terraform/hcp output -raw vault_public_endpoint_url);"

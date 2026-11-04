@@ -1,7 +1,8 @@
 #!/bin/bash
 # Shared by hcp_token.sh and hcp_seed.sh (sourced, not run): reads the cluster from terraform/hcp
-# outputs and requests a fresh HCP admin token (6h). Never put it in Terraform state or give it to
-# the skill. Sets HCP_VAULT_ADDR and HCP_ADMIN_TOKEN.
+# outputs and requests a fresh HCP admin token (6h, fixed by HCP; hcp_token.sh mints a longer-lived
+# hcp-root token with it). Never put it in Terraform state or give it to the skill.
+# Sets HCP_VAULT_ADDR and HCP_ADMIN_TOKEN.
 
 HCP_TF_DIR="terraform/hcp"
 HCP_API="https://api.cloud.hashicorp.com/vault/2020-11-25"
