@@ -46,7 +46,7 @@ from urllib.parse import urlsplit
 import requests
 
 TOOL_NAME = "vault-ops"
-TOOL_VERSION = "0.4.4"
+TOOL_VERSION = "0.4.5"
 SCHEMA_VERSION = "1.13.0"
 
 EXIT_OK, EXIT_FATAL, EXIT_GAPS, EXIT_FINDINGS, EXIT_INTERRUPTED = 0, 1, 2, 3, 130
