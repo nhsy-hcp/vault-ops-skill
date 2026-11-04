@@ -47,7 +47,7 @@ import requests
 
 TOOL_NAME = "vault-ops"
 TOOL_VERSION = "0.4.5"
-SCHEMA_VERSION = "1.13.0"
+SCHEMA_VERSION = "1.14.0"
 
 EXIT_OK, EXIT_FATAL, EXIT_GAPS, EXIT_FINDINGS, EXIT_INTERRUPTED = 0, 1, 2, 3, 130
 
@@ -894,10 +894,30 @@ RANK_TIER: dict[str, int] = {rid: tier for tier, ids in RANK_TIERS.items() for r
 
 
 def rules_catalogue() -> dict[str, Any]:
-    """RULES as plain data, the source of references/rules.json (shared with other tools to detect drift)."""
+    """RULES as plain data, the source of references/rules.json: the complete catalogue other tools read instead of rules.md."""
+
+    def entry(rid: str, r: Rule) -> dict[str, Any]:
+        row: dict[str, Any] = {
+            "severity": r.severity,
+            "category": r.category,
+            "title": r.title,
+            "meaning": r.meaning,
+            "commands": list(r.commands),
+            "action": r.action,
+            "watch_out": r.watch_out,
+            "scope": r.scope,
+            "rank_tier": RANK_TIER[rid],
+        }
+        if r.scope_note:
+            row["scope_note"] = r.scope_note
+        return row
+
     return {
         "schema_version": SCHEMA_VERSION,
-        "rules": {rid: {"severity": r.severity, "category": r.category, "title": r.title} for rid, r in sorted(RULES.items())},
+        "placeholders": list(PLACEHOLDERS),
+        "scopes": dict(SCOPES),
+        "rank_order": list(RANK_ORDER),
+        "rules": {rid: entry(rid, r) for rid, r in sorted(RULES.items())},
     }
 
 
