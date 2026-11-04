@@ -290,6 +290,15 @@ tasks:
       # --scaffold runs our own evals/**/scaffold scripts to stage fixtures; results land in evals/results/
       - claude plugin eval . --tag offline --scaffold --trust-plugin --no-publish -j 4 {{.CLI_ARGS}}
 
+  eval:gepa:
+    desc: "GEPA-optimise the SKILL.md body against the offline evals (uses API credits, default $40 cap): task eval:gepa -- [--budget-usd 40]"
+    preconditions:
+      - sh: command -v claude
+        msg: claude CLI not found
+    cmds:
+      # Writes .tmp/gepa/<timestamp>/ (best/SKILL.md, best.diff, summary.json); never changes the repo
+      - uv run --group gepa python scripts/gepa_eval.py {{.CLI_ARGS}}
+
   docs:diagram:
     desc: Render docs/architecture.svg from docs/architecture.dot (needs Graphviz)
     cmds:

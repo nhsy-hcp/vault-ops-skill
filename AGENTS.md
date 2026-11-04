@@ -21,7 +21,7 @@ A **read-only** HashiCorp Vault ops Claude skill (`skills/vault-ops/`) plus a lo
 | `skills/vault-ops/policies/vault-ops-sentinel-reader.hcl` | Opt-in add-on for Sentinel checks (`audit`, `inventory` levels, `policies`): `read` on `sys/policies/{egp,rgp}/*` per nesting level, nothing else |
 | `compose.yaml`, `compose/vault.hcl` | Dev nodes `vault-primary`, `vault-dr` (profile `dr`), `vault-pr` (profile `pr`): Raft, TLS, a named volume `<node>-data` per node, logs on stdout (TLS is a read-only bind mount of `.tmp/vault/tls`), network `${COMPOSE_PROJECT_NAME}` (`vault-ops`). One shared HCL; per-node values via `VAULT_API_ADDR`/`VAULT_CLUSTER_ADDR`/`VAULT_RAFT_NODE_ID` |
 | `compose.ce.yaml` | Throwaway Community `-dev` server for `task test:ce` (project/network `vault-ops-ce`, port 8230) |
-| `scripts/` | Dev-env automation (bash, called from `Taskfile.yml`) and `seed_vault.py` |
+| `scripts/` | Dev-env automation (bash, called from `Taskfile.yml`) and `seed_vault.py`; `gepa_eval.py` (`task eval:gepa`, deps in the `gepa` uv group) |
 | `docs/replication.md` | Compose node design, DR + performance replication, node lifecycle, failure drills |
 | `docs/architecture.dot` / `.svg` | Architecture diagram embedded in the README; edit the `.dot`, then `task docs:diagram` and commit both |
 | `docs/testing.md` | Manual end-to-end walkthrough (`task test:e2e` automates it) |
@@ -79,6 +79,7 @@ A **read-only** HashiCorp Vault ops Claude skill (`skills/vault-ops/`) plus a lo
 | `task test:e2e` | `scripts/e2e.sh`: full rebuild from scratch (destructive) through `test:all`, `test:ce` and `lint` |
 | `task test:ci` | `lint` + `plugin:validate` + `test` (no Vault needed); `.github/workflows/ci.yml` runs the same as a `lint` job then a `test-ci` job on push to `main` and on PRs |
 | `task eval` | Skill evals: `claude plugin eval . --tag offline --scaffold` with a no-plugin baseline arm (about $8 of API credits; not in CI), e.g. `task eval -- --runs 1 --case refuse-write`. Extra `--tag` values are ORed with `offline`, so filter with `--case` |
+| `task eval:gepa` | `scripts/gepa_eval.py`: GEPA rewrites the SKILL.md body and scores each version on the offline evals (`claude plugin eval`, no baseline arm, 3 runs per case, validation cases also in train); `claude -p` (Opus) does the rewriting on your own credential. `--budget-usd` (default 40) is cumulative per run dir (`spend.json`, kept across `--resume`). Writes `.tmp/gepa/<ts>/` (`best/SKILL.md`, `best.diff`, `summary.json`, `evals.jsonl`); never changes the repo: apply `best.diff` by hand, then confirm with `task eval`. Uses API credits; local only, not in CI |
 | `task rules:export` | Write `skills/vault-ops/references/rules.json` from `RULES` (`scripts/export_rules.py`); commit it with any rule change |
 | `task docs:diagram` | Render `docs/architecture.svg` from `docs/architecture.dot` (Graphviz `dot`) |
 | `task plugin:validate` | `claude plugin validate --strict` on the marketplace and plugin manifests |
