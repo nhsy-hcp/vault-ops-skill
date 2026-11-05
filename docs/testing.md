@@ -93,6 +93,7 @@ set -a; source .env; set +a; export VAULT_TOKEN="$(cat .tmp/audit-token)"; claud
 Then ask "audit my vault", "check replication health on all nodes" or "show the entities and their aliases in tn001". The skill should:
 
 - run only the bundled script
+- for a full audit ("audit my vault"), run `audit`, `health`, `policies`, `entities` and `usage`
 - report coverage first
 - draft remediation without applying it
 

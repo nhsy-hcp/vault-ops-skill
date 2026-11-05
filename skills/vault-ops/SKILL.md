@@ -30,7 +30,7 @@ Code collects and checks; you interpret. All Vault access goes through the bundl
 
 | Ask | Command | Output (path printed on stdout) |
 | --- | --- | --- |
-| Audit / security review / "what's wrong" | `audit [--namespace ns] [-w 8] [--no-sentinel] [--redact-addr]` | `*-findings-*.json` and `*-inventory-*.json` (same walk) |
+| Audit / security review / "what's wrong" (a full audit also runs `health`, `policies`, `entities` and `usage`: workflow step 2) | `audit [--namespace ns] [-w 8] [--no-sentinel] [--redact-addr]` | `*-findings-*.json` and `*-inventory-*.json` (same walk) |
 | Health, seal, HA, uptime (active since), replication, license, version | `health` (also works against a DR secondary or a sealed node; every subcommand works against a performance secondary) | `*-health-*.json` |
 | What exists: namespaces, mounts, policy names | `inventory [--namespace ns]` | `*-inventory-*.json` |
 | Client counts / usage / billing / excessive client creation | `usage [--start RFC3339] [--end RFC3339] [--top 20]` | `*-usage-*.json` |
@@ -42,7 +42,7 @@ Results go to `$VAULT_OPS_OUTPUT_DIR` if set, else `.tmp/vault-ops/` in the curr
 
 ## Setup problems
 
-The script itself is the preflight. When it exits 1, or coverage denies a scope that names an add-on (`attach vault-ops-policy-reader` / `attach vault-ops-sentinel-reader`), read `references/setup.md` and give the answer it maps that message to, then stop. Never work around a setup failure: no other way to reach Vault, and never read `.env` or token files.
+The script itself is the preflight. When it exits 1, or coverage denies a scope that names an add-on (`attach vault-ops-policy-reader` / `attach vault-ops-sentinel-reader`), read `references/setup.md` and give the answer it maps that message to, then stop. In a full audit, an add-on denial does not stop the report: finish it, give that answer first (workflow step 4) and list the rules not judged under "Not covered". Never work around a setup failure: no other way to reach Vault, and never read `.env` or token files.
 
 Missing credentials (`VAULT_ADDR` or `VAULT_TOKEN` unset, or the user asks you to take them from `.env`, a token file or anywhere else): don't read that file and don't run anything. Give the `references/setup.md` answer: the user exports both in their own shell (show `export VAULT_ADDR=<address>` and `export VAULT_TOKEN=<token>` with placeholders), restarts Claude from that shell and asks again. Say explicitly that they should never paste a token into the chat.
 
@@ -50,9 +50,10 @@ Missing credentials (`VAULT_ADDR` or `VAULT_TOKEN` unset, or the user asks you t
 
 1. **Files first.** If the user supplied or points at existing vault-ops JSON files, use them and skip to step 3. Look in the output directory for recent `*-findings-*.json` when the user refers to "the last audit".
 2. **Run.** Run the matching subcommand. On exit 1, report the stderr message with its fix from `references/setup.md` and stop — do not try other ways to reach Vault.
+   - **Full audit** (the user asks for an audit, a full or complete audit, or an audit report, without narrowing it): run all five, `audit`, `health`, `policies`, `entities` and `usage`, passing the same `--namespace` to those that take it. Run fewer only when the user narrows the ask (e.g. "findings only", "just health").
    - DR secondaries and sealed or uninitialized nodes serve `health` only: run every other subcommand against the primary. For a DR pair or a performance (PR) secondary, read `references/replication.md` before running anything (which node gets which subcommand, and the per-cluster token).
    - A token created in a child namespace (`run.token_namespace` is not `/`, e.g. `admin/` on HCP Vault Dedicated) works for every subcommand, scoped to that namespace's tree: the walk starts there and client counts cover only that subtree.
-3. **Read** the produced JSON with the Read tool (in full, except a large inventory: its `summary` is enough). For an audit report, read the findings **and** inventory files `audit` wrote, and run `health` too (both nodes for a DR pair).
+3. **Read** the produced JSON with the Read tool (in full, except a large inventory: its `summary` is enough). For an audit report, read the findings **and** inventory files `audit` wrote, the `health` file(s) (both nodes for a DR pair), and the `policies`, `entities` and `usage` files.
    - **Replication check.** Right after reading the files, Read `references/replication.md` if any of these hold, before you write anything about replication: a VT-HLTH-002 or VT-REPL-* finding; `health.replication.dr.mode` or `health.replication.performance.mode` is set and not `disabled`; or `health.dr_secondary` / `health.performance_secondary` is true. Do this even for a short summary.
    - **Child-namespace check.** If any file has `run.token_namespace` set and not `/`, also Read the `*-findings-*.json` from the same cluster and run (and `health.json` if not yet read), whatever the question. Your answer must then list what that run reviewed: the findings it produced by rule ID with counts and affected namespaces (namespace-tree findings and any VT-HLTH-002/VT-REPL-* replication findings, after the replication check), or say plainly that it produced none.
 4. **Coverage first.** If `coverage.complete` is false, say in the first sentence (or the first row of the header table) that the results are partial, before mentioning any finding, even an urgent one such as licence expiry, then name the denied/errored namespaces and scopes. A denied scope usually means the token's policy lacks a rule: always name the policy, `vault-ops-readonly` (`policies/vault-ops-readonly.hcl` in this skill), as the one to check, even in a short summary. "The token's policy" alone doesn't tell the operator what to fix. Scopes that name an add-on (`attach vault-ops-policy-reader` / `attach vault-ops-sentinel-reader`) point to that add-on instead (see `references/setup.md`).
@@ -74,7 +75,8 @@ Use this order for a full audit report; leave out sections whose data was not co
    - Hierarchy, collapsed from `summary.shapes`: one line per shape (depth, auth types, engine types, count, up to three example namespaces). List namespaces individually only when a shape has one member.
    - ACL policies: total, then the ten namespaces with the most policies from `summary.acl_policies_top`; full names stay in the JSON.
    - Sentinel: counts by enforcement level from `summary.sentinel_by_enforcement`.
-6. **Findings, ranked** (workflow step 5), then the **summary table**, **Not covered**, **Source files**.
+6. **Policies, identities and client usage:** policy totals (policies, distinct names and bodies, unparsed, with flagged rules) and a Sentinel policies table (namespace, kind, name, enforcement, EGP paths, imports, flagged) from `policies.json`; entity totals from `entities.json`; activity-log status, billing-period and current-month clients and the top namespaces from `usage.json`.
+7. **Findings, ranked** (workflow step 5) across all files, counting a finding once when two files share its `fingerprint` (`audit` and `policies` both report VT-SNT-001..004), then the **summary table** (with each rule's source file), **Not covered**, **Source files**.
 
 ## Reading the files
 
