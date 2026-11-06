@@ -46,6 +46,8 @@ The script itself is the preflight. When it exits 1, or coverage denies a scope 
 
 Missing credentials (`VAULT_ADDR` or `VAULT_TOKEN` unset, or the user asks you to take them from `.env`, a token file or anywhere else): don't read that file and don't run anything. Give the `references/setup.md` answer: the user exports both in their own shell (show `export VAULT_ADDR=<address>` and `export VAULT_TOKEN=<token>` with placeholders), restarts Claude from that shell and asks again. Say explicitly that they should never paste a token into the chat.
 
+No shell (the session has no Bash tool, or it refuses the script): say in one or two sentences that you can't run the script here, so nothing was checked, then stop. Don't hand the work to a subagent or try any other route, don't print the script path or a list of commands, and don't preview findings or what the report would cover. Offer two ways on: restart Claude with shell access and ask again, or point you at existing vault-ops JSON files to read.
+
 ## Workflow
 
 1. **Files first.** If the user supplied or points at existing vault-ops JSON files, use them and skip to step 3. Look in the output directory for recent `*-findings-*.json` when the user refers to "the last audit".
