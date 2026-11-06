@@ -153,6 +153,14 @@ def test_findings_and_document(schema):
         jsonschema.validate(f, finding_schema)
 
 
+def test_policies_rows_written_last():
+    # SKILL.md reads a large policies.json only up to the "policies" key, so everything the report needs comes first
+    cov, _, policies = collect()
+    doc = vo.build_policies_document(policies, cov, {"cluster_name": "c1"})
+    assert list(doc)[-1] == "policies"
+    assert list(doc).index("summary") < list(doc).index("sentinel") < list(doc).index("findings") < list(doc).index("policies")
+
+
 def test_bodies_never_written():
     cov, _, policies = collect()
     text = json.dumps(vo.build_policies_document(policies, cov, {}))

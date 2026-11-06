@@ -3417,9 +3417,10 @@ def build_policies_document(policies: list[AclPolicy], coverage: Coverage, run: 
             "with_flagged_rules": sum(1 for r in rows if r["flagged"]),
             "by_rule": dict(sorted(Counter(f.rule_id for f in findings).items())),
         },
-        "policies": rows,
+        # policies[] last: a large file is read only up to it (SKILL.md, "Reading the files")
         "sentinel": sentinel_block(sentinel_status, sentinel, sentinel_found),
         "findings": [f.to_dict() for f in findings],
+        "policies": rows,
     }
 
 
