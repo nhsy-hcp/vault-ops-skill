@@ -1,7 +1,5 @@
 # AGENTS.md — vault-ops-skill
 
-Project rules for AI agents. Global rules in `~/.bob/AGENTS.md` still apply; this file adds what is specific to this repo.
-
 ## What this repo is
 
 A **read-only** HashiCorp Vault ops Claude skill (`skills/vault-ops/`) plus a local Vault Enterprise dev environment (compose: primary, DR secondary, performance secondary) to build and test it against.
