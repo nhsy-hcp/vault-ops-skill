@@ -81,7 +81,7 @@ Detailed reference for working on this repo: every path, the full rule text with
 | `task rules:export` | Write `skills/vault-ops/references/rules.json` and the generated blocks of `references/rules.md` from `RULES` (`scripts/export_rules.py`); commit both with any rule change |
 | `task docs:diagram` | Render `docs/architecture.svg` from `docs/architecture.dot` (Graphviz `dot`) |
 | `task plugin:validate` | `claude plugin validate --strict` on the marketplace and plugin manifests |
-| `task clean` | `compose down --volumes` (all node data), then remove caches, `.tmp/vault-ops` (results), `.tmp/vault` (unseal keys, TLS), `.tmp/audit-token*`, `.tmp/*.log` (never Terraform state) |
+| `task clean` | `compose down --volumes` (all node data), then remove caches, `.tmp/vault-ops` (results), `.tmp/vault` (unseal keys, TLS), `.tmp/audit-token*`, `.tmp/admin-token-hcp`, `.tmp/*.log` (never Terraform state) |
 
 Full end-to-end check: `task test:e2e` (= `down`, `clean`, `up:all`, `dr:enable`, `pr:enable`, `seed`, `seed:findings`, `seed:ns`, `token:policies`, `token:pr`, `token:ns`, `test:all`, `test:ce`, `lint`). Keep `dr:enable` and `pr:enable` before `seed`: enabling replication briefly restarts the primary and drops unsaved client activity (see `docs/replication.md`).
 
