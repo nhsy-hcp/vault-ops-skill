@@ -157,6 +157,6 @@ task test:e2e             # everything above from scratch (destructive: wipes .t
 - Skill optimisation: `task eval:gepa` uses GEPA to propose a better SKILL.md body, scored by the same offline evals, and writes the best version and a diff to `.tmp/gepa/<ts>/` for you to review; it never edits the repo. It uses API credits up to `--budget-usd` (default $40) and is not part of CI.
 - HCP Vault Dedicated (local only, never CI): `terraform/hcp/` creates a Development-tier cluster. You run `task hcp:apply` and `task hcp:destroy` yourself (they prompt); `task hcp:seed` seeds `admin/`; `task hcp:token` writes an `hcp-root` token (`.tmp/admin-token-hcp`, for your own `vault` commands: `eval "$(task hcp:env)"`, which first checks the token has not expired) and a read-only token (`.tmp/audit-token-hcp`), 12h each by default (`task hcp:token -- 8h` to override); `task test:hcp` and `task skill:run:hcp` test the skill with the read-only one. Needs `terraform`, the `hcp` CLI (`hcp auth login`) and `HCP_PROJECT_ID` in `.env`. Billed hourly: destroy it when done. See [docs/testing.md](docs/testing.md).
 - Compose setup, DR and performance replication, failure drills: [docs/replication.md](docs/replication.md). Manual test walkthrough: [docs/testing.md](docs/testing.md). Paths, rules, tasks and dev-env notes in full: [docs/development.md](docs/development.md)
-- All tasks and repo conventions: [AGENTS.md](AGENTS.md)
+- Repo rules for AI agents: [AGENTS.md](AGENTS.md)
 
 License: [MPL-2.0](LICENSE).
