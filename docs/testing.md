@@ -51,6 +51,8 @@ DOCKER_HOST=unix://$(podman machine inspect --format '{{.ConnectionInfo.PodmanSo
 
 Results are written to `.tmp/vault-ops/` (0600, git-ignored); stdout carries only the file paths.
 
+To set your shell up for `vault` commands instead, use `eval "$(task env)"` (audit token on the primary; `task env -- pr` for vault-pr, `-- ns` for the child-namespace token, `-- dr` for vault-dr health). To start Claude with the same settings, see [§6](#6-try-the-skill-in-claude-code).
+
 ```bash
 task skill:run -- audit                                       # prints the findings and inventory file paths
 task skill:run -- health                                      # primary: dr primary, secondary connected
@@ -87,8 +89,11 @@ task up:pr && task pr:status
 Open a new session in this repo with the read-only token in the environment:
 
 ```bash
-set -a; source .env; set +a; export VAULT_TOKEN="$(cat .tmp/audit-token)"; claude
+task claude            # primary, audit token
+task claude -- pr      # or ns (child-namespace token) / dr (vault-dr, health only)
 ```
+
+It drops `.env`'s other variables (root token, licence, `HCP_*`) first, so only the skill's `VAULT_*` settings reach Claude.
 
 Then ask "audit my vault", "check replication health on all nodes" or "show the entities and their aliases in tn001". The skill should:
 

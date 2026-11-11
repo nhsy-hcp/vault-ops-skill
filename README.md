@@ -147,6 +147,7 @@ task up:all               # primary :8210, DR :8220, performance secondary :8240
 task dr:enable && task pr:enable   # replication primary -> secondaries (before seeding)
 task seed && task seed:findings && task token:policies && task token:pr
 task skill:run -- audit   # run the skill script with the read-only token (skill:run:pr for vault-pr)
+task claude               # start Claude with the read-only env (-- pr|ns|dr; task env for your own shell)
 task seed:ns && task token:ns && task skill:run:ns -- audit   # child-namespace token (NS=admin by default)
 task test:all && task lint
 task test:e2e             # everything above from scratch (destructive: wipes .tmp/vault)

@@ -134,6 +134,19 @@ tasks:
       - VAULT_NAMESPACE="${NS:-admin}" TOKEN_FILE=.tmp/audit-token-ns POLICY_READER=1 scripts/audit_token.sh
       - echo "${NS:-admin}" > .tmp/audit-token-ns.namespace
 
+  env:
+    desc: 'Print shell exports for the local cluster: eval "$(task env)" (audit token on the primary; task env -- pr|ns|dr, or TOKEN=, for the others)'
+    silent: true
+    # Fails (stderr only) when the token file is missing or the token has expired; stdout stays eval-safe.
+    cmds:
+      - scripts/local_env.sh {{.CLI_ARGS}}
+
+  claude:
+    desc: "Start Claude Code with the local cluster env (audit token on the primary; task claude -- pr|ns|dr for the others); .env's other variables, root token included, are dropped"
+    interactive: true
+    cmds:
+      - scripts/local_claude.sh {{.CLI_ARGS}}
+
   skill:run:
     desc: "Run the skill script with the audit token: task skill:run -- <audit|health|inventory|usage|entities|diff>"
     cmds:
