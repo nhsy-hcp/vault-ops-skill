@@ -90,6 +90,10 @@ tasks:
 
   status:
     desc: Show Vault status
+    preconditions: &no_local_env
+      # eval "$(task env)" shadows .env's root token and address in the shell (Task never overrides it).
+      - sh: test -z "${VAULT_OPS_ENV:-}"
+        msg: 'This shell holds task env exports (read-only token, maybe another node); run: eval "$(task env -- reset)"'
     cmds:
       - vault status
 
@@ -100,49 +104,56 @@ tasks:
 
   seed:
     desc: Seed namespaces, mounts, KV data and client activity (root token)
+    preconditions: *no_local_env
     cmds:
       - uv run --script scripts/seed_vault.py
 
   seed:findings:
     desc: Seed config that trips every live-testable audit rule (root token)
+    preconditions: *no_local_env
     cmds:
       - scripts/seed_findings.sh
 
   seed:ns:
     desc: "Seed a child namespace for child-namespace token tests (default admin/; NS=team-x task seed:ns): a chain down to depth 5 and a few mounts (root token)"
+    preconditions: *no_local_env
     cmds:
       - NS="${NS:-admin}" scripts/seed_child_ns.sh
 
   token:audit:
     desc: "Write vault-ops-readonly policy and mint an 8h token to .tmp/audit-token (TTL=1h task token:audit to override)"
+    preconditions: *no_local_env
     cmds:
       - scripts/audit_token.sh
 
   token:policies:
     desc: Like token:audit, plus the read-only vault-ops-policy-reader and vault-ops-sentinel-reader add-ons (policy bodies for policies and Sentinel checks)
+    preconditions: *no_local_env
     cmds:
       - POLICY_READER=1 scripts/audit_token.sh
 
   token:pr:
     desc: Like token:policies, but minted on the performance secondary (tokens are per cluster) into .tmp/audit-token-pr
+    preconditions: *no_local_env
     cmds:
       - VAULT_ADDR="${VAULT_PR_ADDR:-https://127.0.0.1:8240}" TOKEN_FILE=.tmp/audit-token-pr POLICY_READER=1 scripts/audit_token.sh
 
   token:ns:
     desc: "Like token:policies, but written and minted in the child namespace NS (default admin) into .tmp/audit-token-ns"
+    preconditions: *no_local_env
     cmds:
       - VAULT_NAMESPACE="${NS:-admin}" TOKEN_FILE=.tmp/audit-token-ns POLICY_READER=1 scripts/audit_token.sh
       - echo "${NS:-admin}" > .tmp/audit-token-ns.namespace
 
   env:
-    desc: 'Print shell exports for the local cluster: eval "$(task env)" (audit token on the primary; task env -- pr|ns|dr, or TOKEN=, for the others)'
+    desc: 'Print shell exports for the local cluster: eval "$(task env)" (audit token on the primary; task env -- pr|ns|dr for the others, -- reset to undo)'
     silent: true
-    # Fails (stderr only) when the token file is missing or the token has expired; stdout stays eval-safe.
+    # On failure stdout unsets the exports and returns false, so the eval never leaves root behind.
     cmds:
       - scripts/local_env.sh {{.CLI_ARGS}}
 
   claude:
-    desc: "Start Claude Code with the local cluster env (audit token on the primary; task claude -- pr|ns|dr for the others); .env's other variables, root token included, are dropped"
+    desc: "Start Claude Code with the local cluster env (audit token on the primary; task claude -- pr|ns|dr for the others); other VAULT_*, HCP_* and .env variables, root token included, are dropped"
     interactive: true
     cmds:
       - scripts/local_claude.sh {{.CLI_ARGS}}
@@ -150,27 +161,18 @@ tasks:
   skill:run:
     desc: "Run the skill script with the audit token: task skill:run -- <audit|health|inventory|usage|entities|diff>"
     cmds:
-      # No subcommand given: show the script's help instead of an argparse error.
-      - VAULT_TOKEN="$(cat .tmp/audit-token)" uv run --script {{.SKILL_SCRIPT}} {{.CLI_ARGS | default "--help"}}
-    preconditions:
-      - sh: test -s .tmp/audit-token
-        msg: "No audit token; run: task token:audit"
+      # Same exports as task env (token checked first). No subcommand given: show the script's help instead of an argparse error.
+      - eval "$(scripts/local_env.sh audit)" && uv run --script {{.SKILL_SCRIPT}} {{.CLI_ARGS | default "--help"}}
 
   skill:run:pr:
     desc: "Run the skill script against the performance secondary: task skill:run:pr -- <cmd>"
     cmds:
-      - VAULT_ADDR="${VAULT_PR_ADDR:-https://127.0.0.1:8240}" VAULT_TOKEN="$(cat .tmp/audit-token-pr)" uv run --script {{.SKILL_SCRIPT}} {{.CLI_ARGS | default "--help"}}
-    preconditions:
-      - sh: test -s .tmp/audit-token-pr
-        msg: "No PR audit token; run: task token:pr"
+      - eval "$(scripts/local_env.sh pr)" && uv run --script {{.SKILL_SCRIPT}} {{.CLI_ARGS | default "--help"}}
 
   skill:run:ns:
     desc: "Run the skill script with the child-namespace token from token:ns: task skill:run:ns -- <cmd>"
     cmds:
-      - VAULT_NAMESPACE="$(cat .tmp/audit-token-ns.namespace)" VAULT_TOKEN="$(cat .tmp/audit-token-ns)" uv run --script {{.SKILL_SCRIPT}} {{.CLI_ARGS | default "--help"}}
-    preconditions:
-      - sh: test -s .tmp/audit-token-ns
-        msg: "No child-namespace token; run: task seed:ns token:ns"
+      - eval "$(scripts/local_env.sh ns)" && uv run --script {{.SKILL_SCRIPT}} {{.CLI_ARGS | default "--help"}}
 
   # ---- HCP Vault Dedicated (local only, never in CI): terraform/hcp, user runs hcp:apply / hcp:destroy
   hcp:deps:
@@ -274,6 +276,8 @@ tasks:
     preconditions:
       - sh: test -s .tmp/audit-token
         msg: "No audit token; run: task token:audit"
+      - sh: test -z "${VAULT_OPS_ENV:-}"
+        msg: 'This shell holds task env exports (read-only token, maybe another node); run: eval "$(task env -- reset)"'
 
   test:ce:
     desc: CE smoke tests against a throwaway Community dev server from compose.ce.yaml (local only, not in CI)
@@ -282,11 +286,13 @@ tasks:
 
   test:all:
     desc: Unit + integration tests with coverage
+    preconditions: *no_local_env
     cmds:
       - VAULT_TOKEN="$(cat .tmp/audit-token)" VAULT_PR_TOKEN="$(cat .tmp/audit-token-pr 2>/dev/null || true)" VAULT_NS_TOKEN="$(cat .tmp/audit-token-ns 2>/dev/null || true)" VAULT_NS_TOKEN_NAMESPACE="$(cat .tmp/audit-token-ns.namespace 2>/dev/null || true)" uv run pytest -q -m "integration or not integration" --cov=vault_ops --cov-report=term-missing --cov-fail-under=80
 
   test:e2e:
     desc: "Full e2e from scratch (destructive: wipes .tmp/vault): down, clean, up:all, dr:enable, pr:enable, seed, seed:findings, seed:ns, tokens, test:all, test:ce, lint"
+    preconditions: *no_local_env
     cmds:
       - scripts/e2e.sh
 
