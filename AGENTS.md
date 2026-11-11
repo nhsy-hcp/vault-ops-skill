@@ -9,7 +9,7 @@ A **read-only** HashiCorp Vault ops Claude skill (`skills/vault-ops/`) plus a lo
 - `skills/vault-ops/`: the published skill. `SKILL.md`; `scripts/vault_ops.py`, `schemas/`, `references/`, `policies/`.
 - `tests/`: unit tests; `-m integration` (`test_integration`, `test_dr`, `test_pr`, `test_child_ns`); `-m ce` for `test:ce`.
 - `evals/`: `claude plugin eval` cases (offline only; fixtures staged by `evals/fixtures/stage.sh`; fixtures never contain tokens or real personal data).
-- `docs/architecture.dot`: edit it, then `task docs:diagram`, commit `.dot` and `.svg`.
+- `docs/architecture.dot`: edit it, then `task docs:diagram`, commit `.dot` and `.png`.
 
 ## Hard rules
 

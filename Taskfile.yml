@@ -323,9 +323,9 @@ tasks:
       - uv run --group gepa python scripts/gepa_eval.py {{.CLI_ARGS}}
 
   docs:diagram:
-    desc: Render docs/architecture.svg from docs/architecture.dot (needs Graphviz)
+    desc: Render docs/architecture.png from docs/architecture.dot (needs Graphviz)
     cmds:
-      - dot -Tsvg docs/architecture.dot -o docs/architecture.svg
+      - dot -Tpng -Gdpi=192 docs/architecture.dot -o docs/architecture.png
 
   rules:export:
     desc: Write references/rules.json and the generated blocks of references/rules.md from RULES in vault_ops.py

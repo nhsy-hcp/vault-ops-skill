@@ -4,7 +4,7 @@ A read-only HashiCorp Vault operations skill for Claude Code. It audits a namesp
 
 Check logic is ported from [nhsy-hcp/vault-tools](https://github.com/nhsy-hcp/vault-tools) `namespace-audit`.
 
-![vault-ops architecture: Claude runs the bundled read-only script, which reads the Vault nodes and writes JSON results that Claude interprets](docs/architecture.svg)
+<img src="docs/architecture.png" width="704" alt="vault-ops architecture: Claude runs the bundled read-only script, which reads the Vault nodes and writes JSON results that Claude interprets">
 
 The skill side (top) is all a user needs. The compose cluster (bottom) is this repo's dev and test environment. The source is [`docs/architecture.dot`](docs/architecture.dot); re-render it with `task docs:diagram`.
 
@@ -47,7 +47,7 @@ With the plugin installed (or in this repo, where `.claude/skills/vault-ops` lin
 
 The skill reports coverage gaps first, ranks and groups findings, and drafts remediation commands without running them.
 
-![vault-ops skill flow: Claude runs vault_ops.py, which reads Vault with a read-only token (GET/LIST only) and writes JSON results that Claude reads back](docs/skill-flow.png)
+<img src="docs/skill-flow.png" width="704" alt="vault-ops skill flow: Claude runs vault_ops.py, which reads Vault with a read-only token (GET/LIST only) and writes JSON results that Claude reads back">
 
 ### Script subcommands
 
@@ -123,7 +123,7 @@ The policy is read/list only and never grants reading ACL or Sentinel policy bod
 | `vault` CLI (any edition) | Init, unseal, replication setup, tokens. It is only a client: the servers run in containers |
 | `jq`, `curl`, `openssl` | Health polling, status output, the local CA and TLS certs |
 | `gitleaks`, `shellcheck`, `pre-commit` | `task lint` |
-| [Graphviz](https://graphviz.org) `dot` (optional) | `task docs:diagram`: re-render `docs/architecture.svg` after editing `docs/architecture.dot` |
+| [Graphviz](https://graphviz.org) `dot` (optional) | `task docs:diagram`: re-render `docs/architecture.png` after editing `docs/architecture.dot` |
 | Vault Enterprise licence with DR and performance replication (`multi-dc-scale`) | `VAULT_LICENSE` in `.env`. Not needed for `task test`, `task test:ce` or CI |
 
 `task deps` checks all of these, plus that the container engine is reachable and ports 8210, 8220 and 8240 are free.
