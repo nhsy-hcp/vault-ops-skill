@@ -26,10 +26,13 @@ tasks:
       - scripts/check_deps.sh
 
   up:
-    desc: Start the primary Vault Enterprise node (compose.yaml, raft, TLS) on ${VAULT_HOST_IP}:${VAULT_HOST_PORT} (default 127.0.0.1:8210)
+    desc: Start the primary Vault Enterprise node (compose.yaml, raft, TLS) on ${VAULT_HOST_IP}:${VAULT_HOST_PORT} (default 127.0.0.1:8210); mints .tmp/audit-token (as token:policies) if missing or invalid
     deps: [deps]
     cmds:
       - scripts/vault_up.sh vault-primary "${VAULT_HOST_PORT:-8210}"
+      # Keeps any valid token (never replaces a token:audit or token:policies one); a failed mint never fails up.
+      - cmd: IF_MISSING=1 POLICY_READER=1 scripts/audit_token.sh
+        ignore_error: true
 
   up:dr:
     desc: Start the DR secondary node on ${VAULT_HOST_IP}:${VAULT_DR_HOST_PORT} (default 127.0.0.1:8220)

@@ -143,7 +143,7 @@ This repo is developed on podman behind the `docker` CLI (`CONTAINER_CLI=docker`
 
 ```bash
 task init && task deps    # one-time setup, then validate the environment
-task up:all               # primary :8210, DR :8220, performance secondary :8240 (compose, raft, TLS)
+task up:all               # primary :8210, DR :8220, performance secondary :8240 (compose, raft, TLS); mints .tmp/audit-token if missing
 task dr:enable && task pr:enable   # replication primary -> secondaries (before seeding)
 task seed && task seed:findings && task token:policies && task token:pr
 task skill:run -- audit   # run the skill script with the read-only token (skill:run:pr for vault-pr)

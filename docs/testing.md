@@ -9,7 +9,7 @@ The automated version is one destructive command: `task test:e2e` ([`scripts/e2e
 ```bash
 task clean      # deletes node volumes, unseal keys, TLS, the audit tokens and results
 task deps       # should be all "ok" (if podman is down: podman machine start)
-task up:all     # all three nodes: init, unseal, create the 'root' token
+task up:all     # all three nodes: init, unseal, create the 'root' token and, if missing, .tmp/audit-token
 ```
 
 `task down` keeps the node data volumes and `.tmp/vault/` (unseal keys, TLS), so `task up:all` alone resumes the existing replicated nodes. Run `task clean` first for a clean test.
