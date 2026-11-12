@@ -19,6 +19,7 @@ repos:
     rev: v0.11.0.1-1
     hooks:
       - id: shellcheck
+        args: [-x]  # follow sourced files (token_lib.sh) even when they aren't staged
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.30.0
     hooks:
